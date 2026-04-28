@@ -333,6 +333,28 @@ const mock = {
     { name: "EV07B-22F0", model: "EV07B", signal: "中", id: "imei 863450071234188" },
     { name: "EV04-A810", model: "EV04", signal: "弱", id: "imei 863450071234236" },
     { name: "EV201-PET", model: "EV201", signal: "强", id: "imei 863450071234502" },
+    { name: "EV99 SmartBand", model: "EV99", signal: "强", id: "imei 863450071299990" },
+  ],
+  devicePlugins: {
+    EV05: { tsl: "ev05.tsl v1.2.0", panel: "ev05.panel v3.4.1", provider: "Eview Official", enabled: ["定位", "健康", "围栏", "SIM"], extensible: "血氧（固件 V2.0+ 才支持）" },
+    EV07B: { tsl: "ev07b.tsl v2.1.0", panel: "ev07b.panel v2.8.3", provider: "Eview Official", enabled: ["定位", "SOS", "围栏", "SIM"], extensible: "语音消息（固件 V2.2+ 才支持）" },
+    EV04: { tsl: "ev04.tsl v1.2.3", panel: "ev04.panel v2.0.4", provider: "Eview Official", enabled: ["定位", "离线", "围栏", "SIM"], extensible: "工时统计（固件 V1.5+ 才支持）" },
+    EV201: { tsl: "ev201.tsl v1.0.8", panel: "ev201.panel v1.6.0", provider: "Eview Official", enabled: ["定位", "围栏", "活动", "SIM"], extensible: "宠物体征（固件 V1.4+ 才支持）" },
+    EV206: { tsl: "ev206.tsl v1.0.5", panel: "ev206.panel v1.5.2", provider: "Eview Official", enabled: ["定位", "围栏", "活动", "SIM"], extensible: "温度感知（固件 V1.3+ 才支持）" },
+    "EV-Tag": { tsl: "evtag.tsl v0.9.2", panel: "evtag.panel v1.0.1", provider: "Eview Official", enabled: ["蓝牙", "防丢", "查找", "低电"], extensible: "离线协寻（App V2.0+ 才支持）" },
+  },
+  capabilityLibrary: [
+    { model: "Eview EV05 智能手表", category: "人用", version: "v1.2.0" },
+    { model: "Eview EV07B 安全挂坠", category: "人用", version: "v2.1.0" },
+    { model: "Eview EV04 工业定位", category: "人用", version: "v1.2.3" },
+    { model: "Eview EV201 宠物项圈", category: "宠物", version: "v1.0.8" },
+    { model: "Eview EV206 宠物追踪", category: "宠物", version: "v1.0.5" },
+    { model: "Eview EV-Tag 蓝牙物品", category: "物品", version: "v0.9.2" },
+  ],
+  brandThemes: [
+    { id: "care", name: "安心康护服务中心", color: "绿色（默认）", hidden: "无", h5: "健康咨询（1 个）" },
+    { id: "blue", name: "Global Care Partner", color: "蓝色", hidden: "服务套餐", h5: "帮助中心（2 个）" },
+    { id: "pet", name: "PawTrack Club", color: "宠物绿", hidden: "工业设备", h5: "宠物护理（1 个）" },
   ],
   configs: {
     homeWifi: [
@@ -385,6 +407,7 @@ const state = {
   modal: null,
   mapFilter: "all",
   healthRange: "week",
+  brandTheme: "care",
   addMode: "scan",
   configCategory: "home",
   settingsPanel: "profile",
@@ -459,6 +482,19 @@ function statusClass(status) {
   return status === "online" ? "online" : "offline";
 }
 
+function devicePluginInfo(device) {
+  return mock.devicePlugins[device.model] || mock.devicePlugins.EV05;
+}
+
+function currentBrandTheme() {
+  return mock.brandThemes.find((theme) => theme.id === state.brandTheme) || mock.brandThemes[0];
+}
+
+function nextBrandTheme() {
+  const currentIndex = mock.brandThemes.findIndex((theme) => theme.id === state.brandTheme);
+  return mock.brandThemes[(currentIndex + 1) % mock.brandThemes.length];
+}
+
 function oauthProviders() {
   return [
     { id: "wechat", name: "微信", icon: "message-circle-more", hint: "微信授权", bound: true, account: "weixin · liaojar" },
@@ -475,6 +511,7 @@ function renderOauthBrandIcon(provider) {
 }
 
 function render() {
+  app.dataset.theme = state.brandTheme;
   if (!state.loggedIn || state.route === "login") {
     app.innerHTML = renderLogin();
   } else if (state.route === "detail") {
@@ -1659,6 +1696,7 @@ function renderAlarmCard(alarm) {
 }
 
 function renderConfig(device) {
+  const plugin = devicePluginInfo(device);
   return `
     <section class="section">
       <div class="section-header">
@@ -1666,6 +1704,19 @@ function renderConfig(device) {
           <h2>设备配置</h2>
           <p>管理设备连接、定位、告警、联系人和家庭配置</p>
         </div>
+      </div>
+      <div class="plugin-summary-card">
+        <div class="plugin-summary-head">
+          <span class="settings-icon">${icon("puzzle")}</span>
+          <div>
+            <strong>设备插件</strong>
+            <small>${plugin.tsl} · ${plugin.panel}</small>
+          </div>
+        </div>
+        <div class="plugin-chip-row">
+          ${plugin.enabled.map((item) => `<span class="mini-chip">${item}</span>`).join("")}
+        </div>
+        <button class="ghost-button full-width" type="button" data-action="toast-panel-update">${icon("refresh-cw")}检查面板更新</button>
       </div>
       <div class="config-category-grid">
         ${mock.configCategories.map((item) => `
@@ -1822,6 +1873,8 @@ function renderMine() {
         <button class="small-icon-button" type="button" data-action="open-settings" data-settings="profile" aria-label="编辑资料">${icon("pencil")}</button>
       </div>
     </section>
+    ${renderCapabilityLibrary()}
+    ${renderBrandThemeDemo()}
     ${mineGroups.map((group) => `
       <section class="section">
         <div class="settings-group-title">${group.title}</div>
@@ -1838,6 +1891,65 @@ function renderMine() {
         </div>
         ${icon("log-out")}
       </button>
+    </section>
+  `;
+}
+
+function renderCapabilityLibrary() {
+  return `
+    <section class="section">
+      <div class="manifest-card">
+        <div class="section-header compact">
+          <div>
+            <h2>设备能力库</h2>
+            <p>${mock.capabilityLibrary.length} 个产品已接入</p>
+          </div>
+          <span class="mini-chip">manifest</span>
+        </div>
+        <div class="capability-list">
+          ${mock.capabilityLibrary.map((item) => `
+            <div class="capability-row">
+              <strong>${item.model}</strong>
+              <span>${item.category} · ${item.version}</span>
+            </div>
+          `).join("")}
+        </div>
+        <div class="inline-actions">
+          <button class="ghost-button" type="button" data-action="toast-supported-models">${icon("list-checks")}支持的设备型号清单</button>
+          <button class="ghost-button" type="button" data-action="toast-third-party-device">${icon("plug-zap")}接入第三方设备</button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderBrandThemeDemo() {
+  const theme = currentBrandTheme();
+  return `
+    <section class="section">
+      <div class="brand-theme-card">
+        <div class="section-header compact">
+          <div>
+            <h2>品牌主题</h2>
+            <p>模拟客户定制 App 外观和 H5 入口</p>
+          </div>
+          <span class="theme-dot"></span>
+        </div>
+        <div class="info-list theme-info-list">
+          ${[
+            ["当前品牌", theme.name],
+            ["主题色", theme.color],
+            ["隐藏功能", theme.hidden],
+            ["自定义 H5 入口", theme.h5],
+          ].map(([label, value]) => `
+            <div class="info-row">
+              <span>${label}</span>
+              <strong>${value}</strong>
+            </div>
+          `).join("")}
+        </div>
+        <button class="ghost-button full-width" type="button" data-action="switch-brand-theme">${icon("paintbrush")}切换品牌主题</button>
+      </div>
     </section>
   `;
 }
@@ -1931,6 +2043,7 @@ function renderAddDeviceModal() {
           <button class="${state.addMode === "imei" ? "active" : ""}" type="button" data-add-mode="imei">${icon("keyboard")}IMEI</button>
           <button class="${state.addMode === "ble" ? "active" : ""}" type="button" data-add-mode="ble">${icon("bluetooth")}BLE</button>
         </div>
+        ${renderAutoPanelDownload()}
         ${renderAddDeviceContent()}
         <div class="panel-card">
           <h3>${icon("badge-check")}绑定前确认</h3>
@@ -1985,6 +2098,28 @@ function renderAddDeviceContent() {
         <span>识别 IMEI 后进入设备资料填写和绑定校验</span>
       </div>
       <button class="primary-button full-width" type="button" data-action="bind-device">${icon("scan-line")}模拟扫码成功</button>
+    </div>
+  `;
+}
+
+function renderAutoPanelDownload() {
+  const steps = [
+    "识别到设备型号 EV99 SmartBand",
+    "物模型 ev99.tsl 已下载",
+    "设备面板已就绪",
+  ];
+  return `
+    <div class="plugin-download-card">
+      <div class="plugin-detail-title">
+        ${icon("package-check")}
+        <div><strong>新型号面板准备</strong><span>添加新设备无需更新 App</span></div>
+      </div>
+      <div class="download-step-list">
+        ${steps.map((step) => `
+          <div class="download-step">${icon("check")}<span>${step}</span></div>
+        `).join("")}
+      </div>
+      <button class="primary-button full-width" type="button" data-action="bind-device">${icon("arrow-right")}进入设备绑定</button>
     </div>
   `;
 }
@@ -2171,6 +2306,34 @@ function renderNetworkContent(device) {
   `;
 }
 
+function renderPluginDetailCard(device) {
+  const plugin = devicePluginInfo(device);
+  const rows = [
+    ["物模型版本", plugin.tsl],
+    ["面板版本", plugin.panel],
+    ["提供方", plugin.provider],
+    ["生效能力", `${plugin.enabled.join(" / ")}（${plugin.enabled.length} 类）`],
+    ["可扩展能力", plugin.extensible],
+  ];
+  return `
+    <div class="plugin-detail-card">
+      <div class="plugin-detail-title">
+        ${icon("puzzle")}
+        <div><strong>设备插件</strong><span>按物模型和面板版本动态展示能力</span></div>
+      </div>
+      <div class="info-list plugin-info-list">
+        ${rows.map(([label, value]) => `
+          <div class="info-row">
+            <span>${label}</span>
+            <strong>${value}</strong>
+          </div>
+        `).join("")}
+      </div>
+      <button class="ghost-button full-width" type="button" data-action="toast-panel-update">${icon("refresh-cw")}检查面板更新</button>
+    </div>
+  `;
+}
+
 function renderConfigCategoryContent(id) {
   const device = getDevice();
   const hw = device.hardware || {};
@@ -2194,6 +2357,7 @@ function renderConfigCategoryContent(id) {
           </div>
         `).join("")}
       </div>
+      ${renderPluginDetailCard(device)}
       <div class="panel-card">
         <h3>${icon("info")}说明</h3>
         <p>设备信息为只读字段，用于售后排查、配件匹配和 OTA 兼容性确认。BLE 近场连接时可读取最新硬件状态。</p>
@@ -2667,6 +2831,7 @@ function handleAction(action, element, event) {
       state.modal = null;
       state.mapFilter = "all";
       state.healthRange = "week";
+      state.brandTheme = "care";
       state.addMode = "scan";
       state.configCategory = "home";
       state.settingsPanel = "profile";
@@ -2854,6 +3019,20 @@ function handleAction(action, element, event) {
     },
     "toast-pet-edit"() {
       showToast("宠物档案编辑：品种、生日、体重、疫苗记录可在正式版本完善");
+    },
+    "toast-panel-update"() {
+      showToast("面板检查：物模型与面板版本已是当前型号最新版本");
+    },
+    "toast-supported-models"() {
+      showToast("支持型号清单：按 manifest 下发，可扩展更多设备型号");
+    },
+    "toast-third-party-device"() {
+      showToast("第三方设备接入：预留 AB 协议以外的产品物模型入口");
+    },
+    "switch-brand-theme"() {
+      const next = nextBrandTheme();
+      state.brandTheme = next.id;
+      showToast(`已切换品牌主题：${next.name}`);
     },
     "toast-forgot-password"() {
       showToast("找回密码：通过邮箱或手机号验证码重置，将在正式版本完成");

@@ -90,6 +90,18 @@ textarea:focus-visible {
   background: var(--surface-2);
 }
 
+.phone-screen[data-theme="blue"] {
+  --primary: #335c9a;
+  --primary-dark: #244675;
+  --primary-soft: #e8effb;
+}
+
+.phone-screen[data-theme="pet"] {
+  --primary: #1e7a45;
+  --primary-dark: #155d35;
+  --primary-soft: #e8f6ed;
+}
+
 .demo-panel {
   display: grid;
   gap: 16px;
@@ -2049,6 +2061,128 @@ textarea:focus-visible {
 .config-category-card span {
   color: var(--muted);
   font-size: 12px;
+}
+
+.plugin-summary-card,
+.plugin-detail-card,
+.plugin-download-card,
+.manifest-card,
+.brand-theme-card {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.plugin-summary-card,
+.plugin-download-card,
+.manifest-card {
+  border-color: rgba(12, 117, 111, 0.22);
+  background: linear-gradient(180deg, rgba(223, 241, 238, 0.58), rgba(255, 255, 255, 0.95));
+}
+
+.plugin-summary-head,
+.plugin-detail-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.plugin-summary-head strong,
+.plugin-detail-title strong,
+.capability-row strong {
+  display: block;
+  font-size: 14px;
+}
+
+.plugin-summary-head small,
+.plugin-detail-title span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.plugin-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.plugin-info-list {
+  border-radius: var(--radius);
+}
+
+.capability-list {
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.capability-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.capability-row:last-child {
+  border-bottom: 0;
+}
+
+.capability-row span {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.brand-theme-card {
+  background:
+    linear-gradient(90deg, rgba(12, 117, 111, 0.08), transparent 46%),
+    var(--surface);
+}
+
+.theme-dot {
+  width: 28px;
+  height: 28px;
+  border: 5px solid var(--primary-soft);
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+.theme-info-list {
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.download-step-list {
+  display: grid;
+  gap: 8px;
+}
+
+.download-step {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 8px;
+  align-items: center;
+  min-height: 30px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.download-step .lucide,
+.download-step [data-lucide] {
+  width: 18px;
+  height: 18px;
+  color: var(--green);
 }
 
 .config-row {
