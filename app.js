@@ -1873,8 +1873,6 @@ function renderMine() {
         <button class="small-icon-button" type="button" data-action="open-settings" data-settings="profile" aria-label="编辑资料">${icon("pencil")}</button>
       </div>
     </section>
-    ${renderCapabilityLibrary()}
-    ${renderBrandThemeDemo()}
     ${mineGroups.map((group) => `
       <section class="section">
         <div class="settings-group-title">${group.title}</div>
@@ -1883,6 +1881,8 @@ function renderMine() {
         </div>
       </section>
     `).join("")}
+    ${renderCapabilityLibrary()}
+    ${renderBrandThemeDemo()}
     <section class="section">
       <button class="logout-card" type="button" data-action="logout-confirm">
         <div>
