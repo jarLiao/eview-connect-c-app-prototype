@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Eview Connect</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="prototype-stage">
+      <main class="phone-shell" aria-label="Eview Connect">
+        <section id="app" class="phone-screen" aria-live="polite"></section>
+      </main>
+
+      <aside id="demo-panel" class="demo-panel" aria-label="界面说明">
+        <div class="demo-card">
+          <div class="demo-kicker">界面说明</div>
+          <h1>Eview Connect</h1>
+          <p>
+            这是面向真实用户的可交互原型，重点确认页面流程、信息布局和核心操作是否容易理解。
+          </p>
+        </div>
+
+        <div class="demo-card">
+          <h2>页面结构</h2>
+          <ol class="demo-steps">
+            <li>登录页：账号登录、协议入口</li>
+            <li>地图首页：全部设备位置、状态、围栏和告警</li>
+            <li>设备页：我的设备、添加设备、设备状态</li>
+            <li>设备详情：概览、地图、轨迹、围栏、健康、告警、配置</li>
+            <li>消息：设备告警、分享邀请、系统通知</li>
+            <li>我的：账号资料、安全、通知、地区地图、帮助反馈、协议版本</li>
+          </ol>
+        </div>
+
+        <div class="demo-card">
+          <h2>推荐点击路径</h2>
+          <ol class="demo-steps">
+            <li>登录后查看地图首页</li>
+            <li>点击地图设备标记进入单台设备地图详情</li>
+            <li>点击顶部扫码按钮进入添加设备流程</li>
+            <li>点击“妈妈手表”进入设备详情</li>
+            <li>切换地图页，新建安全围栏或查看轨迹回放</li>
+            <li>在配置页复制 Home WiFi / Home Beacon</li>
+            <li>进入“我的”查看账号、安全、通知和地区地图设置</li>
+            <li>点击分享、设备管理或 AI 客服查看弹窗流程</li>
+          </ol>
+        </div>
+      </aside>
+    </div>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
