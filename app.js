@@ -418,6 +418,7 @@ const state = {
 };
 
 const app = document.getElementById("app");
+const apiPanel = document.getElementById("api-panel");
 const demoPanel = document.getElementById("demo-panel");
 
 function $(selector, root = document) {
@@ -510,6 +511,1140 @@ function renderOauthBrandIcon(provider) {
   return `<span class="oauth-brand-icon ${provider.id}">${icon(provider.icon)}</span>`;
 }
 
+const dtoCatalog = {
+  LoginRequestDto: dto("AuthDtos.kt", `account:account:String; password:password:String; client_type:clientType:String = "android"; app_key:appKey:String = "evmars_c_app"`),
+  LoginResponseDto: dto("AuthDtos.kt", "user:user:UserDto; token:token:TokenDto"),
+  TokenDto: dto("AuthDtos.kt", "access_token:accessToken:String; refresh_token:refreshToken:String; expires_at_ms:expiresAtMs:Long"),
+  UserDto: dto("AuthDtos.kt", "id:id:String; display_name:displayName:String; email:email:String; phone:phone:String?; avatar_url:avatarUrl:String?; tenant_id:tenantId:String; tenant_name:tenantName:String; role:role:String"),
+
+  DeviceDto: dto("DeviceDtos.kt", "id:id:String; name:name:String; product_key:productKey:String; category:category:String; imei:imei:String; owner_id:ownerId:String; shared_from_id:sharedFromId:String?; tenant_id:tenantId:String; state:state:DeviceStateDto; latest_location:latestLocation:LocationDto?; nickname:nickname:String?; ble_identity:bleIdentity:DeviceBleIdentityDto? = null"),
+  DeviceStateDto: dto("DeviceDtos.kt", "online:online:String; battery:battery:Int; signal_strength:signalStrength:Int; locate_method:locateMethod:String; firmware_version:firmwareVersion:String; iccid:iccid:String?; last_seen_ms:lastSeenMs:Long"),
+  LocationDto: dto("DeviceDtos.kt", "lat:lat:Double; lng:lng:Double"),
+  DeviceBleIdentityDto: dto("DeviceDtos.kt", "address:address:String; name:name:String? = null; product_key:productKey:String? = null; imei:imei:String? = null; module_id:moduleId:String? = null; gatt_profile:gattProfile:String = DeviceBleIdentity.EVIEW_UART_PROFILE; rssi:rssi:Int? = null; battery_percent:batteryPercent:Int? = null; manufacturer_data_hex:manufacturerDataHex:String? = null"),
+
+  ProductManifestDto: dto("ManifestDtos.kt", "product_key:productKey:String; display_name:displayName:String; category:category:String; tsl_version:tslVersion:String; panel_version:panelVersion:String; min_firmware_version:minFirmwareVersion:String; supported_capabilities:supportedCapabilities:List<String>"),
+  PanelManifestDto: dto("ManifestDtos.kt", "product_key:productKey:String; tabs:tabs:List<PanelTabDto>"),
+  PanelTabDto: dto("ManifestDtos.kt", "key:key:String; display_name:displayName:String; visible:visible:Boolean; security_level:securityLevel:String"),
+  BrandThemeDto: dto("ManifestDtos.kt", "tenant_id:tenantId:String; tenant_name:tenantName:String; primary_color:primaryColor:Long; accent_color:accentColor:Long; hidden_features:hiddenFeatures:List<String>; custom_h5_entries:customH5Entries:List<H5EntryDto>"),
+  H5EntryDto: dto("ManifestDtos.kt", "key:key:String; title:title:String; url:url:String; icon:icon:String?"),
+
+  LatLngDto: dto("LocationDtos.kt", "lat:lat:Double; lng:lng:Double"),
+  TrackPointDto: dto("LocationDtos.kt", "timestamp_ms:timestampMs:Long; location:location:LatLngDto; speed_kmh:speedKmh:Double?; accuracy:accuracy:Int?; locate_method:locateMethod:String"),
+  TrackDto: dto("LocationDtos.kt", "device_id:deviceId:String; start_ms:startMs:Long; end_ms:endMs:Long; points:points:List<TrackPointDto>; distance_meters:distanceMeters:Int"),
+  LocationRefreshRequestDto: dto("LocationDtos.kt", `mode:mode:String = "SINGLE"`),
+  LocationRefreshDto: dto("LocationDtos.kt", "device_id:deviceId:String; status:status:String; requested_at_ms:requestedAtMs:Long; location:location:LatLngDto?; locate_method:locateMethod:String?; accuracy_meters:accuracyMeters:Int?; message:message:String?"),
+  GeofenceDto: dto("LocationDtos.kt", "id:id:String; device_id:deviceId:String; name:name:String; center:center:LatLngDto; radius_meters:radiusMeters:Int; type:type:String; enabled:enabled:Boolean; trigger:trigger:String? = null; polygon:polygon:List<LatLngDto>? = null; vertices:vertices:List<LatLngDto>? = null"),
+  PlaceSearchResultDto: dto("LocationDtos.kt", "id:id:String; title:title:String; address:address:String; location:location:LatLngDto; provider:provider:String; distance_meters:distanceMeters:Int? = null"),
+
+  AlertDto: dto("AlertDtos.kt", "id:id:String; device_id:deviceId:String; device_name:deviceName:String; type:type:String; level:level:String; title:title:String; description:description:String; timestamp_ms:timestampMs:Long; status:status:String; location:location:LatLngDto?"),
+  UnreadAlertCountDto: dto("AlertDtos.kt", "count:count:Int"),
+
+  HealthSummaryDto: dto("HealthDtos.kt", "device_id:deviceId:String; heart_rate:heartRate:HealthMetricDto?; blood_oxygen:bloodOxygen:HealthMetricDto?; temperature:temperature:HealthMetricDto?; steps:steps:HealthMetricDto?; activity_minutes:activityMinutes:Int?; score:score:HealthScoreDto?"),
+  HealthMetricDto: dto("HealthDtos.kt", "id:id:String; device_id:deviceId:String; type:type:String; value:value:Double; unit:unit:String; timestamp_ms:timestampMs:Long; status:status:String"),
+  HealthScoreDto: dto("HealthDtos.kt", "device_id:deviceId:String; score:score:Int; level:level:String; factors:factors:List<String>; suggestions:suggestions:List<String>; updated_ms:updatedMs:Long"),
+  ChartDataPointDto: dto("HealthDtos.kt", "timestamp_ms:timestampMs:Long; value:value:Double; is_anomaly:isAnomaly:Boolean = false"),
+
+  ShareDto: dto("ShareDtos.kt", "id:id:String; device_id:deviceId:String; device_name:deviceName:String; owner_id:ownerId:String; owner_name:ownerName:String; shared_to_id:sharedToId:String?; shared_to_account:sharedToAccount:String; permission:permission:String; status:status:String; created_ms:createdMs:Long"),
+  CreateShareRequestDto: dto("ShareDtos.kt", "shared_to_account:sharedToAccount:String; permission:permission:String"),
+
+  DetectDeviceRequestDto: dto("DeviceBindDtos.kt", "method:method:String; raw_value:rawValue:String? = null; identifier:identifier:String? = null; identifier_type:identifierType:String? = null; product_key:productKey:String? = null; display_name:displayName:String? = null; ble_identity:bleIdentity:DeviceBleIdentityDto? = null"),
+  AddDeviceCandidateDto: dto("DeviceBindDtos.kt", "candidate_id:candidateId:String; method:method:String; product_key:productKey:String; product_name:productName:String; imei:imei:String; owner_name:ownerName:String; default_group:defaultGroup:String; permission_summary:permissionSummary:String; product_manifest:productManifest:ProductManifestDto; panel_manifest:panelManifest:PanelManifestDto; provider:provider:String; effective_capabilities:effectiveCapabilities:List<String>; extensible_capabilities:extensibleCapabilities:List<String>; ble_identity:bleIdentity:DeviceBleIdentityDto? = null"),
+  BoundDevicePreviewDto: dto("DeviceBindDtos.kt", "device_id:deviceId:String; product_key:productKey:String; product_name:productName:String; imei:imei:String; tsl_version:tslVersion:String; panel_version:panelVersion:String; provider:provider:String; online:online:Boolean; bound_at_ms:boundAtMs:Long; ble_identity:bleIdentity:DeviceBleIdentityDto? = null"),
+  DeviceBindBleIdentityDto: dto("DeviceBindDtos.kt", "address:address:String; name:name:String? = null; product_key:productKey:String? = null; imei:imei:String? = null; module_id:moduleId:String? = null; gatt_profile:gattProfile:String = DeviceBleIdentity.EVIEW_UART_PROFILE; rssi:rssi:Int? = null; battery_percent:batteryPercent:Int? = null; manufacturer_data_hex:manufacturerDataHex:String? = null", "DeviceBleIdentityDto"),
+
+  AiHealthAnalysisDto: dto("AiDtos.kt", "device_id:deviceId:String; summary:summary:String; highlights:highlights:List<String>; anomalies:anomalies:List<String>; suggestions:suggestions:List<String>; updated_ms:updatedMs:Long"),
+  AiAlertExplainDto: dto("AiDtos.kt", "alert_id:alertId:String; risk_level:riskLevel:String; cause:cause:String; context:context:List<String>; recommended_actions:recommendedActions:List<String>; should_notify_contact:shouldNotifyContact:Boolean; should_contact_support:shouldContactSupport:Boolean"),
+  AiInsightDto: dto("AiDtos.kt", "id:id:String; device_id:deviceId:String; title:title:String; description:description:String; level:level:String; timestamp_ms:timestampMs:Long"),
+  AiAnswerRequestDto: dto("AiDtos.kt", `question:question:String; channel:channel:String = "android_app"; scenario:scenario:String = "SUPPORT_CHAT"; mode:mode:String = "NORMAL"; user_id:userId:String? = null; tenant_id:tenantId:String? = null; locale:locale:String? = null; device_id:deviceId:String? = null; alert_id:alertId:String? = null; conversation_id:conversationId:String? = null`),
+  AiAnswerResponseDto: dto("AiDtos.kt", "answer:answer:String; related_knowledge_ids:relatedKnowledgeIds:List<String>; scenario:scenario:String? = null; mode:mode:String? = null; should_handoff_to_human:shouldHandoffToHuman:Boolean? = null; safety_level:safetyLevel:String? = null; trace_id:traceId:String? = null"),
+
+  KnowledgeItemDto: dto("KnowledgeDtos.kt", "id:id:String; category:category:String; title:title:String; summary:summary:String; content:content:String; language:language:String"),
+  QuickQuestionDto: dto("KnowledgeDtos.kt", "id:id:String; text:text:String"),
+
+  RegisterPushTokenRequestDto: dto("PushDtos.kt", "user_id:userId:String; tenant_id:tenantId:String; installation_id:installationId:String; provider_id:providerId:String; provider_kind:providerKind:String; token:token:String; package_name:packageName:String; app_version:appVersion:String; locale:locale:String; region:region:String; device_brand:deviceBrand:String"),
+  RegisterPushTokenResponseDto: dto("PushDtos.kt", "provider_id:providerId:String?; provider_kind:providerKind:String?; token_synced:tokenSynced:Boolean?; server_token_id:serverTokenId:String?; expires_at_ms:expiresAtMs:Long?; reason:reason:String?"),
+  UnregisterPushTokenResponseDto: dto("PushDtos.kt", "removed:removed:Boolean?"),
+};
+
+Object.entries(dtoCatalog).forEach(([name, schema]) => {
+  schema.name = schema.name || name;
+});
+
+const apiCatalog = {
+  authLogin: {
+    method: "POST",
+    path: "/c/v1/auth/login",
+    title: "账号登录",
+    purpose: "提交账号和密码，返回当前用户与登录态。",
+    repository: "AccountRepository.login -> RemoteAccountRepository.login",
+    dto: "LoginRequestDto / LoginResponseDto",
+    source: "AuthApiService.kt",
+  },
+  authLogout: {
+    method: "POST",
+    path: "/c/v1/auth/logout",
+    title: "退出登录",
+    purpose: "退出当前会话；当前代码只定义 logout，没有 refresh token 接口。",
+    repository: "AccountRepository.logout -> RemoteAccountRepository.logout",
+    dto: "ApiResponse<Unit>",
+    source: "AuthApiService.kt",
+  },
+  devicesList: {
+    method: "GET",
+    path: "/c/v1/devices",
+    title: "我的设备列表",
+    purpose: "获取当前用户可管理和可查看的设备，用于地图总览、设备首页和详情入口。",
+    repository: "DeviceRepository.listMyDevices -> RemoteDeviceRepository.listMyDevices",
+    dto: "List<DeviceDto>",
+    source: "DeviceApiService.kt",
+  },
+  deviceDetail: {
+    method: "GET",
+    path: "/c/v1/devices/{deviceId}",
+    title: "设备详情",
+    purpose: "获取单台设备基础信息、状态、最近位置和权限相关展示数据。",
+    repository: "DeviceRepository.deviceById -> RemoteDeviceRepository.deviceById",
+    dto: "DeviceDto",
+    source: "DeviceApiService.kt",
+  },
+  productManifest: {
+    method: "GET",
+    path: "/c/v1/products/{productKey}/manifest",
+    title: "产品物模型 Manifest",
+    purpose: "按产品型号读取能力、配置和扩展信息，供页面决定展示哪些模块。",
+    repository: "ManifestRepository.productManifest -> RemoteManifestRepository.productManifest",
+    dto: "ProductManifestDto",
+    source: "ManifestApiService.kt",
+  },
+  panelManifest: {
+    method: "GET",
+    path: "/c/v1/products/{productKey}/panel",
+    title: "设备面板 Manifest",
+    purpose: "读取设备详情 Tab、可见性和安全等级配置。",
+    repository: "ManifestRepository.panelManifest -> RemoteManifestRepository.panelManifest",
+    dto: "PanelManifestDto",
+    source: "ManifestApiService.kt",
+  },
+  tenantTheme: {
+    method: "GET",
+    path: "/c/v1/tenant/theme",
+    title: "租户品牌主题",
+    purpose: "读取品牌主题、隐藏功能和 H5 入口配置。",
+    repository: "ManifestRepository.currentBrandTheme -> RemoteManifestRepository.currentBrandTheme",
+    dto: "BrandThemeDto",
+    source: "ManifestApiService.kt",
+  },
+  track: {
+    method: "GET",
+    path: "/c/v1/devices/{deviceId}/track",
+    title: "历史轨迹",
+    purpose: "读取单台设备轨迹，供设备地图页和轨迹回放使用。",
+    repository: "LocationRepository.trackOf -> RemoteLocationRepository.trackOf",
+    dto: "TrackDto",
+    source: "LocationApiService.kt",
+  },
+  locationRefresh: {
+    method: "POST",
+    path: "/c/v1/devices/{deviceId}/location/refresh",
+    title: "单次定位刷新",
+    purpose: "请求设备立即刷新位置，返回定位请求状态和可能的新位置。",
+    repository: "LocationRepository.requestImmediateLocation -> RemoteLocationRepository.requestImmediateLocation",
+    dto: "LocationRefreshRequestDto / LocationRefreshDto",
+    source: "LocationApiService.kt",
+  },
+  geofencesList: {
+    method: "GET",
+    path: "/c/v1/devices/{deviceId}/geofences",
+    title: "设备围栏列表",
+    purpose: "读取单台设备安全围栏，用于地图页围栏展示。",
+    repository: "LocationRepository.fencesOf -> RemoteLocationRepository.fencesOf",
+    dto: "List<GeofenceDto>",
+    source: "LocationApiService.kt",
+  },
+  placesSearch: {
+    method: "GET",
+    path: "/c/v1/places/search?q=&near_lat=&near_lng=&limit=",
+    title: "地点搜索",
+    purpose: "按关键词和附近坐标搜索地点，服务围栏编辑或地图检索。",
+    repository: "LocationRepository.searchPlaces -> RemoteLocationRepository.searchPlaces",
+    dto: "List<PlaceSearchResultDto>",
+    source: "LocationApiService.kt",
+  },
+  geofenceUpsert: {
+    method: "POST",
+    path: "/c/v1/devices/{deviceId}/geofences",
+    title: "新增或更新围栏",
+    purpose: "保存设备围栏。当前代码用 upsertFence 统一新增和编辑。",
+    repository: "LocationRepository.upsertFence -> RemoteLocationRepository.upsertFence",
+    dto: "GeofenceDto",
+    source: "LocationApiService.kt",
+  },
+  geofenceDelete: {
+    method: "DELETE",
+    path: "/c/v1/devices/{deviceId}/geofences/{fenceId}",
+    title: "删除围栏",
+    purpose: "删除单台设备指定围栏。",
+    repository: "LocationRepository.deleteFence -> RemoteLocationRepository.deleteFence",
+    dto: "ApiResponse<Unit>",
+    source: "LocationApiService.kt",
+  },
+  alertsList: {
+    method: "GET",
+    path: "/c/v1/alerts",
+    title: "全部告警",
+    purpose: "获取当前用户全部告警消息，用于消息页。",
+    repository: "AlertRepository.listAlerts -> RemoteAlertRepository.listAlerts",
+    dto: "List<AlertDto>",
+    source: "AlertApiService.kt",
+  },
+  deviceAlerts: {
+    method: "GET",
+    path: "/c/v1/devices/{deviceId}/alerts",
+    title: "设备告警列表",
+    purpose: "获取单台设备告警，用于设备详情概览和告警页。",
+    repository: "AlertRepository.alertsByDevice -> RemoteAlertRepository.alertsByDevice",
+    dto: "List<AlertDto>",
+    source: "AlertApiService.kt",
+  },
+  alertDetail: {
+    method: "GET",
+    path: "/c/v1/alerts/{alertId}",
+    title: "告警详情",
+    purpose: "获取单条告警详情，供告警详情、AI 解释上下文使用。",
+    repository: "AlertRepository.alertById -> RemoteAlertRepository.alertById",
+    dto: "AlertDto",
+    source: "AlertApiService.kt",
+  },
+  alertUnreadCount: {
+    method: "GET",
+    path: "/c/v1/alerts/unread-count",
+    title: "未读告警数量",
+    purpose: "读取未读数量，用于首页、底部消息提醒和消息页角标。",
+    repository: "AlertRepository.unreadAlertCount -> RemoteAlertRepository.unreadAlertCount",
+    dto: "UnreadAlertCountDto",
+    source: "AlertApiService.kt",
+  },
+  healthSummary: {
+    method: "GET",
+    path: "/c/v1/devices/{deviceId}/health/summary",
+    title: "健康摘要",
+    purpose: "读取单台设备健康摘要。无健康能力的设备由数据和 Manifest 决定降级显示。",
+    repository: "HealthRepository.healthSummary -> RemoteHealthRepository.healthSummary",
+    dto: "HealthSummaryDto",
+    source: "HealthApiService.kt",
+  },
+  healthChart: {
+    method: "GET",
+    path: "/c/v1/devices/{deviceId}/health/chart?type=&range_hours=",
+    title: "健康趋势图",
+    purpose: "按指标类型和时间范围读取健康图表点。",
+    repository: "HealthRepository.chartSeries -> RemoteHealthRepository.chartSeries",
+    dto: "List<ChartDataPointDto>",
+    source: "HealthApiService.kt",
+  },
+  sharesList: {
+    method: "GET",
+    path: "/c/v1/devices/{deviceId}/shares",
+    title: "设备分享列表",
+    purpose: "读取单台设备已分享关系。",
+    repository: "ShareRepository.sharesOf -> RemoteShareRepository.sharesOf",
+    dto: "List<ShareDto>",
+    source: "ShareApiService.kt",
+  },
+  shareCreate: {
+    method: "POST",
+    path: "/c/v1/devices/{deviceId}/shares",
+    title: "创建设备分享",
+    purpose: "给账号创建待接受的分享邀请。",
+    repository: "ShareRepository.createShare -> RemoteShareRepository.createShare",
+    dto: "CreateShareRequestDto / ShareDto",
+    source: "ShareApiService.kt",
+  },
+  deviceBindDetect: {
+    method: "POST",
+    path: "/c/v1/device-bind/detect",
+    title: "识别待绑定设备",
+    purpose: "扫码、IMEI 或 BLE 原始信息统一识别为候选设备。",
+    repository: "DeviceBindRepository.detect -> RemoteDeviceBindRepository.detect",
+    dto: "DetectDeviceRequestDto / AddDeviceCandidateDto",
+    source: "DeviceBindApiService.kt",
+  },
+  deviceBindPreparePanel: {
+    method: "POST",
+    path: "/c/v1/device-bind/{candidateId}/prepare-panel",
+    title: "准备设备面板",
+    purpose: "绑定前准备候选设备的 Manifest 和面板信息。",
+    repository: "DeviceBindRepository.preparePanel -> RemoteDeviceBindRepository.preparePanel",
+    dto: "AddDeviceCandidateDto",
+    source: "DeviceBindApiService.kt",
+  },
+  deviceBindBind: {
+    method: "POST",
+    path: "/c/v1/device-bind/{candidateId}/bind",
+    title: "执行设备绑定",
+    purpose: "把候选设备绑定到当前用户，返回绑定成功后的设备预览。",
+    repository: "DeviceBindRepository.bind -> RemoteDeviceBindRepository.bind",
+    dto: "BoundDevicePreviewDto",
+    source: "DeviceBindApiService.kt",
+  },
+  deviceBindPreviews: {
+    method: "GET",
+    path: "/c/v1/device-bind/previews",
+    title: "已绑定预览",
+    purpose: "读取绑定完成后的预览设备列表。",
+    repository: "DeviceBindRepository.listBoundPreviews -> RemoteDeviceBindRepository.listBoundPreviews",
+    dto: "List<BoundDevicePreviewDto>",
+    source: "DeviceBindApiService.kt",
+  },
+  aiHealthAnalysis: {
+    method: "GET",
+    path: "/c/v1/ai/devices/{deviceId}/health-analysis",
+    title: "AI 健康分析",
+    purpose: "获取单台设备健康 AI 分析。",
+    repository: "AiRepository.aiHealthAnalysis -> RemoteAiRepository.aiHealthAnalysis",
+    dto: "AiHealthAnalysisDto",
+    source: "AiApiService.kt",
+  },
+  aiAlertExplain: {
+    method: "GET",
+    path: "/c/v1/ai/alerts/{alertId}/explain",
+    title: "AI 告警解释",
+    purpose: "获取告警的 AI 解释和建议。",
+    repository: "AiRepository.aiAlertExplain -> RemoteAiRepository.aiAlertExplain",
+    dto: "AiAlertExplainDto",
+    source: "AiApiService.kt",
+  },
+  aiInsights: {
+    method: "GET",
+    path: "/c/v1/ai/insights",
+    title: "首页 AI 洞察",
+    purpose: "获取首页或 AI 页使用的风险洞察和建议。",
+    repository: "AiRepository.homeInsights -> RemoteAiRepository.homeInsights",
+    dto: "List<AiInsightDto>",
+    source: "AiApiService.kt",
+  },
+  aiAnswer: {
+    method: "POST",
+    path: "/c/v1/ai/answer",
+    title: "AI 客服问答",
+    purpose: "提交问题和上下文，返回 AI 问答结果。当前 ChatRepository 在本地模拟流式 chunk。",
+    repository: "AiRepository.aiAnswer -> RemoteAiRepository.aiAnswer",
+    dto: "AiAnswerRequestDto / AiAnswerResponseDto",
+    source: "AiApiService.kt",
+  },
+  knowledgeList: {
+    method: "GET",
+    path: "/c/v1/knowledge",
+    title: "知识库列表",
+    purpose: "读取帮助中心和客服可用知识库条目。",
+    repository: "KnowledgeRepository.listKnowledge -> RemoteKnowledgeRepository.listKnowledge",
+    dto: "List<KnowledgeItemDto>",
+    source: "KnowledgeApiService.kt",
+  },
+  knowledgeDetail: {
+    method: "GET",
+    path: "/c/v1/knowledge/{id}",
+    title: "知识库详情",
+    purpose: "读取单条帮助内容详情。",
+    repository: "KnowledgeRepository.knowledgeById -> RemoteKnowledgeRepository.knowledgeById",
+    dto: "KnowledgeItemDto",
+    source: "KnowledgeApiService.kt",
+  },
+  knowledgeSearch: {
+    method: "GET",
+    path: "/c/v1/knowledge/search?q=",
+    title: "知识库搜索",
+    purpose: "按关键词搜索帮助内容。",
+    repository: "KnowledgeRepository.searchKnowledge -> RemoteKnowledgeRepository.searchKnowledge",
+    dto: "List<KnowledgeItemDto>",
+    source: "KnowledgeApiService.kt",
+  },
+  quickQuestions: {
+    method: "GET",
+    path: "/c/v1/knowledge/quick-questions",
+    title: "快捷问题",
+    purpose: "获取 AI 客服预置问题。",
+    repository: "KnowledgeRepository.quickQuestions -> RemoteKnowledgeRepository.quickQuestions",
+    dto: "List<QuickQuestionDto>",
+    source: "KnowledgeApiService.kt",
+  },
+  pushRegister: {
+    method: "POST",
+    path: "/c/v1/push/register-token",
+    title: "注册推送 Token",
+    purpose: "把 FCM/HMS/厂商推送 token 同步给服务端。",
+    repository: "PushRepository.registerToken -> RemotePushRepository.registerToken",
+    dto: "RegisterPushTokenRequestDto / RegisterPushTokenResponseDto",
+    source: "PushApiService.kt",
+  },
+  pushUnregister: {
+    method: "DELETE",
+    path: "/c/v1/push/register-token?installation_id=&provider_id=",
+    title: "注销推送 Token",
+    purpose: "退出登录、账号切换或 token 失效时注销推送 token。",
+    repository: "PushRepository.unregisterToken -> RemotePushRepository.unregisterToken",
+    dto: "UnregisterPushTokenResponseDto",
+    source: "PushApiService.kt",
+  },
+};
+
+const apiDtoMap = {
+  authLogin: { request: ["LoginRequestDto"], response: ["LoginResponseDto", "UserDto", "TokenDto"] },
+  authLogout: { response: ["ApiResponse<Unit>"] },
+  devicesList: { response: ["DeviceDto", "DeviceStateDto", "LocationDto", "DeviceBleIdentityDto"] },
+  deviceDetail: { response: ["DeviceDto", "DeviceStateDto", "LocationDto", "DeviceBleIdentityDto"] },
+  productManifest: { response: ["ProductManifestDto"] },
+  panelManifest: { response: ["PanelManifestDto", "PanelTabDto"] },
+  tenantTheme: { response: ["BrandThemeDto", "H5EntryDto"] },
+  track: { response: ["TrackDto", "TrackPointDto", "LatLngDto"] },
+  locationRefresh: { request: ["LocationRefreshRequestDto"], response: ["LocationRefreshDto", "LatLngDto"] },
+  geofencesList: { response: ["GeofenceDto", "LatLngDto"] },
+  placesSearch: { response: ["PlaceSearchResultDto", "LatLngDto"] },
+  geofenceUpsert: { request: ["GeofenceDto", "LatLngDto"], response: ["GeofenceDto", "LatLngDto"] },
+  geofenceDelete: { response: ["ApiResponse<Unit>"] },
+  alertsList: { response: ["AlertDto", "LatLngDto"] },
+  deviceAlerts: { response: ["AlertDto", "LatLngDto"] },
+  alertDetail: { response: ["AlertDto", "LatLngDto"] },
+  alertUnreadCount: { response: ["UnreadAlertCountDto"] },
+  healthSummary: { response: ["HealthSummaryDto", "HealthMetricDto", "HealthScoreDto"] },
+  healthChart: { response: ["ChartDataPointDto"] },
+  sharesList: { response: ["ShareDto"] },
+  shareCreate: { request: ["CreateShareRequestDto"], response: ["ShareDto"] },
+  deviceBindDetect: { request: ["DetectDeviceRequestDto", "DeviceBindBleIdentityDto"], response: ["AddDeviceCandidateDto", "ProductManifestDto", "PanelManifestDto", "PanelTabDto", "DeviceBindBleIdentityDto"] },
+  deviceBindPreparePanel: { response: ["AddDeviceCandidateDto", "ProductManifestDto", "PanelManifestDto", "PanelTabDto", "DeviceBindBleIdentityDto"] },
+  deviceBindBind: { response: ["BoundDevicePreviewDto", "DeviceBindBleIdentityDto"] },
+  deviceBindPreviews: { response: ["BoundDevicePreviewDto", "DeviceBindBleIdentityDto"] },
+  aiHealthAnalysis: { response: ["AiHealthAnalysisDto"] },
+  aiAlertExplain: { response: ["AiAlertExplainDto"] },
+  aiInsights: { response: ["AiInsightDto"] },
+  aiAnswer: { request: ["AiAnswerRequestDto"], response: ["AiAnswerResponseDto"] },
+  knowledgeList: { response: ["KnowledgeItemDto"] },
+  knowledgeDetail: { response: ["KnowledgeItemDto"] },
+  knowledgeSearch: { response: ["KnowledgeItemDto"] },
+  quickQuestions: { response: ["QuickQuestionDto"] },
+  pushRegister: { request: ["RegisterPushTokenRequestDto"], response: ["RegisterPushTokenResponseDto"] },
+  pushUnregister: { response: ["UnregisterPushTokenResponseDto"] },
+};
+
+const suggestedDtoCatalog = {
+  TokenRefreshRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "refresh_token:refreshToken:String; client_type:clientType:String = \"android\""),
+  TokenRefreshResponseDto: dto("建议 DTO（UI 需求，代码未实现）", "token:token:TokenDto; user:user:UserDto? = null"),
+  ThirdPartyLoginStartRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "provider:provider:String; redirect_uri:redirectUri:String? = null; locale:locale:String? = null; device_id:deviceId:String? = null"),
+  ThirdPartyLoginStartResponseDto: dto("建议 DTO（UI 需求，代码未实现）", "provider:provider:String; auth_url:authUrl:String?; state:state:String; nonce:nonce:String?; expires_at_ms:expiresAtMs:Long"),
+  ThirdPartyLoginCompleteRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "provider:provider:String; code:code:String? = null; state:state:String? = null; id_token:idToken:String? = null; access_token:accessToken:String? = null"),
+  PasswordResetStartRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "account:account:String; channel:channel:String = \"email_or_sms\"; locale:locale:String? = null"),
+  PasswordResetStartResponseDto: dto("建议 DTO（UI 需求，代码未实现）", "reset_id:resetId:String; masked_target:maskedTarget:String; expires_at_ms:expiresAtMs:Long"),
+  PasswordResetConfirmRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "reset_id:resetId:String; verify_code:verifyCode:String; new_password:newPassword:String"),
+  AgreementVersionDto: dto("建议 DTO（UI 需求，代码未实现）", "key:key:String; title:title:String; version:version:String; url:url:String; required:required:Boolean; updated_ms:updatedMs:Long"),
+  AgreementContentDto: dto("建议 DTO（UI 需求，代码未实现）", "key:key:String; title:title:String; version:version:String; content_html:contentHtml:String; updated_ms:updatedMs:Long"),
+  UserProfileDto: dto("建议 DTO（UI 需求，代码未实现）", "id:id:String; display_name:displayName:String; email:email:String?; phone:phone:String?; avatar_url:avatarUrl:String?; region:region:String; locale:locale:String"),
+  UserProfileUpdateRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "display_name:displayName:String? = null; email:email:String? = null; phone:phone:String? = null; region:region:String? = null; avatar_url:avatarUrl:String? = null"),
+  PasswordChangeRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "old_password:oldPassword:String? = null; verify_code:verifyCode:String? = null; new_password:newPassword:String"),
+  LoginDeviceDto: dto("建议 DTO（UI 需求，代码未实现）", "id:id:String; device_name:deviceName:String; platform:platform:String; last_login_ms:lastLoginMs:Long; location:location:String?; current:current:Boolean"),
+  OAuthBindingRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "provider:provider:String; code:code:String? = null; state:state:String? = null; id_token:idToken:String? = null"),
+  OAuthBindingDto: dto("建议 DTO（UI 需求，代码未实现）", "provider:provider:String; bound:bound:Boolean; account_label:accountLabel:String?; bound_at_ms:boundAtMs:Long?"),
+  AccountDeleteRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "reason:reason:String? = null; verify_code:verifyCode:String? = null; confirm_devices:confirmDevices:Boolean; confirm_data_policy:confirmDataPolicy:Boolean"),
+  NotificationPreferenceDto: dto("建议 DTO（UI 需求，代码未实现）", "channel:channel:String; enabled:enabled:Boolean; quiet_start:quietStart:String? = null; quiet_end:quietEnd:String? = null; severity_min:severityMin:String? = null"),
+  NotificationPreferenceSaveRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "preferences:preferences:List<NotificationPreferenceDto>; quiet_hours:quietHours:String? = null"),
+  MapPreferenceDto: dto("建议 DTO（UI 需求，代码未实现）", "region:region:String; provider:provider:String; location_permission:locationPermission:String; coordinate_system:coordinateSystem:String? = null"),
+  AppVersionCheckDto: dto("建议 DTO（UI 需求，代码未实现）", "latest_version:latestVersion:String; min_supported_version:minSupportedVersion:String; force_update:forceUpdate:Boolean; release_notes:releaseNotes:String; download_url:downloadUrl:String?"),
+  FeedbackRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "type:type:String; content:content:String; device_id:deviceId:String? = null; attachments:attachments:List<String> = emptyList()"),
+  SupportTicketDto: dto("建议 DTO（UI 需求，代码未实现）", "ticket_id:ticketId:String; status:status:String; created_ms:createdMs:Long; reply_channel:replyChannel:String"),
+  ServiceSubscriptionDto: dto("建议 DTO（UI 需求，代码未实现）", "id:id:String; device_id:deviceId:String; device_name:deviceName:String; plan_id:planId:String; plan_name:planName:String; status:status:String; expire_at_ms:expireAtMs:Long; remaining:remaining:String"),
+  ServicePlanDto: dto("建议 DTO（UI 需求，代码未实现）", "id:id:String; name:name:String; price_cents:priceCents:Long; currency:currency:String; duration_days:durationDays:Int; features:features:List<String>"),
+  RenewSubscriptionRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "plan_id:planId:String; payment_method_id:paymentMethodId:String? = null; auto_renew:autoRenew:Boolean = false"),
+  PaymentMethodDto: dto("建议 DTO（UI 需求，代码未实现）", "id:id:String; type:type:String; display_name:displayName:String; default:default:Boolean; available:available:Boolean"),
+  InvoiceDto: dto("建议 DTO（UI 需求，代码未实现）", "id:id:String; order_id:orderId:String; title:title:String; amount_cents:amountCents:Long; status:status:String; download_url:downloadUrl:String?"),
+  NotificationItemDto: dto("建议 DTO（UI 需求，代码未实现）", "id:id:String; type:type:String; title:title:String; body:body:String; status:status:String; timestamp_ms:timestampMs:Long; related_id:relatedId:String? = null"),
+  MessageReadRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "message_ids:messageIds:List<String>; read_at_ms:readAtMs:Long"),
+  ShareInvitationActionRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "action:action:String; note:note:String? = null"),
+  SharePermissionUpdateRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "permission:permission:String"),
+  AlertActionRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "status:status:String; note:note:String? = null; handled_at_ms:handledAtMs:Long? = null"),
+  AlertFeedbackRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "feedback:feedback:String; reason:reason:String? = null; corrected_status:correctedStatus:String? = null"),
+  DeviceEventDto: dto("建议 DTO（UI 需求，代码未实现）", "id:id:String; device_id:deviceId:String; type:type:String; title:title:String; description:description:String; timestamp_ms:timestampMs:Long; severity:severity:String? = null"),
+  LatestDeviceLocationDto: dto("建议 DTO（UI 需求，代码未实现）", "device_id:deviceId:String; device_name:deviceName:String; location:location:LatLngDto; locate_method:locateMethod:String; online:online:Boolean; timestamp_ms:timestampMs:Long"),
+  DeviceProfileUpdateRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "name:name:String? = null; nickname:nickname:String? = null; avatar_url:avatarUrl:String? = null; remark:remark:String? = null"),
+  EmergencyContactDto: dto("建议 DTO（UI 需求，代码未实现）", "id:id:String? = null; name:name:String; relation:relation:String; phone:phone:String; priority:priority:Int; scenarios:scenarios:List<String>"),
+  DeviceUnbindRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "verify_code:verifyCode:String? = null; keep_history:keepHistory:Boolean; reason:reason:String? = null"),
+  DeviceCommandRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "command:command:String; channel:channel:String = \"api\"; payload:payload:Map<String, String> = emptyMap()"),
+  DeviceCommandResponseDto: dto("建议 DTO（UI 需求，代码未实现）", "command_id:commandId:String; status:status:String; channel:channel:String; message:message:String? = null"),
+  DeviceConfigDto: dto("建议 DTO（UI 需求，代码未实现）", "category:category:String; values:values:Map<String, String>; version:version:String? = null; updated_ms:updatedMs:Long? = null"),
+  DeviceConfigSaveRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "category:category:String; values:values:Map<String, String>; channel:channel:String = \"api\""),
+  DeviceConfigOperationDto: dto("建议 DTO（UI 需求，代码未实现）", "operation_id:operationId:String; status:status:String; category:category:String; device_ack_ms:deviceAckMs:Long? = null; message:message:String? = null"),
+  FirmwareVersionDto: dto("建议 DTO（UI 需求，代码未实现）", "current_version:currentVersion:String; latest_version:latestVersion:String; upgrade_available:upgradeAvailable:Boolean; size_bytes:sizeBytes:Long? = null; release_notes:releaseNotes:String? = null"),
+  FirmwareUpgradeRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "target_version:targetVersion:String; channel:channel:String = \"api_or_ble\"; force:force:Boolean = false"),
+  H5SessionRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "entry_key:entryKey:String; device_id:deviceId:String? = null; redirect_url:redirectUrl:String? = null"),
+  H5SessionDto: dto("建议 DTO（UI 需求，代码未实现）", "url:url:String; token:token:String; expires_at_ms:expiresAtMs:Long"),
+  AiStreamRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "question:question:String; conversation_id:conversationId:String? = null; device_id:deviceId:String? = null; alert_id:alertId:String? = null"),
+  AiStreamChunkDto: dto("建议 DTO（UI 需求，代码未实现）", "conversation_id:conversationId:String; chunk:chunk:String; done:done:Boolean; trace_id:traceId:String? = null"),
+  PetProfileUpdateRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "name:name:String? = null; breed:breed:String? = null; birthday:birthday:String? = null; weight_kg:weightKg:Double? = null; vaccine_notes:vaccineNotes:String? = null"),
+  PetProfileDto: dto("建议 DTO（UI 需求，代码未实现）", "device_id:deviceId:String; name:name:String; breed:breed:String?; birthday:birthday:String?; weight_kg:weightKg:Double?; vaccine_notes:vaccineNotes:String?"),
+};
+
+Object.entries(suggestedDtoCatalog).forEach(([name, schema]) => {
+  schema.name = schema.name || name;
+});
+
+const suggestedApiCatalog = {
+  authRefresh: {
+    method: "POST",
+    path: "/c/v1/auth/refresh",
+    title: "刷新登录态",
+    purpose: "登录返回了 refresh_token，正式 App 需要在 access token 过期时续期。",
+    uiEvidence: "登录后所有页面都依赖登录态；当前 LoginResponseDto.TokenDto 已包含 refresh_token。",
+    currentStatus: "AuthApiService.kt 未定义 refresh 接口。",
+    dto: "TokenRefreshRequestDto / TokenRefreshResponseDto",
+  },
+  oauthStart: {
+    method: "POST",
+    path: "/c/v1/auth/oauth/{provider}/start",
+    title: "第三方登录发起",
+    purpose: "登录页有微信、Apple、Google 入口，需要服务端生成 state、nonce 或授权跳转信息。",
+    uiEvidence: "renderLogin() 渲染第三方登录卡片，data-action=\"toast-oauth\"。",
+    currentStatus: "AuthApiService.kt 未定义微信、Apple、Google OAuth 登录接口。",
+    dto: "ThirdPartyLoginStartRequestDto / ThirdPartyLoginStartResponseDto",
+  },
+  oauthComplete: {
+    method: "POST",
+    path: "/c/v1/auth/oauth/{provider}/complete",
+    title: "第三方登录换取账号登录态",
+    purpose: "客户端拿到 SDK 授权结果后交给后端校验，并返回 Evmars 用户与 token。",
+    uiEvidence: "toast-oauth 提示“调起 SDK 授权 → 绑定到 Evmars 账号”。",
+    currentStatus: "AuthApiService.kt 只有账号密码登录，没有 OAuth complete。",
+    dto: "ThirdPartyLoginCompleteRequestDto / LoginResponseDto",
+  },
+  passwordResetStart: {
+    method: "POST",
+    path: "/c/v1/auth/password/reset/start",
+    title: "找回密码发起",
+    purpose: "忘记密码入口需要发送邮箱或手机号验证码。",
+    uiEvidence: "登录页 data-action=\"toast-forgot-password\"。",
+    currentStatus: "AuthApiService.kt 未定义找回密码接口。",
+    dto: "PasswordResetStartRequestDto / PasswordResetStartResponseDto",
+  },
+  passwordResetConfirm: {
+    method: "POST",
+    path: "/c/v1/auth/password/reset/confirm",
+    title: "找回密码确认",
+    purpose: "校验验证码并提交新密码。",
+    uiEvidence: "toast-forgot-password 提示“通过邮箱或手机号验证码重置”。",
+    currentStatus: "AuthApiService.kt 未定义重置确认接口。",
+    dto: "PasswordResetConfirmRequestDto",
+  },
+  agreementVersions: {
+    method: "GET",
+    path: "/c/v1/legal/agreements/versions",
+    title: "协议版本清单",
+    purpose: "登录页与关于页需要展示用户协议、隐私政策、权限说明的当前版本。",
+    uiEvidence: "登录页协议与隐私入口；关于与协议设置页。",
+    currentStatus: "core:remote 未见 legal/agreement Service。",
+    dto: "List<AgreementVersionDto>",
+  },
+  agreementContent: {
+    method: "GET",
+    path: "/c/v1/legal/agreements/{key}",
+    title: "协议或隐私政策详情",
+    purpose: "打开用户协议、隐私政策、权限说明的正文内容。",
+    uiEvidence: "open-h5、toast-policy、关于与协议页都需要正文内容。",
+    currentStatus: "KnowledgeApiService 可读知识库，但没有独立协议详情接口。",
+    dto: "AgreementContentDto",
+  },
+  userProfile: {
+    method: "GET",
+    path: "/c/v1/account/profile",
+    title: "读取账号资料",
+    purpose: "账号资料设置页需要读取昵称、邮箱、手机号和地区。",
+    uiEvidence: "renderProfileSettings() 展示昵称、邮箱、手机号、国家/地区。",
+    currentStatus: "core:remote 未见 Account/Profile Service。",
+    dto: "UserProfileDto",
+  },
+  userProfileUpdate: {
+    method: "PATCH",
+    path: "/c/v1/account/profile",
+    title: "保存账号资料",
+    purpose: "保存账号资料设置页的编辑结果。",
+    uiEvidence: "renderProfileSettings() 的“保存资料”按钮。",
+    currentStatus: "core:remote 未见用户资料更新接口。",
+    dto: "UserProfileUpdateRequestDto / UserProfileDto",
+  },
+  passwordChange: {
+    method: "POST",
+    path: "/c/v1/account/password/change",
+    title: "修改密码",
+    purpose: "账号安全页需要通过旧密码或验证码修改密码。",
+    uiEvidence: "renderSecuritySettings() 的“修改密码”。",
+    currentStatus: "core:remote 未见修改密码接口。",
+    dto: "PasswordChangeRequestDto",
+  },
+  loginDevices: {
+    method: "GET",
+    path: "/c/v1/account/login-devices",
+    title: "登录设备列表",
+    purpose: "展示最近登录设备并支持异常退出。",
+    uiEvidence: "renderSecuritySettings() 的“登录设备”。",
+    currentStatus: "core:remote 未见登录设备接口。",
+    dto: "List<LoginDeviceDto>",
+  },
+  oauthBind: {
+    method: "POST",
+    path: "/c/v1/account/oauth/{provider}/bind",
+    title: "绑定第三方账号",
+    purpose: "账号安全页的第三方账号绑定需要将 OAuth 授权绑定到当前用户。",
+    uiEvidence: "renderSecuritySettings() 渲染第三方账号绑定列表。",
+    currentStatus: "core:remote 未见第三方账号绑定接口。",
+    dto: "OAuthBindingRequestDto / OAuthBindingDto",
+  },
+  oauthUnbind: {
+    method: "DELETE",
+    path: "/c/v1/account/oauth/{provider}",
+    title: "解绑第三方账号",
+    purpose: "已绑定第三方账号需要支持解绑，并校验账号回退登录方式。",
+    uiEvidence: "toast-oauth-bind 提示“解绑前确认账号回退方式”。",
+    currentStatus: "core:remote 未见第三方账号解绑接口。",
+    dto: "OAuthBindingDto",
+  },
+  accountDeleteRequest: {
+    method: "POST",
+    path: "/c/v1/account/delete-request",
+    title: "申请注销账号",
+    purpose: "账号注销需要确认设备、分享和数据处理策略。",
+    uiEvidence: "renderSecuritySettings() 的“申请注销”。",
+    currentStatus: "core:remote 未见账号注销接口。",
+    dto: "AccountDeleteRequestDto",
+  },
+  notificationPrefs: {
+    method: "GET",
+    path: "/c/v1/account/notification-preferences",
+    title: "读取通知偏好",
+    purpose: "通知设置页需要读取各类告警、系统通知和免打扰时段。",
+    uiEvidence: "renderNotificationSettings() 的通知开关与免打扰时段。",
+    currentStatus: "PushApiService 只有 token 注册/注销，没有偏好接口。",
+    dto: "List<NotificationPreferenceDto>",
+  },
+  notificationPrefsUpdate: {
+    method: "PUT",
+    path: "/c/v1/account/notification-preferences",
+    title: "保存通知偏好",
+    purpose: "保存用户对通知类型和免打扰时段的设置。",
+    uiEvidence: "renderNotificationSettings() 的“保存通知设置”。",
+    currentStatus: "core:remote 未见通知偏好保存接口。",
+    dto: "NotificationPreferenceSaveRequestDto / List<NotificationPreferenceDto>",
+  },
+  mapPreferenceUpdate: {
+    method: "PUT",
+    path: "/c/v1/account/map-preferences",
+    title: "保存地区与地图偏好",
+    purpose: "同步用户选择的地区、地图服务和定位权限偏好。",
+    uiEvidence: "renderMapSettings() 的地区、地图服务、定位权限。",
+    currentStatus: "当前地图 provider 选择更像本地偏好 + SDK 适配，core:remote 未见保存接口。",
+    dto: "MapPreferenceDto",
+  },
+  appVersionCheck: {
+    method: "GET",
+    path: "/c/v1/app/version?platform=android&version=",
+    title: "App 版本检查",
+    purpose: "关于页需要检查当前 App 是否为最新版本。",
+    uiEvidence: "renderAboutSettings() 的“版本检查”。",
+    currentStatus: "core:remote 未见版本检查接口。",
+    dto: "AppVersionCheckDto",
+  },
+  feedbackSubmit: {
+    method: "POST",
+    path: "/c/v1/support/feedback",
+    title: "提交意见反馈",
+    purpose: "意见反馈页需要把问题类型、描述和设备上下文提交给客服侧。",
+    uiEvidence: "renderFeedbackSettings() 的“提交反馈”。",
+    currentStatus: "core:remote 未见反馈或工单接口。",
+    dto: "FeedbackRequestDto / SupportTicketDto",
+  },
+  serviceSubscriptions: {
+    method: "GET",
+    path: "/c/v1/services/subscriptions",
+    title: "套餐订阅列表",
+    purpose: "我的服务页需要展示每台设备 SIM 套餐、有效期和流量状态。",
+    uiEvidence: "renderServiceSettings() 的“套餐订阅”。",
+    currentStatus: "core:remote 未见 services/billing Service。",
+    dto: "List<ServiceSubscriptionDto>",
+  },
+  servicePlans: {
+    method: "GET",
+    path: "/c/v1/services/plans",
+    title: "可选套餐列表",
+    purpose: "续费和更换套餐前需要展示可购买套餐。",
+    uiEvidence: "toast-change-plan 提示“套餐目录”。",
+    currentStatus: "core:remote 未见套餐目录接口。",
+    dto: "List<ServicePlanDto>",
+  },
+  subscriptionRenew: {
+    method: "POST",
+    path: "/c/v1/services/subscriptions/{subscriptionId}/renew",
+    title: "续费或更换套餐",
+    purpose: "创建续费订单并关联支付方式。",
+    uiEvidence: "renderServiceSettings() 的“续费”“更换套餐”。",
+    currentStatus: "core:remote 未见续费接口。",
+    dto: "RenewSubscriptionRequestDto",
+  },
+  paymentMethods: {
+    method: "GET",
+    path: "/c/v1/payments/methods",
+    title: "支付方式列表",
+    purpose: "展示微信、支付宝、Stripe、PayPal 等支付方式可用状态。",
+    uiEvidence: "toast-payment-method 提示支付方式。",
+    currentStatus: "core:remote 未见支付方式接口。",
+    dto: "List<PaymentMethodDto>",
+  },
+  invoices: {
+    method: "GET",
+    path: "/c/v1/billing/invoices",
+    title: "发票列表",
+    purpose: "发票管理需要展示历史发票并支持下载。",
+    uiEvidence: "renderServiceSettings() 的“发票管理”。",
+    currentStatus: "core:remote 未见发票接口。",
+    dto: "List<InvoiceDto>",
+  },
+  notificationsList: {
+    method: "GET",
+    path: "/c/v1/notifications",
+    title: "系统通知列表",
+    purpose: "消息页除告警外还需要系统通知和分享邀请消息。",
+    uiEvidence: "renderMessagesTab() 展示系统通知和分享邀请。",
+    currentStatus: "AlertApiService 只覆盖告警，core:remote 未见通知分页接口。",
+    dto: "List<NotificationItemDto>",
+  },
+  messageMarkRead: {
+    method: "POST",
+    path: "/c/v1/messages/read",
+    title: "标记消息已读",
+    purpose: "消息页需要把系统通知或邀请消息标为已读。",
+    uiEvidence: "消息页 data-action=\"mark-read\"。",
+    currentStatus: "core:remote 未见消息已读接口。",
+    dto: "MessageReadRequestDto",
+  },
+  shareInvitationAction: {
+    method: "POST",
+    path: "/c/v1/shares/invitations/{invitationId}/action",
+    title: "处理分享邀请",
+    purpose: "接受或拒绝别人分享给我的设备。",
+    uiEvidence: "消息页 data-action=\"accept-share\" / \"reject-share\"。",
+    currentStatus: "ShareApiService 只有 sharesOf/createShare。",
+    dto: "ShareInvitationActionRequestDto / ShareDto",
+  },
+  shareUpdate: {
+    method: "PATCH",
+    path: "/c/v1/devices/{deviceId}/shares/{shareId}",
+    title: "修改分享权限",
+    purpose: "设备分享弹窗需要调整已分享用户的权限。",
+    uiEvidence: "renderShareModal() 有权限选择和更新提示。",
+    currentStatus: "ShareApiService 未定义 update permission。",
+    dto: "SharePermissionUpdateRequestDto / ShareDto",
+  },
+  shareRevoke: {
+    method: "DELETE",
+    path: "/c/v1/devices/{deviceId}/shares/{shareId}",
+    title: "取消设备分享",
+    purpose: "撤销已分享用户的设备访问权限。",
+    uiEvidence: "设备分享弹窗 data-action=\"revoke-share\"。",
+    currentStatus: "ShareApiService 未定义 revoke。",
+    dto: "ApiResponse<Unit>",
+  },
+  shareResend: {
+    method: "POST",
+    path: "/c/v1/devices/{deviceId}/shares/{shareId}/resend",
+    title: "重发分享邀请",
+    purpose: "重新发送未接受的分享邀请。",
+    uiEvidence: "设备分享弹窗 data-action=\"resend-share\"。",
+    currentStatus: "ShareApiService 未定义 resend。",
+    dto: "ShareDto",
+  },
+  recentEvents: {
+    method: "GET",
+    path: "/c/v1/devices/{deviceId}/events/recent",
+    title: "设备最近事件",
+    purpose: "概览页需要聚合告警、状态变化和健康异常作为最近事件。",
+    uiEvidence: "设备概览页展示最近事件时间线。",
+    currentStatus: "当前代码没有独立最近事件 Service。",
+    dto: "List<DeviceEventDto>",
+  },
+  deviceLatestLocations: {
+    method: "GET",
+    path: "/c/v1/devices/locations/latest",
+    title: "全部设备最新位置",
+    purpose: "地图总览可以一次性刷新全部设备的位置点。",
+    uiEvidence: "地图首页展示多设备位置和状态。",
+    currentStatus: "当前最新位置随 DeviceDto 返回，未见独立批量位置接口。",
+    dto: "List<LatestDeviceLocationDto>",
+  },
+  alertMarkRead: {
+    method: "POST",
+    path: "/c/v1/alerts/{alertId}/read",
+    title: "标记告警已读",
+    purpose: "告警页需要区分未读和已读，并同步消息角标。",
+    uiEvidence: "消息页和告警页都有已读诉求。",
+    currentStatus: "AlertApiService 未定义 mark-read。",
+    dto: "AlertActionRequestDto",
+  },
+  alertAck: {
+    method: "POST",
+    path: "/c/v1/alerts/{alertId}/ack",
+    title: "确认或处理告警",
+    purpose: "告警处理后需要提交确认、忽略或处理结果。",
+    uiEvidence: "告警页需求说明包含已处理和处理结果。",
+    currentStatus: "AlertApiService 未定义 ack/ignore。",
+    dto: "AlertActionRequestDto / AlertDto",
+  },
+  alertFeedback: {
+    method: "POST",
+    path: "/c/v1/alerts/{alertId}/feedback",
+    title: "告警误报反馈",
+    purpose: "用户可以反馈误报或修正处理结果，供规则和 AI 改进。",
+    uiEvidence: "告警缺口说明包含误报反馈。",
+    currentStatus: "AlertApiService 未定义 feedback。",
+    dto: "AlertFeedbackRequestDto / AlertDto",
+  },
+  deviceProfileUpdate: {
+    method: "PATCH",
+    path: "/c/v1/devices/{deviceId}",
+    title: "编辑设备资料",
+    purpose: "设备管理弹窗需要保存设备名称、使用者、备注等。",
+    uiEvidence: "renderEditDeviceModal() 的“保存设备”。",
+    currentStatus: "DeviceApiService 只有列表和详情，没有写接口。",
+    dto: "DeviceProfileUpdateRequestDto / DeviceDto",
+  },
+  emergencyContactsSave: {
+    method: "PUT",
+    path: "/c/v1/devices/{deviceId}/emergency-contacts",
+    title: "保存紧急联系人",
+    purpose: "设备管理弹窗需要维护紧急联系人及触发场景。",
+    uiEvidence: "renderEditDeviceModal() 展示紧急联系人能力。",
+    currentStatus: "DeviceApiService 未见 emergency contacts 接口。",
+    dto: "List<EmergencyContactDto>",
+  },
+  deviceUnbind: {
+    method: "POST",
+    path: "/c/v1/devices/{deviceId}/unbind",
+    title: "解绑设备",
+    purpose: "拥有者可以解绑设备，正式版需要二次确认和数据保留策略。",
+    uiEvidence: "renderEditDeviceModal() 的“解绑设备”。",
+    currentStatus: "DeviceApiService 未见解绑接口。",
+    dto: "DeviceUnbindRequestDto",
+  },
+  deviceCommand: {
+    method: "POST",
+    path: "/c/v1/devices/{deviceId}/commands",
+    title: "设备指令下发",
+    purpose: "查找设备、响铃、远程同步等动作需要指令下发。",
+    uiEvidence: "设备详情 data-action=\"toast-find\"、toast-channel。",
+    currentStatus: "core:remote 未见通用设备命令接口；部分配置更偏 BLE/协议边界。",
+    dto: "DeviceCommandRequestDto / DeviceCommandResponseDto",
+  },
+  deviceConfigRead: {
+    method: "GET",
+    path: "/c/v1/devices/{deviceId}/config",
+    title: "读取设备配置",
+    purpose: "配置页打开分类时需要读取当前参数。",
+    uiEvidence: "配置分类弹窗包含 WiFi、定位、告警、传感器、网络与 SIM 等字段。",
+    currentStatus: "core:remote 未见设备配置读取接口。",
+    dto: "List<DeviceConfigDto>",
+  },
+  deviceConfigSave: {
+    method: "PUT",
+    path: "/c/v1/devices/{deviceId}/config",
+    title: "保存并下发设备配置",
+    purpose: "保存配置后等待设备确认下发结果。",
+    uiEvidence: "save-config 提示“等待设备确认下发结果”。",
+    currentStatus: "core:remote 未见配置保存/下发接口；需要继续核对 core:device-config、core:protocol、core:ble。",
+    dto: "DeviceConfigSaveRequestDto / DeviceConfigOperationDto",
+  },
+  configOperationStatus: {
+    method: "GET",
+    path: "/c/v1/devices/{deviceId}/config-operations/{operationId}",
+    title: "配置下发状态",
+    purpose: "保存配置后轮询设备确认、失败原因或超时状态。",
+    uiEvidence: "配置保存 Toast 已强调“等待设备确认”。",
+    currentStatus: "core:remote 未见配置操作状态接口。",
+    dto: "DeviceConfigOperationDto",
+  },
+  otaCheck: {
+    method: "GET",
+    path: "/c/v1/devices/{deviceId}/firmware/check",
+    title: "检查 OTA 固件",
+    purpose: "BLE/配置页需要检查设备固件版本是否可升级。",
+    uiEvidence: "配置 BLE 分类 data-action=\"ota-check\"。",
+    currentStatus: "core:remote 未见 OTA HTTP 接口。",
+    dto: "FirmwareVersionDto",
+  },
+  otaStart: {
+    method: "POST",
+    path: "/c/v1/devices/{deviceId}/firmware/upgrade",
+    title: "发起 OTA 升级",
+    purpose: "有新固件时发起升级任务，通道可能是 API、BLE 或组合。",
+    uiEvidence: "配置页 BLE 分类预留 OTA 固件检查。",
+    currentStatus: "core:remote 未见 OTA 发起接口。",
+    dto: "FirmwareUpgradeRequestDto / DeviceConfigOperationDto",
+  },
+  h5Session: {
+    method: "POST",
+    path: "/c/v1/h5/session",
+    title: "H5 登录态交换",
+    purpose: "帮助中心、协议页或设备说明 H5 需要安全拿到一次性登录态和上下文。",
+    uiEvidence: "renderH5Modal() 模拟在线 H5 帮助中心。",
+    currentStatus: "core:remote 未见 H5 session 交换接口。",
+    dto: "H5SessionRequestDto / H5SessionDto",
+  },
+  aiSupportStream: {
+    method: "POST",
+    path: "/c/v1/ai/answer/stream",
+    title: "AI 客服流式问答",
+    purpose: "正式客服聊天如果要边生成边展示，需要服务端 SSE 或等价流式接口。",
+    uiEvidence: "ChatRepository.askStream 目前是本地 chunk 模拟；聊天弹窗有连续对话体验。",
+    currentStatus: "AiApiService.kt 只有 /c/v1/ai/answer。",
+    dto: "AiStreamRequestDto / AiStreamChunkDto",
+  },
+  petProfileUpdate: {
+    method: "PATCH",
+    path: "/c/v1/devices/{deviceId}/pet-profile",
+    title: "保存宠物档案",
+    purpose: "宠物设备需要保存品种、生日、体重、疫苗记录等档案。",
+    uiEvidence: "健康页 data-action=\"toast-pet-edit\"。",
+    currentStatus: "core:remote 未见宠物档案接口。",
+    dto: "PetProfileUpdateRequestDto / PetProfileDto",
+  },
+};
+
+const suggestedApiDtoMap = {
+  authRefresh: { request: ["TokenRefreshRequestDto"], response: ["TokenRefreshResponseDto", "TokenDto", "UserDto"] },
+  oauthStart: { request: ["ThirdPartyLoginStartRequestDto"], response: ["ThirdPartyLoginStartResponseDto"] },
+  oauthComplete: { request: ["ThirdPartyLoginCompleteRequestDto"], response: ["LoginResponseDto", "UserDto", "TokenDto"] },
+  passwordResetStart: { request: ["PasswordResetStartRequestDto"], response: ["PasswordResetStartResponseDto"] },
+  passwordResetConfirm: { request: ["PasswordResetConfirmRequestDto"], response: ["ApiResponse<Unit>"] },
+  agreementVersions: { response: ["AgreementVersionDto"] },
+  agreementContent: { response: ["AgreementContentDto"] },
+  userProfile: { response: ["UserProfileDto"] },
+  userProfileUpdate: { request: ["UserProfileUpdateRequestDto"], response: ["UserProfileDto"] },
+  passwordChange: { request: ["PasswordChangeRequestDto"], response: ["ApiResponse<Unit>"] },
+  loginDevices: { response: ["LoginDeviceDto"] },
+  oauthBind: { request: ["OAuthBindingRequestDto"], response: ["OAuthBindingDto"] },
+  oauthUnbind: { response: ["OAuthBindingDto"] },
+  accountDeleteRequest: { request: ["AccountDeleteRequestDto"], response: ["ApiResponse<Unit>"] },
+  notificationPrefs: { response: ["NotificationPreferenceDto"] },
+  notificationPrefsUpdate: { request: ["NotificationPreferenceSaveRequestDto", "NotificationPreferenceDto"], response: ["NotificationPreferenceDto"] },
+  mapPreferenceUpdate: { request: ["MapPreferenceDto"], response: ["MapPreferenceDto"] },
+  appVersionCheck: { response: ["AppVersionCheckDto"] },
+  feedbackSubmit: { request: ["FeedbackRequestDto"], response: ["SupportTicketDto"] },
+  serviceSubscriptions: { response: ["ServiceSubscriptionDto"] },
+  servicePlans: { response: ["ServicePlanDto"] },
+  subscriptionRenew: { request: ["RenewSubscriptionRequestDto"], response: ["ServiceSubscriptionDto"] },
+  paymentMethods: { response: ["PaymentMethodDto"] },
+  invoices: { response: ["InvoiceDto"] },
+  notificationsList: { response: ["NotificationItemDto"] },
+  messageMarkRead: { request: ["MessageReadRequestDto"], response: ["ApiResponse<Unit>"] },
+  shareInvitationAction: { request: ["ShareInvitationActionRequestDto"], response: ["ShareDto"] },
+  shareUpdate: { request: ["SharePermissionUpdateRequestDto"], response: ["ShareDto"] },
+  shareRevoke: { response: ["ApiResponse<Unit>"] },
+  shareResend: { response: ["ShareDto"] },
+  recentEvents: { response: ["DeviceEventDto"] },
+  deviceLatestLocations: { response: ["LatestDeviceLocationDto", "LatLngDto"] },
+  alertMarkRead: { request: ["AlertActionRequestDto"], response: ["ApiResponse<Unit>"] },
+  alertAck: { request: ["AlertActionRequestDto"], response: ["AlertDto"] },
+  alertFeedback: { request: ["AlertFeedbackRequestDto"], response: ["AlertDto"] },
+  deviceProfileUpdate: { request: ["DeviceProfileUpdateRequestDto"], response: ["DeviceDto"] },
+  emergencyContactsSave: { request: ["EmergencyContactDto"], response: ["EmergencyContactDto"] },
+  deviceUnbind: { request: ["DeviceUnbindRequestDto"], response: ["ApiResponse<Unit>"] },
+  deviceCommand: { request: ["DeviceCommandRequestDto"], response: ["DeviceCommandResponseDto"] },
+  deviceConfigRead: { response: ["DeviceConfigDto"] },
+  deviceConfigSave: { request: ["DeviceConfigSaveRequestDto"], response: ["DeviceConfigOperationDto"] },
+  configOperationStatus: { response: ["DeviceConfigOperationDto"] },
+  otaCheck: { response: ["FirmwareVersionDto"] },
+  otaStart: { request: ["FirmwareUpgradeRequestDto"], response: ["DeviceConfigOperationDto"] },
+  h5Session: { request: ["H5SessionRequestDto"], response: ["H5SessionDto"] },
+  aiSupportStream: { request: ["AiStreamRequestDto"], response: ["AiStreamChunkDto"] },
+  petProfileUpdate: { request: ["PetProfileUpdateRequestDto"], response: ["PetProfileDto"] },
+};
+
+const apiPageMap = {
+  login: {
+    title: "登录页所需 API",
+    summary: "上方列当前代码已经定义的账号密码登录；下方补 UI 已出现但代码未实现的登录能力。",
+    apiIds: ["authLogin"],
+    suggestedApiIds: ["authRefresh", "oauthStart", "oauthComplete", "passwordResetStart", "passwordResetConfirm", "agreementVersions", "agreementContent"],
+    gaps: [
+      "当前 core:remote 没有 refresh token、找回密码、第三方 OAuth、协议版本确认接口。",
+    ],
+  },
+  "tab:map": {
+    title: "地图页所需 API",
+    summary: "按 DashboardRepository 与地图总览链路反推；地图 SDK provider 选择在当前代码中是本地/SDK 边界。",
+    apiIds: ["devicesList", "alertUnreadCount", "productManifest", "tenantTheme", "aiInsights"],
+    suggestedApiIds: ["deviceLatestLocations", "mapPreferenceUpdate"],
+    gaps: [
+      "RemoteMapProviderRepository 没有 HTTP API，它通过 MapSdkAdapter 和本地偏好选择地图 provider。",
+      "全局地图最新位置当前随 DeviceDto 返回，代码里没有单独“全部设备最新位置”接口。",
+    ],
+  },
+  "tab:devices": {
+    title: "设备首页所需 API",
+    summary: "设备首页直接依赖设备列表、未读告警和型号能力信息。",
+    apiIds: ["devicesList", "alertUnreadCount", "productManifest", "deviceBindPreviews"],
+    suggestedApiIds: ["deviceLatestLocations"],
+    gaps: [
+      "页面上的添加入口实际接口在“添加设备流程”弹窗中定义。",
+    ],
+  },
+  "tab:messages": {
+    title: "消息页所需 API",
+    summary: "当前代码把消息页核心落在告警列表和未读数量，分享邀请处理接口尚不完整。",
+    apiIds: ["alertsList", "alertUnreadCount", "alertDetail", "aiAlertExplain"],
+    suggestedApiIds: ["notificationsList", "messageMarkRead", "shareInvitationAction", "alertMarkRead"],
+    gaps: [
+      "当前 core:remote 没有消息已读、分享邀请接受/拒绝、系统通知分页接口。",
+      "ShareApiService 只有 sharesOf/createShare，没有 accept/reject/revoke/update permission。",
+    ],
+  },
+  "tab:ai": {
+    title: "AI 助手页所需 API",
+    summary: "AI 页按 AiRepository 与 ChatRepository 当前代码接口列出。",
+    apiIds: ["aiInsights", "aiHealthAnalysis", "aiAlertExplain", "aiAnswer", "quickQuestions", "knowledgeList"],
+    suggestedApiIds: ["aiSupportStream", "feedbackSubmit"],
+    gaps: [
+      "当前代码没有真实 SSE 接口；ChatRepository.askStream 是本地 chunk 模拟，最终仍调用 /c/v1/ai/answer。",
+    ],
+  },
+  "tab:mine": {
+    title: "我的页所需 API",
+    summary: "当前代码只落了登出、推送 token 和租户主题；个人资料、套餐、反馈等尚未有远端 Service。",
+    apiIds: ["authLogout", "pushRegister", "pushUnregister", "tenantTheme"],
+    suggestedApiIds: ["userProfile", "userProfileUpdate", "passwordChange", "accountDeleteRequest", "notificationPrefs", "notificationPrefsUpdate", "mapPreferenceUpdate", "serviceSubscriptions", "paymentMethods", "invoices", "feedbackSubmit", "agreementContent", "appVersionCheck"],
+    gaps: [
+      "当前 core:remote 没有用户资料更新、修改密码、账号注销、反馈提交、套餐/支付/发票、协议详情接口。",
+    ],
+  },
+  "detail:overview": {
+    title: "设备概览所需 API",
+    summary: "设备概览由设备详情、设备告警、健康摘要、AI 分析和 Manifest 共同支撑。",
+    apiIds: ["deviceDetail", "deviceAlerts", "healthSummary", "aiHealthAnalysis", "productManifest", "panelManifest", "sharesList"],
+    suggestedApiIds: ["recentEvents", "deviceCommand"],
+    gaps: [
+      "当前代码没有单独的“最近事件”接口，概览事件来自告警、设备状态和健康数据聚合。",
+    ],
+  },
+  "detail:map": {
+    title: "设备地图所需 API",
+    summary: "设备地图页的真实代码链路覆盖轨迹、围栏、单次定位和地点搜索。",
+    apiIds: ["deviceDetail", "track", "locationRefresh", "geofencesList", "geofenceUpsert", "geofenceDelete", "placesSearch"],
+    suggestedApiIds: ["deviceCommand"],
+    gaps: [
+      "当前轨迹接口没有在 Retrofit 签名里暴露 start/end/limit 查询参数。",
+    ],
+  },
+  "detail:health": {
+    title: "健康页所需 API",
+    summary: "健康页按 HealthRepository 与 AiRepository 当前合约列出。",
+    apiIds: ["healthSummary", "healthChart", "aiHealthAnalysis", "productManifest", "panelManifest"],
+    suggestedApiIds: ["petProfileUpdate"],
+    gaps: [
+      "宠物活动是否继续复用 health 模块，当前代码通过 HealthSummary/Manifest 处理，未见独立 activity Service。",
+    ],
+  },
+  "detail:alarms": {
+    title: "告警页所需 API",
+    summary: "告警页当前已有列表、详情、未读数量和 AI 解释读取接口。",
+    apiIds: ["deviceAlerts", "alertDetail", "alertUnreadCount", "aiAlertExplain"],
+    suggestedApiIds: ["alertMarkRead", "alertAck", "alertFeedback"],
+    gaps: [
+      "当前 AlertApiService 没有 mark-read、ack、ignore、误报反馈或处理结果提交接口。",
+    ],
+  },
+  "detail:config": {
+    title: "配置页所需 API",
+    summary: "当前 HTTP 层只有设备详情与 Manifest；具体配置读写在代码里更偏 BLE/协议/设备配置边界。",
+    apiIds: ["deviceDetail", "productManifest", "panelManifest", "locationRefresh"],
+    suggestedApiIds: ["deviceConfigRead", "deviceConfigSave", "configOperationStatus", "deviceCommand", "otaCheck", "otaStart"],
+    gaps: [
+      "当前 core:remote 未见设备配置读取、保存、下发状态、OTA、SIM/APN 等 HTTP API。",
+      "设备配置真实链路应继续核对 core:device-config、core:protocol、core:ble，而不是在这里虚构服务器接口。",
+    ],
+  },
+  "modal:add-device": {
+    title: "添加设备流程 API",
+    summary: "按 AddDeviceUseCase 与 DeviceBindApiService 当前代码列出。",
+    apiIds: ["deviceBindDetect", "deviceBindPreparePanel", "deviceBindBind", "deviceBindPreviews"],
+    gaps: [
+      "BLE 扫描本身是本地近场能力；服务端接口从 detect 接收 BLE/IMEI/扫码识别结果。",
+    ],
+  },
+  "modal:share": {
+    title: "设备分享 API",
+    summary: "当前代码只实现分享列表和创建分享。",
+    apiIds: ["sharesList", "shareCreate"],
+    suggestedApiIds: ["shareUpdate", "shareRevoke", "shareResend", "shareInvitationAction"],
+    gaps: [
+      "原型里的重发、取消分享、修改权限、接受/拒绝邀请，当前 ShareApiService 没有对应 HTTP 接口。",
+    ],
+  },
+  "modal:edit-device": {
+    title: "设备管理 API",
+    summary: "当前代码可以读设备详情，但没有设备资料写接口。",
+    apiIds: ["deviceDetail", "sharesList"],
+    suggestedApiIds: ["deviceProfileUpdate", "emergencyContactsSave", "deviceUnbind", "petProfileUpdate"],
+    gaps: [
+      "当前 DeviceApiService 没有编辑设备资料、紧急联系人、解绑设备接口。",
+    ],
+  },
+  "modal:geofence": {
+    title: "安全围栏 API",
+    summary: "围栏弹窗按 LocationRepository 的围栏读写和地点搜索列出。",
+    apiIds: ["geofencesList", "geofenceUpsert", "geofenceDelete", "placesSearch"],
+    gaps: [
+      "当前 GeofenceDto 是否完整支持多边形，需要继续以 LocationDtos.kt 为准核字段。",
+    ],
+  },
+  "modal:config-category": {
+    title: "配置分类 API",
+    summary: "当前代码没有服务器配置读写接口，只能列出 Manifest 和设备详情作为能力依据。",
+    apiIds: ["deviceDetail", "productManifest", "panelManifest"],
+    suggestedApiIds: ["deviceConfigRead", "deviceConfigSave", "configOperationStatus", "deviceCommand", "otaCheck", "otaStart"],
+    gaps: [
+      "当前 core:remote 未见配置读取、配置保存、配置下发、设备确认结果 API。",
+    ],
+  },
+  "modal:h5": {
+    title: "帮助中心 / H5 API",
+    summary: "帮助内容按 KnowledgeRepository 当前代码列出。",
+    apiIds: ["knowledgeList", "knowledgeDetail", "knowledgeSearch", "quickQuestions"],
+    suggestedApiIds: ["agreementVersions", "agreementContent", "h5Session", "feedbackSubmit"],
+    gaps: [
+      "当前 core:remote 没有协议版本、隐私政策详情、H5 登录态交换接口。",
+    ],
+  },
+  "modal:chat": {
+    title: "AI 客服 API",
+    summary: "客服弹窗由快捷问题、知识库和 AI 问答接口支撑。",
+    apiIds: ["quickQuestions", "knowledgeList", "knowledgeSearch", "knowledgeDetail", "aiAnswer"],
+    suggestedApiIds: ["aiSupportStream", "feedbackSubmit"],
+    gaps: [
+      "当前 ChatRepository 的流式效果是本地模拟；代码里没有独立 SSE Service。",
+    ],
+  },
+  "modal:ai": {
+    title: "AI 分析结果 API",
+    summary: "AI 分析弹窗按告警解释和健康分析两个已存在接口列出。",
+    apiIds: ["alertDetail", "aiAlertExplain", "healthSummary", "aiHealthAnalysis"],
+    suggestedApiIds: ["alertFeedback"],
+    gaps: [
+      "当前代码没有“规则引擎结果详情”独立接口，AI 解释从 AiApiService 读取。",
+    ],
+  },
+  "modal:logout-confirm": {
+    title: "退出登录 API",
+    summary: "退出时按当前代码包含会话退出和推送 token 注销。",
+    apiIds: ["authLogout", "pushUnregister"],
+    suggestedApiIds: ["authRefresh"],
+    gaps: [
+      "当前代码没有 refresh token 失效接口；logout 返回 ApiResponse<Unit>。",
+    ],
+  },
+};
+
 function render() {
   app.dataset.theme = state.brandTheme;
   if (!state.loggedIn || state.route === "login") {
@@ -525,9 +1660,280 @@ function render() {
   if (state.toast) {
     app.insertAdjacentHTML("beforeend", `<div class="toast">${icon("check-circle-2")}<span>${state.toast}</span></div>`);
   }
+  renderApiPanel();
   renderDemoPanel();
   bindEvents();
   refreshIcons();
+}
+
+function renderApiPanel() {
+  if (!apiPanel) return;
+  const info = getApiPanelInfo();
+  const apis = (info.apiIds || []).map((id) => (apiCatalog[id] ? { id, ...apiCatalog[id] } : null)).filter(Boolean);
+  const suggestedApis = (info.suggestedApiIds || [])
+    .map((id) => (suggestedApiCatalog[id] ? { id, ...suggestedApiCatalog[id] } : null))
+    .filter(Boolean);
+  apiPanel.innerHTML = `
+    <section class="api-card api-card-primary">
+      <div class="api-kicker">${icon("server")} 后端服务器 API</div>
+      <h2>${escapeHtml(info.title)}</h2>
+      <p>${escapeHtml(info.summary)}</p>
+      <div class="api-truth-note">
+        <strong>事实来源</strong>
+        <span>已定义接口只来自当前代码：core:data Repository、core:remote Retrofit Service、RemoteRepository 调用链。建议接口只按当前原型 UI 的真实功能缺口反推，旧文档不作为接口事实来源。</span>
+      </div>
+    </section>
+
+    <section class="api-card">
+      <div class="api-card-heading">
+        <h3>本页代码已定义接口</h3>
+        <span>${apis.length} 个</span>
+      </div>
+      ${renderApiList(apis)}
+    </section>
+
+    ${suggestedApis.length ? `
+      <section class="api-card api-suggested-card">
+        <div class="api-card-heading">
+          <h3>UI 需要但代码未实现</h3>
+          <span>${suggestedApis.length} 个</span>
+        </div>
+        ${renderApiList(suggestedApis, { suggested: true })}
+      </section>
+    ` : ""}
+
+    ${renderApiGapList(info.gaps || [])}
+  `;
+}
+
+function getApiPanelInfo() {
+  if (!state.loggedIn || state.route === "login") return apiPageMap.login;
+  if (state.modal === "settings") return settingsApiPanelInfo();
+  if (state.modal) return apiPageMap[`modal:${state.modal}`] || apiPageMap[`tab:${state.tab}`];
+  if (state.route === "detail") return apiPageMap[`detail:${state.detailTab}`] || apiPageMap["detail:overview"];
+  return apiPageMap[`tab:${state.tab}`] || apiPageMap["tab:devices"];
+}
+
+function settingsApiPanelInfo() {
+  const titleMap = {
+    profile: "账号资料设置 API",
+    security: "账号安全设置 API",
+    notifications: "通知设置 API",
+    map: "地区与地图服务 API",
+    service: "我的服务 API",
+    feedback: "意见反馈 API",
+    about: "关于与协议 API",
+  };
+  const apiMap = {
+    profile: ["authLogin"],
+    security: ["authLogout", "pushUnregister"],
+    notifications: ["pushRegister", "pushUnregister"],
+    map: ["tenantTheme"],
+    service: [],
+    feedback: [],
+    about: ["knowledgeList", "knowledgeDetail"],
+  };
+  const suggestedApiMap = {
+    profile: ["userProfile", "userProfileUpdate"],
+    security: ["passwordChange", "loginDevices", "oauthBind", "oauthUnbind", "accountDeleteRequest", "passwordResetStart", "passwordResetConfirm"],
+    notifications: ["notificationPrefs", "notificationPrefsUpdate"],
+    map: ["mapPreferenceUpdate"],
+    service: ["serviceSubscriptions", "servicePlans", "subscriptionRenew", "paymentMethods", "invoices"],
+    feedback: ["feedbackSubmit", "aiSupportStream"],
+    about: ["agreementVersions", "agreementContent", "appVersionCheck"],
+  };
+  const gapMap = {
+    profile: ["当前 core:remote 没有用户资料读取/更新接口。"],
+    security: ["当前 core:remote 没有修改密码、登录设备列表、第三方账号绑定、账号注销接口。"],
+    notifications: ["当前代码只有推送 token 注册/注销，没有通知偏好保存接口。"],
+    map: ["当前地图 provider 选择是本地偏好 + SDK 适配，未见服务器地图配置接口。"],
+    service: ["当前 core:remote 没有套餐、续费、支付方式、发票接口。"],
+    feedback: ["当前 core:remote 没有意见反馈提交或客服工单接口。"],
+    about: ["当前 core:remote 没有协议版本、隐私政策、权限说明、版本检查接口。"],
+  };
+  const panel = state.settingsPanel || "profile";
+  return {
+    title: titleMap[panel] || "设置 API",
+    summary: "按当前设置弹窗和现有远端代码列出；没有代码的能力单独标为建议接口。",
+    apiIds: apiMap[panel] || [],
+    suggestedApiIds: suggestedApiMap[panel] || [],
+    gaps: gapMap[panel] || ["当前设置项没有对应远端接口。"],
+  };
+}
+
+function renderApiList(apis, options = {}) {
+  if (!apis.length) {
+    return `<div class="api-empty">${options.suggested ? "当前原型页面没有额外反推出待实现服务器接口。" : "当前代码没有为这个页面定义可直接对应的 HTTP API。"}</div>`;
+  }
+  return `
+    <div class="api-list">
+      ${apis.map((api, index) => renderApiDetails(api, index === 0, options)).join("")}
+    </div>
+  `;
+}
+
+function renderApiDetails(api, open, options = {}) {
+  const method = escapeHtml(api.method);
+  const suggested = Boolean(options.suggested);
+  return `
+    <details class="api-item ${suggested ? "api-item-suggested" : ""}" ${open ? "open" : ""}>
+      <summary>
+        <span class="api-method method-${method.toLowerCase()}">${method}</span>
+        <span class="api-summary-text">
+          <strong>${escapeHtml(api.title)}${suggested ? `<span class="api-kind-badge">代码未实现</span>` : ""}</strong>
+          <code>${escapeHtml(api.path)}</code>
+        </span>
+        <span class="api-chevron">${icon("chevron-down")}</span>
+      </summary>
+      <div class="api-item-body">
+        <p>${escapeHtml(api.purpose)}</p>
+        ${suggested ? renderSuggestedApiMeta(api) : renderImplementedApiMeta(api)}
+        ${renderDtoSection(api.id, { suggested })}
+      </div>
+    </details>
+  `;
+}
+
+function renderImplementedApiMeta(api) {
+  return `
+    <dl class="api-meta">
+      <div><dt>Repository</dt><dd>${escapeHtml(api.repository)}</dd></div>
+      <div><dt>DTO / 返回</dt><dd>${escapeHtml(api.dto)}</dd></div>
+      <div><dt>代码依据</dt><dd>${escapeHtml(api.source)}</dd></div>
+    </dl>
+  `;
+}
+
+function renderSuggestedApiMeta(api) {
+  return `
+    <dl class="api-meta api-meta-suggested">
+      <div><dt>UI 依据</dt><dd>${escapeHtml(api.uiEvidence)}</dd></div>
+      <div><dt>当前状态</dt><dd>${escapeHtml(api.currentStatus)}</dd></div>
+      <div><dt>建议 DTO</dt><dd>${escapeHtml(api.dto)}</dd></div>
+      <div><dt>性质</dt><dd>建议接口，当前项目代码未实现；路径和字段需要后端评审确认。</dd></div>
+    </dl>
+  `;
+}
+
+function renderDtoSection(apiId, options = {}) {
+  const dtoInfo = options.suggested ? suggestedApiDtoMap[apiId] : apiDtoMap[apiId];
+  if (!dtoInfo) return "";
+  const requestHtml = renderDtoGroup("请求 DTO", dtoInfo.request || [], options);
+  const responseHtml = renderDtoGroup("响应 DTO", dtoInfo.response || [], options);
+  if (!requestHtml && !responseHtml) return "";
+  return `
+    <div class="dto-section ${options.suggested ? "dto-section-suggested" : ""}">
+      <div class="dto-section-title">${icon("braces")} ${options.suggested ? "建议 DTO 实体设计" : "DTO 实体设计"}</div>
+      ${requestHtml}
+      ${responseHtml}
+    </div>
+  `;
+}
+
+function renderDtoGroup(title, dtoNames, options = {}) {
+  const uniqueNames = [...new Set(dtoNames || [])];
+  if (!uniqueNames.length) return "";
+  return `
+    <div class="dto-group">
+      <div class="dto-group-title">${escapeHtml(title)}</div>
+      ${uniqueNames.map((dtoName) => renderDtoClass(dtoName, options)).join("")}
+    </div>
+  `;
+}
+
+function renderDtoClass(dtoName, options = {}) {
+  const schema = options.suggested ? (suggestedDtoCatalog[dtoName] || dtoCatalog[dtoName]) : dtoCatalog[dtoName];
+  if (!schema) {
+    return `
+      <details class="dto-class">
+        <summary>
+          <strong>${escapeHtml(dtoName)}</strong>
+          <span>${options.suggested ? "建议返回类型" : "代码返回类型"}</span>
+        </summary>
+        <div class="dto-empty">${options.suggested ? "该类型是建议阶段的包装或基础返回类型，当前项目尚未定义 data class。" : "该类型不是当前 core:remote 的 data class DTO；通常是 ApiResponse<Unit> 或 Kotlin 基础类型。"}</div>
+      </details>
+    `;
+  }
+  return `
+    <details class="dto-class">
+      <summary>
+        <strong>${escapeHtml(schema.name)}</strong>
+        <span>${escapeHtml(schema.source)}</span>
+      </summary>
+      <div class="dto-fields">
+        <div class="dto-field dto-field-head">
+          <span>JSON 字段</span>
+          <span>Kotlin 属性</span>
+          <span>类型</span>
+          <span>默认</span>
+        </div>
+        ${schema.fields.map(renderDtoField).join("")}
+      </div>
+    </details>
+  `;
+}
+
+function renderDtoField(field) {
+  return `
+    <div class="dto-field">
+      <code>${escapeHtml(field.wire)}</code>
+      <span>${escapeHtml(field.name)}</span>
+      <code>${escapeHtml(field.type)}</code>
+      <span>${field.defaultValue ? escapeHtml(field.defaultValue) : "无"}</span>
+    </div>
+  `;
+}
+
+function dto(source, fieldSpec, displayName = "") {
+  return {
+    name: displayName,
+    source,
+    fields: parseDtoFields(fieldSpec),
+  };
+}
+
+function parseDtoFields(fieldSpec) {
+  return fieldSpec
+    .split(";")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const parts = item.match(/^([^:]+):([^:]+):(.+)$/);
+      const wire = parts?.[1]?.trim() || "";
+      const name = parts?.[2]?.trim() || "";
+      const typeWithDefault = parts?.[3]?.trim() || "";
+      const defaultParts = typeWithDefault.match(/^(.+?)\s=\s(.+)$/);
+      return {
+        wire,
+        name,
+        type: defaultParts ? defaultParts[1].trim() : typeWithDefault,
+        defaultValue: defaultParts ? defaultParts[2].trim() : "",
+      };
+    });
+}
+
+function renderApiGapList(gaps) {
+  if (!gaps.length) return "";
+  return `
+    <section class="api-card api-gap-card">
+      <div class="api-card-heading">
+        <h3>代码未见接口</h3>
+        <span>${gaps.length} 项</span>
+      </div>
+      <ul class="api-gap-list">
+        ${gaps.map((gap) => `<li>${escapeHtml(gap)}</li>`).join("")}
+      </ul>
+    </section>
+  `;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function renderDemoPanel() {
