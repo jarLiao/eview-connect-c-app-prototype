@@ -237,6 +237,59 @@ textarea:focus-visible {
   font-weight: 700;
 }
 
+.api-panel-actions,
+.api-json-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.api-panel-actions {
+  margin-top: 12px;
+}
+
+.api-json-actions {
+  padding: 8px;
+  border: 1px solid rgba(220, 227, 232, 0.9);
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+
+.api-json-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid rgba(12, 117, 111, 0.22);
+  border-radius: 6px;
+  color: var(--primary);
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.api-json-button:hover {
+  border-color: rgba(12, 117, 111, 0.46);
+  background: rgba(12, 117, 111, 0.08);
+}
+
+.api-json-button:active {
+  transform: translateY(1px);
+}
+
+.api-json-button i {
+  width: 14px;
+  height: 14px;
+}
+
 .api-list {
   display: grid;
   gap: 10px;

@@ -1682,6 +1682,10 @@ function renderApiPanel() {
         <strong>事实来源</strong>
         <span>已定义接口只来自当前代码：core:data Repository、core:remote Retrofit Service、RemoteRepository 调用链。建议接口只按当前原型 UI 的真实功能缺口反推，旧文档不作为接口事实来源。</span>
       </div>
+      <div class="api-panel-actions">
+        <button class="api-json-button" type="button" data-action="copy-api-panel-json" aria-label="复制本页 API JSON">${icon("copy")}<span>复制本页 JSON</span></button>
+        <button class="api-json-button" type="button" data-action="export-api-panel-json" aria-label="导出本页 API JSON">${icon("download")}<span>导出本页 JSON</span></button>
+      </div>
     </section>
 
     <section class="api-card">
@@ -1787,10 +1791,21 @@ function renderApiDetails(api, open, options = {}) {
       </summary>
       <div class="api-item-body">
         <p>${escapeHtml(api.purpose)}</p>
+        ${renderApiJsonActions(api, suggested)}
         ${suggested ? renderSuggestedApiMeta(api) : renderImplementedApiMeta(api)}
         ${renderDtoSection(api.id, { suggested })}
       </div>
     </details>
+  `;
+}
+
+function renderApiJsonActions(api, suggested) {
+  const label = suggested ? "建议接口 JSON" : "接口 JSON";
+  return `
+    <div class="api-json-actions" aria-label="${label}">
+      <button class="api-json-button" type="button" data-action="copy-api-json" data-api-id="${escapeHtml(api.id)}" data-api-suggested="${suggested ? "true" : "false"}" aria-label="复制 ${escapeHtml(api.title)} JSON">${icon("copy")}<span>复制 JSON</span></button>
+      <button class="api-json-button" type="button" data-action="export-api-json" data-api-id="${escapeHtml(api.id)}" data-api-suggested="${suggested ? "true" : "false"}" aria-label="导出 ${escapeHtml(api.title)} JSON">${icon("download")}<span>导出 JSON</span></button>
+    </div>
   `;
 }
 
@@ -1910,6 +1925,147 @@ function parseDtoFields(fieldSpec) {
         defaultValue: defaultParts ? defaultParts[2].trim() : "",
       };
     });
+}
+
+function currentApiPanelPayload() {
+  const info = getApiPanelInfo();
+  const implementedApis = (info.apiIds || [])
+    .map((id) => (apiCatalog[id] ? apiPayload({ id, ...apiCatalog[id] }, false) : null))
+    .filter(Boolean);
+  const suggestedApis = (info.suggestedApiIds || [])
+    .map((id) => (suggestedApiCatalog[id] ? apiPayload({ id, ...suggestedApiCatalog[id] }, true) : null))
+    .filter(Boolean);
+  return {
+    generated_from: "Eview Connect C App Prototype",
+    page: {
+      title: info.title,
+      summary: info.summary,
+      route: state.route,
+      tab: state.tab,
+      detail_tab: state.detailTab,
+      modal: state.modal,
+      settings_panel: state.settingsPanel,
+    },
+    implemented_apis: implementedApis,
+    suggested_apis: suggestedApis,
+    gaps: info.gaps || [],
+  };
+}
+
+function apiPayload(api, suggested) {
+  const dtoInfo = suggested ? suggestedApiDtoMap[api.id] : apiDtoMap[api.id];
+  const payload = {
+    id: api.id,
+    status: suggested ? "suggested" : "implemented",
+    method: api.method,
+    path: api.path,
+    title: api.title,
+    purpose: api.purpose,
+    request_dto: dtoSchemas(dtoInfo?.request || [], suggested),
+    response_dto: dtoSchemas(dtoInfo?.response || [], suggested),
+  };
+  if (suggested) {
+    payload.ui_evidence = api.uiEvidence;
+    payload.current_status = api.currentStatus;
+    payload.review_note = "建议接口，当前项目代码未实现；路径和字段需要后端评审确认。";
+  } else {
+    payload.repository = api.repository;
+    payload.dto = api.dto;
+    payload.source = api.source;
+  }
+  return payload;
+}
+
+function dtoSchemas(dtoNames, suggested) {
+  return [...new Set(dtoNames || [])].map((dtoName) => {
+    const schema = suggested ? (suggestedDtoCatalog[dtoName] || dtoCatalog[dtoName]) : dtoCatalog[dtoName];
+    if (!schema) {
+      return {
+        name: dtoName,
+        source: suggested ? "建议返回类型或包装类型" : "代码返回类型或基础类型",
+        fields: [],
+      };
+    }
+    return {
+      name: schema.name || dtoName,
+      source: schema.source,
+      fields: schema.fields.map((field) => ({
+        json_field: field.wire,
+        kotlin_property: field.name,
+        type: field.type,
+        default: field.defaultValue || null,
+      })),
+    };
+  });
+}
+
+function apiPayloadFromElement(element) {
+  const id = element.dataset.apiId;
+  const suggested = element.dataset.apiSuggested === "true";
+  const catalog = suggested ? suggestedApiCatalog : apiCatalog;
+  const api = catalog[id];
+  if (!api) return null;
+  return apiPayload({ id, ...api }, suggested);
+}
+
+function stringifyJson(payload) {
+  return `${JSON.stringify(payload, null, 2)}\n`;
+}
+
+async function copyJsonPayload(payload, label) {
+  if (!payload) {
+    showToast("未找到可复制的 API JSON");
+    return;
+  }
+  try {
+    await writeTextToClipboard(stringifyJson(payload));
+    showToast(`${label} 已复制为 JSON`);
+  } catch (error) {
+    showToast("复制失败，请检查浏览器剪贴板权限");
+  }
+}
+
+function exportJsonPayload(payload, fileName) {
+  if (!payload) {
+    showToast("未找到可导出的 API JSON");
+    return;
+  }
+  const blob = new Blob([stringifyJson(payload)], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${fileName}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  showToast("JSON 文件已开始下载");
+}
+
+async function writeTextToClipboard(text) {
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.top = "-9999px";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  if (!copied) throw new Error("copy command failed");
+}
+
+function jsonFileName(prefix, value) {
+  const slug = String(value || "api")
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `${prefix}-${slug || "api"}`;
 }
 
 function renderApiGapList(gaps) {
@@ -4387,6 +4543,20 @@ function handleAction(action, element, event) {
     },
     "copy-config"() {
       showToast("Home WiFi / Home Beacon 配置已复制到目标设备");
+    },
+    "copy-api-json"() {
+      copyJsonPayload(apiPayloadFromElement(element), "接口定义");
+    },
+    "export-api-json"() {
+      const payload = apiPayloadFromElement(element);
+      exportJsonPayload(payload, jsonFileName("api", payload?.id));
+    },
+    "copy-api-panel-json"() {
+      copyJsonPayload(currentApiPanelPayload(), "本页 API");
+    },
+    "export-api-panel-json"() {
+      const payload = currentApiPanelPayload();
+      exportJsonPayload(payload, jsonFileName("page-api", payload.page.title));
     },
     "alarm-ai"() {
       state.modal = "ai";
