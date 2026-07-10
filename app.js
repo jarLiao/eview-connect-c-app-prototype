@@ -412,6 +412,26 @@ const state = {
   configCategory: "home",
   settingsPanel: "profile",
   toast: "",
+  auth: {
+    purpose: "register",
+    pendingEmail: "",
+    loginAccount: "",
+    verificationCode: "",
+    countdown: 0,
+    errors: {},
+    register: {
+      username: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      accepted: false,
+    },
+    reset: {
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
+  },
   chat: [
     { role: "assistant", text: "你好，我可以帮你解释告警、排查设备离线，也可以说明如何分享和配置设备。" },
   ],
@@ -420,6 +440,7 @@ const state = {
 const app = document.getElementById("app");
 const apiPanel = document.getElementById("api-panel");
 const demoPanel = document.getElementById("demo-panel");
+let verificationCountdownTimer = null;
 
 function $(selector, root = document) {
   return root.querySelector(selector);
@@ -512,9 +533,13 @@ function renderOauthBrandIcon(provider) {
 }
 
 const dtoCatalog = {
-  LoginRequestDto: dto("AuthDtos.kt", `account:account:String; password:password:String; client_type:clientType:String = "android"; app_key:appKey:String = "evmars_c_app"`),
-  LoginResponseDto: dto("AuthDtos.kt", "user:user:UserDto; token:token:TokenDto"),
-  TokenDto: dto("AuthDtos.kt", "access_token:accessToken:String; refresh_token:refreshToken:String; expires_at_ms:expiresAtMs:Long"),
+  LoginRequestDto: dto("AuthDtos.kt", "account:account:String; password:password:String"),
+  LoginResponseDto: dto("AuthDtos.kt", "access_token:accessToken:String; token_type:tokenType:String?; expires_in:expiresIn:String?; refresh_token:refreshToken:String?; scope:scope:String?; username:username:String?; user_id:userId:String?"),
+  SendEmailCodeRequestDto: dto("AuthDtos.kt", "email:email:String; scene:scene:String"),
+  RegisterRequestDto: dto("AuthDtos.kt", "username:username:String; password:password:String; email:email:String; code:code:String; tenantId:tenantId:Long? = 1L"),
+  ResetPasswordRequestDto: dto("AuthDtos.kt", "email:email:String; code:code:String; newPassword:newPassword:String"),
+  CheckTokenResponseDto: dto("AuthDtos.kt", "tokenValue:tokenValue:String?; issuedAt:issuedAt:String?; expiresAt:expiresAt:String?; tokenType:tokenType:TokenTypeDto?; scopes:scopes:List<String>?"),
+  TokenTypeDto: dto("AuthDtos.kt", "value:value:String?"),
   UserDto: dto("AuthDtos.kt", "id:id:String; display_name:displayName:String; email:email:String; phone:phone:String?; avatar_url:avatarUrl:String?; tenant_id:tenantId:String; tenant_name:tenantName:String; role:role:String"),
 
   DeviceDto: dto("DeviceDtos.kt", "id:id:String; name:name:String; product_key:productKey:String; category:category:String; imei:imei:String; owner_id:ownerId:String; shared_from_id:sharedFromId:String?; tenant_id:tenantId:String; state:state:DeviceStateDto; latest_location:latestLocation:LocationDto?; nickname:nickname:String?; ble_identity:bleIdentity:DeviceBleIdentityDto? = null"),
@@ -573,18 +598,54 @@ Object.entries(dtoCatalog).forEach(([name, schema]) => {
 const apiCatalog = {
   authLogin: {
     method: "POST",
-    path: "/c/v1/auth/login",
+    path: "/evmars/mock/login",
     title: "账号登录",
-    purpose: "提交账号和密码，返回当前用户与登录态。",
+    purpose: "提交账号或邮箱与 AES-CFB 加密密码，返回 PigX 登录态。",
     repository: "AccountRepository.login -> RemoteAccountRepository.login",
     dto: "LoginRequestDto / LoginResponseDto",
     source: "AuthApiService.kt",
   },
-  authLogout: {
+  authEmailCode: {
     method: "POST",
-    path: "/c/v1/auth/logout",
+    path: "/evmars/mock/code/email",
+    title: "发送邮箱验证码",
+    purpose: "按 register 或 reset_password 场景发送验证码。",
+    repository: "AccountRepository.sendEmailCode -> RemoteAccountRepository.sendEmailCode",
+    dto: "SendEmailCodeRequestDto / ApiResponse<Boolean>",
+    source: "AuthApiService.kt",
+  },
+  authRegister: {
+    method: "POST",
+    path: "/evmars/mock/register",
+    title: "注册账号",
+    purpose: "提交用户名、邮箱、验证码和加密密码创建账号。",
+    repository: "AccountRepository.register -> RemoteAccountRepository.register",
+    dto: "RegisterRequestDto / ApiResponse<Boolean>",
+    source: "AuthApiService.kt",
+  },
+  authResetPassword: {
+    method: "POST",
+    path: "/evmars/mock/password/reset",
+    title: "重置密码",
+    purpose: "使用邮箱验证码和加密后的新密码完成找回密码。",
+    repository: "AccountRepository.resetPassword -> RemoteAccountRepository.resetPassword",
+    dto: "ResetPasswordRequestDto / ApiResponse<Boolean>",
+    source: "AuthApiService.kt",
+  },
+  authCheckToken: {
+    method: "GET",
+    path: "/token/check_token?token=",
+    title: "校验登录态",
+    purpose: "校验 access token 是否仍然有效。",
+    repository: "AccountRepository.checkToken -> RemoteAccountRepository.checkToken",
+    dto: "CheckTokenResponseDto",
+    source: "AuthApiService.kt",
+  },
+  authLogout: {
+    method: "DELETE",
+    path: "/token/logout",
     title: "退出登录",
-    purpose: "退出当前会话；当前代码只定义 logout，没有 refresh token 接口。",
+    purpose: "携带 Bearer token 注销当前 PigX 登录态。",
     repository: "AccountRepository.logout -> RemoteAccountRepository.logout",
     dto: "ApiResponse<Unit>",
     source: "AuthApiService.kt",
@@ -889,7 +950,11 @@ const apiCatalog = {
 };
 
 const apiDtoMap = {
-  authLogin: { request: ["LoginRequestDto"], response: ["LoginResponseDto", "UserDto", "TokenDto"] },
+  authLogin: { request: ["LoginRequestDto"], response: ["LoginResponseDto"] },
+  authEmailCode: { request: ["SendEmailCodeRequestDto"], response: ["ApiResponse<Boolean>"] },
+  authRegister: { request: ["RegisterRequestDto"], response: ["ApiResponse<Boolean>"] },
+  authResetPassword: { request: ["ResetPasswordRequestDto"], response: ["ApiResponse<Boolean>"] },
+  authCheckToken: { response: ["CheckTokenResponseDto", "TokenTypeDto"] },
   authLogout: { response: ["ApiResponse<Unit>"] },
   devicesList: { response: ["DeviceDto", "DeviceStateDto", "LocationDto", "DeviceBleIdentityDto"] },
   deviceDetail: { response: ["DeviceDto", "DeviceStateDto", "LocationDto", "DeviceBleIdentityDto"] },
@@ -932,9 +997,6 @@ const suggestedDtoCatalog = {
   ThirdPartyLoginStartRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "provider:provider:String; redirect_uri:redirectUri:String? = null; locale:locale:String? = null; device_id:deviceId:String? = null"),
   ThirdPartyLoginStartResponseDto: dto("建议 DTO（UI 需求，代码未实现）", "provider:provider:String; auth_url:authUrl:String?; state:state:String; nonce:nonce:String?; expires_at_ms:expiresAtMs:Long"),
   ThirdPartyLoginCompleteRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "provider:provider:String; code:code:String? = null; state:state:String? = null; id_token:idToken:String? = null; access_token:accessToken:String? = null"),
-  PasswordResetStartRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "account:account:String; channel:channel:String = \"email_or_sms\"; locale:locale:String? = null"),
-  PasswordResetStartResponseDto: dto("建议 DTO（UI 需求，代码未实现）", "reset_id:resetId:String; masked_target:maskedTarget:String; expires_at_ms:expiresAtMs:Long"),
-  PasswordResetConfirmRequestDto: dto("建议 DTO（UI 需求，代码未实现）", "reset_id:resetId:String; verify_code:verifyCode:String; new_password:newPassword:String"),
   AgreementVersionDto: dto("建议 DTO（UI 需求，代码未实现）", "key:key:String; title:title:String; version:version:String; url:url:String; required:required:Boolean; updated_ms:updatedMs:Long"),
   AgreementContentDto: dto("建议 DTO（UI 需求，代码未实现）", "key:key:String; title:title:String; version:version:String; content_html:contentHtml:String; updated_ms:updatedMs:Long"),
   UserProfileDto: dto("建议 DTO（UI 需求，代码未实现）", "id:id:String; display_name:displayName:String; email:email:String?; phone:phone:String?; avatar_url:avatarUrl:String?; region:region:String; locale:locale:String"),
@@ -1012,24 +1074,6 @@ const suggestedApiCatalog = {
     uiEvidence: "toast-oauth 提示“调起 SDK 授权 → 绑定到 Evmars 账号”。",
     currentStatus: "AuthApiService.kt 只有账号密码登录，没有 OAuth complete。",
     dto: "ThirdPartyLoginCompleteRequestDto / LoginResponseDto",
-  },
-  passwordResetStart: {
-    method: "POST",
-    path: "/c/v1/auth/password/reset/start",
-    title: "找回密码发起",
-    purpose: "忘记密码入口需要发送邮箱或手机号验证码。",
-    uiEvidence: "登录页 data-action=\"toast-forgot-password\"。",
-    currentStatus: "AuthApiService.kt 未定义找回密码接口。",
-    dto: "PasswordResetStartRequestDto / PasswordResetStartResponseDto",
-  },
-  passwordResetConfirm: {
-    method: "POST",
-    path: "/c/v1/auth/password/reset/confirm",
-    title: "找回密码确认",
-    purpose: "校验验证码并提交新密码。",
-    uiEvidence: "toast-forgot-password 提示“通过邮箱或手机号验证码重置”。",
-    currentStatus: "AuthApiService.kt 未定义重置确认接口。",
-    dto: "PasswordResetConfirmRequestDto",
   },
   agreementVersions: {
     method: "GET",
@@ -1415,8 +1459,6 @@ const suggestedApiDtoMap = {
   authRefresh: { request: ["TokenRefreshRequestDto"], response: ["TokenRefreshResponseDto", "TokenDto", "UserDto"] },
   oauthStart: { request: ["ThirdPartyLoginStartRequestDto"], response: ["ThirdPartyLoginStartResponseDto"] },
   oauthComplete: { request: ["ThirdPartyLoginCompleteRequestDto"], response: ["LoginResponseDto", "UserDto", "TokenDto"] },
-  passwordResetStart: { request: ["PasswordResetStartRequestDto"], response: ["PasswordResetStartResponseDto"] },
-  passwordResetConfirm: { request: ["PasswordResetConfirmRequestDto"], response: ["ApiResponse<Unit>"] },
   agreementVersions: { response: ["AgreementVersionDto"] },
   agreementContent: { response: ["AgreementContentDto"] },
   userProfile: { response: ["UserProfileDto"] },
@@ -1464,11 +1506,48 @@ const suggestedApiDtoMap = {
 const apiPageMap = {
   login: {
     title: "登录页所需 API",
-    summary: "上方列当前代码已经定义的账号密码登录；下方补 UI 已出现但代码未实现的登录能力。",
-    apiIds: ["authLogin"],
-    suggestedApiIds: ["authRefresh", "oauthStart", "oauthComplete", "passwordResetStart", "passwordResetConfirm", "agreementVersions", "agreementContent"],
+    summary: "账号密码登录已接入 PigX；注册和找回密码从本页进入独立流程。",
+    apiIds: ["authLogin", "authCheckToken"],
+    suggestedApiIds: ["authRefresh", "oauthStart", "oauthComplete", "agreementVersions", "agreementContent"],
     gaps: [
-      "当前 core:remote 没有 refresh token、找回密码、第三方 OAuth、协议版本确认接口。",
+      "当前 core:remote 没有 refresh token、第三方 OAuth、协议版本确认接口。",
+    ],
+  },
+  register: {
+    title: "注册页所需 API",
+    summary: "注册第一步只收集邮箱并发送 register 场景验证码。",
+    apiIds: ["authEmailCode"],
+    suggestedApiIds: ["agreementVersions", "agreementContent"],
+    gaps: [
+      "后端登录响应暂未返回完整用户资料、租户和角色。",
+    ],
+  },
+  "reset-password": {
+    title: "重置密码页所需 API",
+    summary: "找回密码第一步只确认邮箱并发送 reset_password 场景验证码。",
+    apiIds: ["authEmailCode"],
+    suggestedApiIds: [],
+    gaps: [
+      "当前未定义验证码尝试次数、风控锁定时间和密码历史策略。",
+    ],
+  },
+  verification: {
+    title: "验证码页所需 API",
+    summary: "验证码页负责收集验证码和控制重发；当前后端在最终注册或重置请求中校验验证码。",
+    apiIds: ["authEmailCode"],
+    suggestedApiIds: [],
+    gaps: [
+      "当前没有独立验证码校验接口，最终提交失败时需要返回本页显示验证码错误。",
+      "验证码有效期和重发频率由后端控制，OpenAPI 未返回倒计时秒数。",
+    ],
+  },
+  credentials: {
+    title: "设置账号资料所需 API",
+    summary: "邮箱与验证码收集完成后，最后一步提交注册账号或新密码。",
+    apiIds: ["authRegister", "authResetPassword"],
+    suggestedApiIds: [],
+    gaps: [
+      "最终请求会同时提交验证码；服务端拒绝验证码时页面需要返回验证码步骤。",
     ],
   },
   "tab:map": {
@@ -1647,8 +1726,8 @@ const apiPageMap = {
 
 function render() {
   app.dataset.theme = state.brandTheme;
-  if (!state.loggedIn || state.route === "login") {
-    app.innerHTML = renderLogin();
+  if (!state.loggedIn) {
+    app.innerHTML = renderAuthRoute();
   } else if (state.route === "detail") {
     app.innerHTML = renderDetail();
   } else {
@@ -1664,6 +1743,16 @@ function render() {
   renderDemoPanel();
   bindEvents();
   refreshIcons();
+  syncVerificationCountdown();
+}
+
+function renderAuthRoute() {
+  if (state.route === "register") return renderRegister();
+  if (state.route === "reset-password") return renderResetPassword();
+  if (state.route === "verification") return renderVerification();
+  if (state.route === "credentials") return renderCredentials();
+  state.route = "login";
+  return renderLogin();
 }
 
 function renderApiPanel() {
@@ -1711,7 +1800,13 @@ function renderApiPanel() {
 }
 
 function getApiPanelInfo() {
-  if (!state.loggedIn || state.route === "login") return apiPageMap.login;
+  if (!state.loggedIn) {
+    const panel = apiPageMap[state.route] || apiPageMap.login;
+    if (state.route === "credentials") {
+      return { ...panel, apiIds: [state.auth.purpose === "register" ? "authRegister" : "authResetPassword"] };
+    }
+    return panel;
+  }
   if (state.modal === "settings") return settingsApiPanelInfo();
   if (state.modal) return apiPageMap[`modal:${state.modal}`] || apiPageMap[`tab:${state.tab}`];
   if (state.route === "detail") return apiPageMap[`detail:${state.detailTab}`] || apiPageMap["detail:overview"];
@@ -1739,7 +1834,7 @@ function settingsApiPanelInfo() {
   };
   const suggestedApiMap = {
     profile: ["userProfile", "userProfileUpdate"],
-    security: ["passwordChange", "loginDevices", "oauthBind", "oauthUnbind", "accountDeleteRequest", "passwordResetStart", "passwordResetConfirm"],
+    security: ["passwordChange", "loginDevices", "oauthBind", "oauthUnbind", "accountDeleteRequest"],
     notifications: ["notificationPrefs", "notificationPrefsUpdate"],
     map: ["mapPreferenceUpdate"],
     service: ["serviceSubscriptions", "servicePlans", "subscriptionRenew", "paymentMethods", "invoices"],
@@ -2143,10 +2238,100 @@ function toRequirementItems(info) {
 }
 
 function getDemoPanelInfo() {
-  if (!state.loggedIn || state.route === "login") return loginPanelInfo();
+  if (!state.loggedIn) return authPanelInfo();
   if (state.modal) return modalPanelInfo();
   if (state.route === "detail") return detailPanelInfo();
   return tabPanelInfo();
+}
+
+function authPanelInfo() {
+  const panels = {
+    login: loginPanelInfo(),
+    register: {
+      title: "注册账号",
+      summary: "先确认注册邮箱，再进入验证码与账号资料设置步骤。",
+      tags: ["注册邮箱", "渐进填写", "身份确认"],
+      goals: [
+        "确认第一步只要求邮箱，不让用户过早填写大量资料。",
+        "确认继续按钮只承担一个动作：发送注册验证码。",
+        "确认用户可以返回登录页，不会被困在注册流程中。",
+      ],
+      actions: [
+        "填写注册邮箱并点击发送验证码。",
+        "进入验证码页面确认邮箱。",
+        "验证后再设置用户名和密码。",
+      ],
+      review: [
+        "邮箱用于登录、找回密码和接收安全通知。",
+        "无论邮箱是否已存在，都应避免暴露可用于账号枚举的详细信息。",
+      ],
+      backend: ["发送 register 场景验证码、频率限制与统一安全提示。"],
+    },
+    "reset-password": {
+      title: "重置密码",
+      summary: "先验证已绑定邮箱，再进入新密码设置步骤。",
+      tags: ["找回密码", "身份验证", "安全恢复"],
+      goals: [
+        "确认用户知道验证码会发送到哪个邮箱。",
+        "确认第一步不提前要求输入新密码。",
+        "确认流程不会泄露邮箱是否已注册等敏感信息。",
+      ],
+      actions: [
+        "填写邮箱并点击发送验证码。",
+        "完成验证码输入后再设置新密码。",
+        "返回登录页或继续账号恢复流程。",
+      ],
+      review: [
+        "错误文案要给出恢复方式，但不能暴露账号枚举信息。",
+        "新密码应经过客户端提示和服务端最终校验。",
+      ],
+      backend: ["发送 reset_password 场景验证码和频率限制。"],
+    },
+    verification: {
+      title: "邮箱验证码",
+      summary: "输入 6 位验证码完成注册或密码重置，倒计时结束后可以重新发送。",
+      tags: ["6 位验证码", "60 秒倒计时", "自动跳格"],
+      goals: [
+        "确认验证码发送目标和当前业务目的明确。",
+        "确认输入、粘贴、退格和自动跳格在手机上都易于使用。",
+        "确认倒计时期间重发按钮明确禁用，结束后可重新发送。",
+      ],
+      actions: [
+        "输入或粘贴 6 位验证码。",
+        "倒计时结束后重新发送验证码。",
+        "进入设置账号资料或新密码步骤。",
+      ],
+      review: [
+        "验证码有效期、错误次数和重发频率最终由后端决定。",
+        "当前后端没有独立校验接口，最终提交失败时要回到本页提示。",
+      ],
+      backend: ["验证码发送、错误次数、有效期和限流。"],
+    },
+    credentials: {
+      title: state.auth.purpose === "register" ? "设置账号资料" : "设置新密码",
+      summary: state.auth.purpose === "register" ? "邮箱确认后设置用户名和登录密码，完成账号创建。" : "邮箱确认后设置新密码，完成账号恢复。",
+      tags: state.auth.purpose === "register" ? ["用户名", "登录密码", "协议确认"] : ["新密码", "密码强度", "安全恢复"],
+      goals: [
+        "确认用户知道邮箱步骤已经完成，可以专注设置登录凭据。",
+        "确认密码规则、显隐控制和两次输入一致性清楚可见。",
+        "确认最终提交动作和完成后的去向明确。",
+      ],
+      actions: state.auth.purpose === "register" ? [
+        "设置用户名和登录密码。",
+        "阅读并同意服务协议与隐私政策。",
+        "完成注册并返回登录页。",
+      ] : [
+        "设置并确认新密码。",
+        "完成密码重置并返回登录页。",
+      ],
+      review: [
+        "最终请求同时提交邮箱、验证码和密码，由服务端确认验证码有效性。",
+        "验证码无效时应返回验证码页面，而不是清空全部已填内容。",
+      ],
+      backend: [state.auth.purpose === "register" ? "注册账号、密码加密、用户名规则和验证码最终校验。" : "密码重置、密码加密、历史密码规则和验证码最终校验。"],
+    },
+  };
+  return panels[state.route] || panels.login;
 }
 
 function loginPanelInfo() {
@@ -2162,11 +2347,12 @@ function loginPanelInfo() {
     ],
     actions: [
       "点击登录进入设备首页。",
+      "点击注册账号进入新用户注册流程。",
+      "点击忘记密码进入密码重置流程。",
       "点击微信、Apple、Google 第三方登录入口查看授权提示。",
       "点击服务协议与隐私政策查看帮助中心弹窗。",
     ],
     review: [
-      "是否需要在第一版登录页展示注册入口，取决于账号是否完全复用 Evmars。",
       "是否需要支持手机号登录、邮箱登录和地区选择，要和国内运营方案一起定。",
       "协议入口后续应拆出用户协议、隐私政策和权限说明。",
     ],
@@ -2724,6 +2910,7 @@ function logoutPanelInfo() {
 }
 
 function renderLogin() {
+  const loginAccount = state.auth.loginAccount || mock.user.email;
   return `
     <div class="login-screen">
       <div class="login-visual">
@@ -2743,7 +2930,7 @@ function renderLogin() {
       <form class="login-form" data-form="login">
         <div class="field">
           <label for="email">账号 / 邮箱</label>
-          <input id="email" name="email" type="email" value="${mock.user.email}" autocomplete="username" />
+          <input id="email" name="email" type="email" value="${escapeHtml(loginAccount)}" autocomplete="username" />
         </div>
         <div class="field">
           <label for="password">密码</label>
@@ -2751,9 +2938,10 @@ function renderLogin() {
         </div>
         <button class="primary-button" type="submit">${icon("log-in")} 登录</button>
         <div class="login-aux">
-          <button class="text-button" type="button" data-action="toast-forgot-password">${icon("key-round")} 忘记密码</button>
-          <button class="text-button" type="button" data-action="open-h5">${icon("file-question")} 协议与隐私</button>
+          <button class="text-button" type="button" data-action="open-register">${icon("user-plus")} 注册账号</button>
+          <button class="text-button" type="button" data-action="open-reset-password">${icon("key-round")} 忘记密码</button>
         </div>
+        <button class="auth-legal-link" type="button" data-action="open-h5">登录即表示同意《服务协议》与《隐私政策》</button>
         <div class="oauth-divider"><span>第三方登录</span></div>
         <div class="oauth-grid login-oauth-grid" aria-label="第三方登录方式">
           ${oauthProviders().map((provider) => `
@@ -2769,6 +2957,189 @@ function renderLogin() {
       </form>
     </div>
   `;
+}
+
+function renderAuthHeader(step, title, subtitle, backAction) {
+  return `
+    <header class="auth-header">
+      <button class="back-button" type="button" data-action="${backAction}" aria-label="返回">${icon("arrow-left")}</button>
+      <div class="auth-header-copy">
+        <span>${escapeHtml(step)}</span>
+        <strong>${escapeHtml(title)}</strong>
+        <small>${escapeHtml(subtitle)}</small>
+      </div>
+      <div class="auth-brand-mark" aria-label="Eview Connect">${icon("radio-tower")}</div>
+    </header>
+  `;
+}
+
+function renderAuthProgress(activeStep) {
+  const finalLabel = state.auth.purpose === "register" ? "账号" : "新密码";
+  return `
+    <div class="auth-progress" aria-label="认证进度">
+      <span class="${activeStep >= 1 ? "active" : ""}"><b>1</b>邮箱</span>
+      <i aria-hidden="true"></i>
+      <span class="${activeStep >= 2 ? "active" : ""}"><b>2</b>验证</span>
+      <i aria-hidden="true"></i>
+      <span class="${activeStep >= 3 ? "active" : ""}"><b>3</b>${finalLabel}</span>
+    </div>
+  `;
+}
+
+function renderPasswordField({ id, name, label, value, autocomplete, helper }) {
+  return `
+    <div class="field ${authFieldClass(name)}">
+      <label for="${id}">${escapeHtml(label)}</label>
+      <div class="password-input-wrap">
+        <input id="${id}" name="${name}" type="password" value="${escapeHtml(value)}" autocomplete="${autocomplete}" data-auth-field="${name}" aria-invalid="${Boolean(state.auth.errors[name])}" />
+        <button class="password-toggle" type="button" data-action="toggle-password" data-target="${id}" aria-label="显示${escapeHtml(label)}" aria-pressed="false">${icon("eye")}</button>
+      </div>
+      ${authFieldMessage(name, helper)}
+    </div>
+  `;
+}
+
+function renderRegister() {
+  const form = state.auth.register;
+  state.auth.purpose = "register";
+  return `
+    <div class="auth-screen">
+      ${renderAuthHeader("创建账号", "注册 Eview Connect", "账号可用于 App、Web 和设备服务", "auth-back-login")}
+      <main class="auth-content">
+        ${renderAuthProgress(1)}
+        <div class="auth-intro">
+          <span class="auth-intro-icon">${icon("mail")}</span>
+          <div><h1>先验证你的邮箱</h1><p>验证通过后，再设置用户名和登录密码。</p></div>
+        </div>
+        <form class="auth-form" data-form="register" novalidate>
+          <div class="field ${authFieldClass("email")}">
+            <label for="register-email">注册邮箱</label>
+            <input id="register-email" name="email" type="email" inputmode="email" value="${escapeHtml(form.email)}" autocomplete="email" data-auth-field="email" aria-invalid="${Boolean(state.auth.errors.email)}" />
+            ${authFieldMessage("email", "用于登录、找回密码和接收安全通知")}
+          </div>
+          <div class="security-note">${icon("shield-check")}<span>我们只会发送验证码和必要的账号安全通知。</span></div>
+          <button class="primary-button auth-submit" type="submit">发送验证码 ${icon("arrow-right")}</button>
+          <button class="text-button auth-secondary" type="button" data-action="auth-back-login">已有账号？返回登录</button>
+        </form>
+      </main>
+    </div>
+  `;
+}
+
+function renderResetPassword() {
+  const form = state.auth.reset;
+  state.auth.purpose = "reset";
+  return `
+    <div class="auth-screen">
+      ${renderAuthHeader("账号恢复", "重置密码", "验证已绑定邮箱后设置新密码", "auth-back-login")}
+      <main class="auth-content">
+        ${renderAuthProgress(1)}
+        <div class="auth-intro">
+          <span class="auth-intro-icon">${icon("mail-search")}</span>
+          <div><h1>确认账号邮箱</h1><p>验证邮箱属于你之后，再设置新密码。</p></div>
+        </div>
+        <form class="auth-form" data-form="reset-password" novalidate>
+          <div class="field ${authFieldClass("email")}">
+            <label for="reset-email">已绑定邮箱</label>
+            <input id="reset-email" name="email" type="email" inputmode="email" value="${escapeHtml(form.email)}" autocomplete="email" data-auth-field="email" aria-invalid="${Boolean(state.auth.errors.email)}" />
+            ${authFieldMessage("email", "为保护账号安全，无论邮箱是否存在都会显示相同提示")}
+          </div>
+          <div class="security-note">${icon("shield-check")}<span>无论邮箱是否已注册，页面都会显示相同的发送结果。</span></div>
+          <button class="primary-button auth-submit" type="submit">发送验证码 ${icon("arrow-right")}</button>
+          <button class="text-button auth-secondary" type="button" data-action="auth-back-login">想起密码？返回登录</button>
+        </form>
+      </main>
+    </div>
+  `;
+}
+
+function renderVerification() {
+  const email = state.auth.pendingEmail || "user@example.com";
+  const isRegister = state.auth.purpose === "register";
+  const digits = Array.from({ length: 6 }, (_, index) => state.auth.verificationCode[index] || "");
+  return `
+    <div class="auth-screen">
+      ${renderAuthHeader("邮箱验证", "输入验证码", isRegister ? "验证后设置账号" : "验证后设置新密码", "auth-back-source")}
+      <main class="auth-content verification-content">
+        ${renderAuthProgress(2)}
+        <div class="verification-hero">
+          <span class="verification-icon">${icon("mail-check")}</span>
+          <h1>检查你的邮箱</h1>
+          <p>6 位验证码已发送至</p>
+          <strong>${escapeHtml(maskEmail(email))}</strong>
+        </div>
+        <form class="auth-form verification-form" data-form="verification" novalidate>
+          <fieldset class="otp-fieldset">
+            <legend>邮箱验证码</legend>
+            <div class="otp-grid" data-otp-grid>
+              ${digits.map((digit, index) => `<input class="otp-input" type="text" inputmode="numeric" autocomplete="${index === 0 ? "one-time-code" : "off"}" maxlength="1" value="${escapeHtml(digit)}" data-otp-index="${index}" aria-label="验证码第 ${index + 1} 位" />`).join("")}
+            </div>
+            ${state.auth.errors.code ? `<p class="field-error otp-error" role="alert">${escapeHtml(state.auth.errors.code)}</p>` : `<p class="field-helper">支持直接粘贴完整的 6 位验证码</p>`}
+          </fieldset>
+          <div class="resend-row">
+            <span>没有收到邮件？</span>
+            <button class="text-button resend-button" type="button" data-action="resend-code" data-countdown></button>
+          </div>
+          <button class="primary-button auth-submit" type="submit">下一步：${isRegister ? "设置账号" : "设置新密码"} ${icon("arrow-right")}</button>
+          <button class="text-button auth-secondary" type="button" data-action="auth-back-source">修改邮箱</button>
+        </form>
+        <div class="security-note verification-security">${icon("shield-check")}<span>验证码 10 分钟内有效。连续输错可能触发安全限制。</span></div>
+      </main>
+    </div>
+  `;
+}
+
+function renderCredentials() {
+  const isRegister = state.auth.purpose === "register";
+  const form = isRegister ? state.auth.register : state.auth.reset;
+  return `
+    <div class="auth-screen">
+      ${renderAuthHeader(isRegister ? "创建账号" : "账号恢复", isRegister ? "设置账号资料" : "设置新密码", `已确认 ${maskEmail(state.auth.pendingEmail)}`, "auth-back-verification")}
+      <main class="auth-content">
+        ${renderAuthProgress(3)}
+        <div class="auth-intro">
+          <span class="auth-intro-icon">${icon(isRegister ? "user-round-check" : "key-round")}</span>
+          <div><h1>${isRegister ? "完成账号设置" : "设置你的新密码"}</h1><p>${isRegister ? "设置用于登录的用户名和密码。" : "新密码设置完成后将返回登录页。"}</p></div>
+        </div>
+        <form class="auth-form" data-form="credentials" novalidate>
+          ${isRegister ? `
+            <div class="field ${authFieldClass("username")}">
+              <label for="register-username">用户名</label>
+              <input id="register-username" name="username" type="text" value="${escapeHtml(form.username)}" autocomplete="username" data-auth-field="username" aria-invalid="${Boolean(state.auth.errors.username)}" />
+              ${authFieldMessage("username", "4-20 位字母、数字或下划线")}
+            </div>
+          ` : ""}
+          ${renderPasswordField({ id: `${isRegister ? "register" : "reset"}-password`, name: "password", label: isRegister ? "设置密码" : "新密码", value: form.password, autocomplete: "new-password", helper: "至少 8 位，并包含大小写字母和数字" })}
+          ${renderPasswordField({ id: `${isRegister ? "register" : "reset"}-confirm-password`, name: "confirmPassword", label: isRegister ? "确认密码" : "确认新密码", value: form.confirmPassword, autocomplete: "new-password", helper: isRegister ? "再次输入相同密码" : "请勿使用近期使用过的密码" })}
+          ${isRegister ? `
+            <label class="agreement-check ${authFieldClass("accepted")}">
+              <input name="accepted" type="checkbox" ${form.accepted ? "checked" : ""} data-auth-field="accepted" />
+              <span>我已阅读并同意<button type="button" data-action="open-h5">《服务协议》与《隐私政策》</button></span>
+            </label>
+            ${state.auth.errors.accepted ? `<p class="field-error" role="alert">${escapeHtml(state.auth.errors.accepted)}</p>` : ""}
+          ` : `<div class="security-note">${icon("shield-check")}<span>验证码仅用于本次密码重置，请勿转发给他人。</span></div>`}
+          <button class="primary-button auth-submit" type="submit">${isRegister ? "完成注册" : "确认重置密码"} ${icon("check")}</button>
+          <button class="text-button auth-secondary" type="button" data-action="auth-back-verification">返回修改验证码</button>
+        </form>
+      </main>
+    </div>
+  `;
+}
+
+function authFieldClass(name) {
+  return state.auth.errors[name] ? "has-error" : "";
+}
+
+function authFieldMessage(name, helper) {
+  const error = state.auth.errors[name];
+  return `<p class="${error ? "field-error" : "field-helper"}" data-field-message="${name}" data-helper="${escapeHtml(helper)}" ${error ? 'role="alert"' : ""}>${escapeHtml(error || helper)}</p>`;
+}
+
+function maskEmail(email) {
+  const [name, domain] = String(email).split("@");
+  if (!domain) return email;
+  const visible = name.slice(0, Math.min(3, name.length));
+  return `${visible}${"•".repeat(Math.max(3, name.length - visible.length))}@${domain}`;
 }
 
 function renderShell() {
@@ -4296,6 +4667,125 @@ function renderAiModal() {
   `;
 }
 
+function validateEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function validatePassword(value) {
+  return value.length >= 8 && /[a-z]/.test(value) && /[A-Z]/.test(value) && /\d/.test(value);
+}
+
+function beginVerification(purpose, email) {
+  state.auth.purpose = purpose;
+  state.auth.pendingEmail = email;
+  state.auth.verificationCode = "";
+  state.auth.errors = {};
+  state.route = "verification";
+  state.auth.countdown = 60;
+  render();
+  startVerificationCountdown(60);
+}
+
+function startVerificationCountdown(seconds = 60) {
+  window.clearInterval(verificationCountdownTimer);
+  state.auth.countdown = seconds;
+  syncVerificationCountdown();
+  verificationCountdownTimer = window.setInterval(() => {
+    if (state.route !== "verification") {
+      window.clearInterval(verificationCountdownTimer);
+      verificationCountdownTimer = null;
+      return;
+    }
+    state.auth.countdown = Math.max(0, state.auth.countdown - 1);
+    syncVerificationCountdown();
+    if (state.auth.countdown === 0) {
+      window.clearInterval(verificationCountdownTimer);
+      verificationCountdownTimer = null;
+    }
+  }, 1000);
+}
+
+function syncVerificationCountdown() {
+  const button = document.querySelector("[data-countdown]");
+  if (!button) return;
+  const waiting = state.auth.countdown > 0;
+  button.disabled = waiting;
+  button.textContent = waiting ? `${state.auth.countdown} 秒后可重新发送` : "重新发送验证码";
+  button.setAttribute("aria-label", button.textContent);
+}
+
+function focusFirstAuthError() {
+  window.requestAnimationFrame(() => {
+    const firstInvalid = document.querySelector("[aria-invalid='true'], .otp-input");
+    firstInvalid?.focus();
+  });
+}
+
+function bindAuthFieldState() {
+  document.querySelectorAll("[data-auth-field]").forEach((input) => {
+    const sync = () => {
+      const useRegisterState = state.route === "register" || (state.route === "credentials" && state.auth.purpose === "register");
+      const target = useRegisterState ? state.auth.register : state.auth.reset;
+      if (input.type === "checkbox") target[input.name] = input.checked;
+      else target[input.name] = input.value;
+      if (state.auth.errors[input.name]) {
+        delete state.auth.errors[input.name];
+        input.setAttribute("aria-invalid", "false");
+        const container = input.closest(".field, .agreement-check");
+        container?.classList.remove("has-error");
+        const message = container?.querySelector("[data-field-message]");
+        if (message) {
+          message.className = "field-helper";
+          message.textContent = message.dataset.helper || "";
+          message.removeAttribute("role");
+        }
+        if (input.type === "checkbox") {
+          const agreementError = container?.nextElementSibling;
+          if (agreementError?.classList.contains("field-error")) agreementError.remove();
+        }
+      }
+    };
+    input.addEventListener("input", sync);
+    input.addEventListener("change", sync);
+  });
+}
+
+function bindOtpInputs() {
+  const inputs = [...document.querySelectorAll("[data-otp-index]")];
+  if (!inputs.length) return;
+  const syncCode = () => {
+    state.auth.verificationCode = inputs.map((input) => input.value).join("");
+  };
+  const distribute = (value) => {
+    const digits = String(value).replace(/\D/g, "").slice(0, 6).split("");
+    digits.forEach((digit, index) => { inputs[index].value = digit; });
+    for (let index = digits.length; index < inputs.length; index += 1) inputs[index].value = "";
+    syncCode();
+    inputs[Math.min(digits.length, 5)]?.focus();
+  };
+  inputs.forEach((input, index) => {
+    input.addEventListener("input", () => {
+      const digits = input.value.replace(/\D/g, "");
+      if (digits.length > 1) {
+        distribute(digits);
+        return;
+      }
+      input.value = digits;
+      syncCode();
+      if (digits && index < inputs.length - 1) inputs[index + 1].focus();
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Backspace" && !input.value && index > 0) inputs[index - 1].focus();
+      if (event.key === "ArrowLeft" && index > 0) inputs[index - 1].focus();
+      if (event.key === "ArrowRight" && index < inputs.length - 1) inputs[index + 1].focus();
+    });
+    input.addEventListener("paste", (event) => {
+      event.preventDefault();
+      distribute(event.clipboardData?.getData("text") || "");
+    });
+  });
+}
+
 function bindEvents() {
   document.querySelectorAll("[data-tab]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -4364,6 +4854,96 @@ function bindEvents() {
     });
   }
 
+  bindAuthFieldState();
+  bindOtpInputs();
+
+  const registerForm = document.querySelector("[data-form='register']");
+  if (registerForm) {
+    registerForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const data = new FormData(registerForm);
+      const email = String(data.get("email") || "").trim();
+      state.auth.register.email = email;
+      const errors = {};
+      if (!validateEmail(email)) errors.email = "请输入有效的邮箱地址";
+      state.auth.errors = errors;
+      if (Object.keys(errors).length) {
+        render();
+        focusFirstAuthError();
+        return;
+      }
+      beginVerification("register", email);
+    });
+  }
+
+  const resetForm = document.querySelector("[data-form='reset-password']");
+  if (resetForm) {
+    resetForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const data = new FormData(resetForm);
+      const email = String(data.get("email") || "").trim();
+      state.auth.reset.email = email;
+      const errors = {};
+      if (!validateEmail(email)) errors.email = "请输入有效的邮箱地址";
+      state.auth.errors = errors;
+      if (Object.keys(errors).length) {
+        render();
+        focusFirstAuthError();
+        return;
+      }
+      beginVerification("reset", email);
+    });
+  }
+
+  const verificationForm = document.querySelector("[data-form='verification']");
+  if (verificationForm) {
+    verificationForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (!/^\d{6}$/.test(state.auth.verificationCode)) {
+        state.auth.errors = { code: "请输入完整的 6 位数字验证码" };
+        render();
+        focusFirstAuthError();
+        return;
+      }
+      state.auth.errors = {};
+      state.auth.countdown = 0;
+      window.clearInterval(verificationCountdownTimer);
+      verificationCountdownTimer = null;
+      state.route = "credentials";
+      render();
+    });
+  }
+
+  const credentialsForm = document.querySelector("[data-form='credentials']");
+  if (credentialsForm) {
+    credentialsForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const isRegister = state.auth.purpose === "register";
+      const data = new FormData(credentialsForm);
+      const target = isRegister ? state.auth.register : state.auth.reset;
+      if (isRegister) target.username = String(data.get("username") || "").trim();
+      target.password = String(data.get("password") || "");
+      target.confirmPassword = String(data.get("confirmPassword") || "");
+      if (isRegister) target.accepted = data.get("accepted") === "on";
+      const errors = {};
+      if (isRegister && !/^[A-Za-z0-9_]{4,20}$/.test(target.username)) errors.username = "请输入 4-20 位字母、数字或下划线";
+      if (!validatePassword(target.password)) errors.password = "密码至少 8 位，并包含大小写字母和数字";
+      if (target.confirmPassword !== target.password) errors.confirmPassword = "两次输入的密码不一致";
+      if (isRegister && !target.accepted) errors.accepted = "请先阅读并同意服务协议与隐私政策";
+      state.auth.errors = errors;
+      if (Object.keys(errors).length) {
+        render();
+        focusFirstAuthError();
+        return;
+      }
+      state.auth.loginAccount = state.auth.pendingEmail;
+      state.auth.errors = {};
+      state.auth.verificationCode = "";
+      state.route = "login";
+      showToast(isRegister ? "账号注册成功，请登录" : "密码已重置，请使用新密码登录");
+    });
+  }
+
   document.querySelectorAll("[data-action]").forEach((element) => {
     element.addEventListener("click", (event) => {
       const action = element.dataset.action;
@@ -4397,8 +4977,67 @@ function handleAction(action, element, event) {
       state.addMode = "scan";
       state.configCategory = "home";
       state.settingsPanel = "profile";
+      state.auth.errors = {};
+      state.auth.verificationCode = "";
+      state.auth.countdown = 0;
+      window.clearInterval(verificationCountdownTimer);
+      verificationCountdownTimer = null;
       state.chat = [{ role: "assistant", text: "你好，我可以帮你解释告警、排查设备离线，也可以说明如何分享和配置设备。" }];
       render();
+    },
+    "open-register"() {
+      state.auth.purpose = "register";
+      state.route = "register";
+      state.auth.errors = {};
+      render();
+    },
+    "open-reset-password"() {
+      const loginEmail = document.getElementById("email")?.value?.trim() || "";
+      if (validateEmail(loginEmail)) state.auth.reset.email = loginEmail;
+      state.auth.purpose = "reset";
+      state.route = "reset-password";
+      state.auth.errors = {};
+      render();
+    },
+    "auth-back-login"() {
+      window.clearInterval(verificationCountdownTimer);
+      verificationCountdownTimer = null;
+      state.auth.countdown = 0;
+      state.auth.errors = {};
+      state.route = "login";
+      render();
+    },
+    "auth-back-source"() {
+      window.clearInterval(verificationCountdownTimer);
+      verificationCountdownTimer = null;
+      state.auth.countdown = 0;
+      state.auth.errors = {};
+      state.route = state.auth.purpose === "register" ? "register" : "reset-password";
+      render();
+    },
+    "auth-back-verification"() {
+      state.auth.errors = {};
+      state.route = "verification";
+      render();
+      if (state.auth.countdown > 0) startVerificationCountdown(state.auth.countdown);
+    },
+    "toggle-password"() {
+      const input = document.getElementById(element.dataset.target);
+      if (!input) return;
+      const showing = input.type === "text";
+      input.type = showing ? "password" : "text";
+      element.setAttribute("aria-pressed", String(!showing));
+      element.setAttribute("aria-label", showing ? "显示密码" : "隐藏密码");
+      element.innerHTML = icon(showing ? "eye" : "eye-off");
+      refreshIcons();
+      input.focus();
+    },
+    "resend-code"() {
+      if (state.auth.countdown > 0) return;
+      state.auth.verificationCode = "";
+      state.auth.errors = {};
+      startVerificationCountdown(60);
+      showToast(`验证码已重新发送至 ${state.auth.pendingEmail}`);
     },
     "quick-demo"() {
       state.loggedIn = true;
@@ -4609,9 +5248,6 @@ function handleAction(action, element, event) {
       const next = nextBrandTheme();
       state.brandTheme = next.id;
       showToast(`已切换品牌主题：${next.name}`);
-    },
-    "toast-forgot-password"() {
-      showToast("找回密码：通过邮箱或手机号验证码重置，将在正式版本完成");
     },
     "toast-renew"() {
       showToast("跳转支付：续费订单已生成，正式版接入微信支付/支付宝/Stripe");
