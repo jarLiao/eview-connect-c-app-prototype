@@ -2289,15 +2289,15 @@ function authPanelInfo() {
     },
     verification: {
       title: "邮箱验证码",
-      summary: "输入 6 位验证码完成注册或密码重置，倒计时结束后可以重新发送。",
-      tags: ["6 位验证码", "60 秒倒计时", "自动跳格"],
+      summary: "输入 4 位验证码完成注册或密码重置，倒计时结束后可以重新发送。",
+      tags: ["4 位验证码", "60 秒倒计时", "自动跳格"],
       goals: [
         "确认验证码发送目标和当前业务目的明确。",
         "确认输入、粘贴、退格和自动跳格在手机上都易于使用。",
         "确认倒计时期间重发按钮明确禁用，结束后可重新发送。",
       ],
       actions: [
-        "输入或粘贴 6 位验证码。",
+        "输入或粘贴 4 位验证码。",
         "倒计时结束后重新发送验证码。",
         "进入设置账号资料或新密码步骤。",
       ],
@@ -3056,7 +3056,7 @@ function renderResetPassword() {
 function renderVerification() {
   const email = state.auth.pendingEmail || "user@example.com";
   const isRegister = state.auth.purpose === "register";
-  const digits = Array.from({ length: 6 }, (_, index) => state.auth.verificationCode[index] || "");
+  const digits = Array.from({ length: 4 }, (_, index) => state.auth.verificationCode[index] || "");
   return `
     <div class="auth-screen">
       ${renderAuthHeader("邮箱验证", "输入验证码", isRegister ? "验证后设置账号" : "验证后设置新密码", "auth-back-source")}
@@ -3065,7 +3065,7 @@ function renderVerification() {
         <div class="verification-hero">
           <span class="verification-icon">${icon("mail-check")}</span>
           <h1>检查你的邮箱</h1>
-          <p>6 位验证码已发送至</p>
+          <p>4 位验证码已发送至</p>
           <strong>${escapeHtml(maskEmail(email))}</strong>
         </div>
         <form class="auth-form verification-form" data-form="verification" novalidate>
@@ -3074,7 +3074,7 @@ function renderVerification() {
             <div class="otp-grid" data-otp-grid>
               ${digits.map((digit, index) => `<input class="otp-input" type="text" inputmode="numeric" autocomplete="${index === 0 ? "one-time-code" : "off"}" maxlength="1" value="${escapeHtml(digit)}" data-otp-index="${index}" aria-label="验证码第 ${index + 1} 位" />`).join("")}
             </div>
-            ${state.auth.errors.code ? `<p class="field-error otp-error" role="alert">${escapeHtml(state.auth.errors.code)}</p>` : `<p class="field-helper">支持直接粘贴完整的 6 位验证码</p>`}
+            ${state.auth.errors.code ? `<p class="field-error otp-error" role="alert">${escapeHtml(state.auth.errors.code)}</p>` : `<p class="field-helper">支持直接粘贴完整的 4 位验证码</p>`}
           </fieldset>
           <div class="resend-row">
             <span>没有收到邮件？</span>
@@ -4899,8 +4899,8 @@ function bindEvents() {
   if (verificationForm) {
     verificationForm.addEventListener("submit", (event) => {
       event.preventDefault();
-      if (!/^\d{6}$/.test(state.auth.verificationCode)) {
-        state.auth.errors = { code: "请输入完整的 6 位数字验证码" };
+      if (!/^\d{4}$/.test(state.auth.verificationCode)) {
+        state.auth.errors = { code: "请输入完整的 4 位数字验证码" };
         render();
         focusFirstAuthError();
         return;
