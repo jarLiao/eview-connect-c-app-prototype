@@ -3421,3 +3421,365 @@ textarea:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* 家人 / 宠物只补充资料和关联入口，沿用现有设备卡与底部弹层的视觉层级。 */
+.subject-sheet {
+  min-width: 0;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  overscroll-behavior: contain;
+}
+
+.subject-sheet .sheet-header h2 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.subject-sheet .small-icon-button {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+}
+
+.subject-association {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--primary-dark);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.subject-association > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.subject-association .lucide,
+.subject-association [data-lucide] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+}
+
+.subject-manager-list,
+.subject-linked-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.subject-list-card {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 76px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.subject-list-card > .lucide,
+.subject-list-card > [data-lucide] {
+  color: var(--muted);
+}
+
+.subject-avatar {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius);
+  background: var(--surface-3);
+  color: var(--primary-dark);
+}
+
+.subject-avatar.person,
+.subject-avatar.pet {
+  border: 1px solid var(--line);
+}
+
+.subject-card-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.subject-card-copy strong {
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.subject-card-copy p,
+.subject-card-copy span,
+.subject-card-copy small,
+.subject-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.subject-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.subject-detail-section {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.subject-detail-section h2,
+.subject-detail-section h3 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.subject-detail-section > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.subject-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 12px;
+  margin: 0;
+}
+
+.subject-profile-item {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.subject-profile-item dt,
+.subject-profile-item > span,
+.subject-profile-item > small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.subject-profile-item dd,
+.subject-profile-item > strong,
+.subject-profile-item > p {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.subject-empty {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 20px 16px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.subject-empty p,
+.subject-empty h3 {
+  margin: 0;
+}
+
+.subject-empty h3 {
+  color: var(--text);
+  font-size: 15px;
+}
+
+.subject-binding-field {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.subject-binding-field > label {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.subject-binding-field select {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.subject-binding-field > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.subject-inline-form {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.subject-type-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.subject-type-switch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.subject-type-switch button.active,
+.subject-type-switch button[aria-pressed="true"] {
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+}
+
+.subject-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.subject-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.subject-form-actions > button {
+  flex: 1 1 120px;
+  min-height: 44px;
+}
+
+.subject-detail-section button,
+.subject-binding-field button,
+.subject-inline-form button {
+  min-height: 44px;
+}
+
+.subject-association:focus-visible,
+.subject-list-card:focus-visible,
+.subject-type-switch button:focus-visible,
+.subject-binding-field :is(button, select, input):focus-visible,
+.subject-inline-form :is(button, select, input):focus-visible,
+.subject-form-actions button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.subject-association:active,
+.subject-list-card:active,
+.subject-type-switch button:active {
+  background: var(--primary-soft);
+}
+
+.subject-association:disabled,
+.subject-list-card:disabled,
+.subject-type-switch button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (hover: hover) {
+  .subject-association:hover,
+  .subject-list-card:hover {
+    background: var(--surface-2);
+  }
+}
+
+@media (max-width: 360px) {
+  .subject-profile-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .subject-list-card {
+    gap: 8px;
+    padding: 10px;
+  }
+}
+
+.device-card-main {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.subject-type-switch.subject-filter {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.device-card-main:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}

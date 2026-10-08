@@ -398,6 +398,23 @@ const mock = {
   ],
 };
 
+// 档案与设备独立保存；演示关系使用稳定 ID，不根据设备名称推断使用者。
+mock.subjects = [
+  { id: "subject-mom", type: "PERSON", name: "妈妈", relationship: "妈妈", birthday: "1965-06-12", gender: "female", status: "ACTIVE" },
+  { id: "subject-dad", type: "PERSON", name: "爸爸", relationship: "爸爸", birthday: "1963-09-08", gender: "male", status: "ACTIVE" },
+  { id: "subject-milo", type: "PET", name: "Milo", species: "狗", breed: "金毛寻回犬", birthday: "2022-05-18", gender: "male", weight: "28.4", status: "ACTIVE" },
+  { id: "subject-chestnut", type: "PET", name: "栗子", species: "猫", breed: "英国短毛猫", birthday: "2023-09-02", gender: "female", weight: "4.6", status: "ACTIVE" },
+];
+mock.subjectBindings = [
+  { id: "binding-mom-watch", subjectId: "subject-mom", deviceId: "dev-ev05-mom" },
+  { id: "binding-mom-pendant", subjectId: "subject-mom", deviceId: "dev-ev07b-pendant" },
+  { id: "binding-milo", subjectId: "subject-milo", deviceId: "dev-ev201-dog" },
+  { id: "binding-chestnut", subjectId: "subject-chestnut", deviceId: "dev-ev206-cat" },
+];
+let subjectSequence = 1;
+let demoDeviceSequence = 1;
+const initialSubjectDemo = JSON.stringify({ subjects: mock.subjects, bindings: mock.subjectBindings, devices: mock.devices });
+
 const state = {
   loggedIn: false,
   route: "login",
@@ -409,6 +426,19 @@ const state = {
   healthRange: "week",
   brandTheme: "care",
   addMode: "scan",
+  addStep: "identify",
+  addDraft: { imei: "", name: "", subjectId: "" },
+  addCandidate: null,
+  addError: "",
+  addReturnModal: null,
+  addReturnSubjectId: null,
+  selectedSubjectId: null,
+  subjectFilter: "all",
+  subjectArchived: false,
+  subjectDraft: null,
+  subjectFormReturn: "subjects",
+  subjectDetailReturn: "subjects",
+  subjectError: "",
   configCategory: "home",
   settingsPanel: "profile",
   toast: "",
@@ -467,7 +497,11 @@ function isUrgentDevice(device) {
 }
 
 function isLowBatteryDevice(device) {
-  return device.battery <= 30 || deviceAlarms(device.id).some((alarm) => alarm.type.includes("低电"));
+  return (device.battery != null && device.battery <= 30) || deviceAlarms(device.id).some((alarm) => alarm.type.includes("低电"));
+}
+
+function deviceBatteryLabel(device) {
+  return device.battery == null ? "未上报" : `${device.battery}%`;
 }
 
 function mapFilters() {
@@ -481,7 +515,11 @@ function mapFilters() {
 
 function filteredMapDevices() {
   if (state.mapFilter === "all") return mock.devices;
-  return mock.devices.filter((device) => device.category === state.mapFilter);
+  return mock.devices.filter((device) => {
+    const subject = subjectForDevice(device.id);
+    const category = subject?.status === "ACTIVE" ? (subject.type === "PET" ? "pet" : "family") : device.category;
+    return category === state.mapFilter;
+  });
 }
 
 function mapFilterLabel() {
@@ -497,10 +535,12 @@ function icon(name) {
 }
 
 function statusLabel(status) {
+  if (status === "pending") return "未上报";
   return status === "online" ? "在线" : "离线";
 }
 
 function statusClass(status) {
+  if (status === "pending") return "offline";
   return status === "online" ? "online" : "offline";
 }
 
@@ -1737,7 +1777,7 @@ function render() {
     app.insertAdjacentHTML("beforeend", renderModal());
   }
   if (state.toast) {
-    app.insertAdjacentHTML("beforeend", `<div class="toast">${icon("check-circle-2")}<span>${state.toast}</span></div>`);
+    app.insertAdjacentHTML("beforeend", `<div class="toast">${icon("check-circle-2")}<span>${escapeHtml(state.toast)}</span></div>`);
   }
   renderApiPanel();
   renderDemoPanel();
@@ -1800,6 +1840,12 @@ function renderApiPanel() {
 }
 
 function getApiPanelInfo() {
+  if (["subjects", "subject-detail", "subject-form", "subject-archive"].includes(state.modal)) return {
+    title: "档案与设备关联设计",
+    summary: "本轮新增的是 HTML 本地交互。家人与宠物独立保存，关联通过稳定档案 ID、设备 ID 和绑定 ID 表达。",
+    apiIds: [],
+    gaps: ["当前页面不发送服务器请求；正式接入以现行 App Subject / Device 契约和验收记录为准。", "物品暂不新增档案，设备分享也不自动授予家人或宠物档案访问权限。"],
+  };
   if (!state.loggedIn) {
     const panel = apiPageMap[state.route] || apiPageMap.login;
     if (state.route === "credentials") {
@@ -2198,6 +2244,7 @@ function renderDemoPanel() {
       <div class="tag-grid">
         ${info.tags.map((tag) => `<span>${tag}</span>`).join("")}
       </div>
+      <button class="ghost-button full-width" type="button" data-action="reset">${icon("rotate-ccw")}重置演示</button>
     </div>
 
     <div class="demo-card">
@@ -2494,7 +2541,7 @@ function detailPanelInfo() {
   const device = getDevice();
   const panelMap = {
     overview: {
-      title: `${device.name} · 概览`,
+      title: `${escapeHtml(device.name)} · 概览`,
       summary: "概览页把设备状态、健康摘要、AI 风险和最近事件放在一起，用来判断用户是否能快速理解当前设备是否安全。",
       tags: [device.model, "设备概览", "AI 摘要"],
       goals: [
@@ -2518,7 +2565,7 @@ function detailPanelInfo() {
       ],
     },
     map: {
-      title: `${device.name} · 地图`,
+      title: `${escapeHtml(device.name)} · 地图`,
       summary: "地图页展示实时位置、轨迹回放和安全围栏，是定位类设备最核心的业务页面。",
       tags: ["实时定位", "轨迹回放", "安全围栏"],
       goals: [
@@ -2542,7 +2589,7 @@ function detailPanelInfo() {
       ],
     },
     health: {
-      title: `${device.name} · 健康`,
+      title: `${escapeHtml(device.name)} · 健康`,
       summary: "健康页展示心率、步数、活跃趋势和 AI 健康分析，适合 EV05 等人用健康监测设备。",
       tags: ["健康数据", "趋势图", "AI 分析"],
       goals: [
@@ -2566,7 +2613,7 @@ function detailPanelInfo() {
       ],
     },
     alarms: {
-      title: `${device.name} · 告警`,
+      title: `${escapeHtml(device.name)} · 告警`,
       summary: "告警页用于查看跌倒、离线、低电量等事件，并通过 AI 给出风险解释和处理建议。",
       tags: ["设备告警", "风险解释", "待处理"],
       goals: [
@@ -2590,7 +2637,7 @@ function detailPanelInfo() {
       ],
     },
     config: {
-      title: `${device.name} · 配置`,
+      title: `${escapeHtml(device.name)} · 配置`,
       summary: "配置页把 C 端常用设置和技术验证能力分组，包括 Home WiFi / Home Beacon、定位、告警、联系人、蓝牙和网络状态。",
       tags: ["设备配置", "Home WiFi", "Home Beacon"],
       goals: [
@@ -2618,6 +2665,13 @@ function detailPanelInfo() {
 }
 
 function modalPanelInfo() {
+  if (["subjects", "subject-detail", "subject-form", "subject-archive"].includes(state.modal)) return {
+    title: "家人和宠物档案",
+    summary: "在原四个底部入口中补入独立档案；档案保存资料，设备承担位置、状态和配置。",
+    tags: ["独立档案", "设备关联", "就地新增"],
+    goals: ["从设备的使用者标签进入档案，再从关联设备返回设备详情。", "添加设备时选择使用者，新建档案后保留设备信息。", "查看无设备、多个设备和已归档档案的不同状态。"],
+    review: ["在线、电量与位置属于设备；档案不展示笼统的人员在线状态。", "有关联设备的档案不可归档；物品保留原设备分类。", "此处是本地交互演示，不调用服务器，也不扩大设备分享的档案访问权限。"],
+  };
   const modalMap = {
     "add-device": addDevicePanelInfo(),
     share: sharePanelInfo(),
@@ -2690,7 +2744,7 @@ function sharePanelInfo() {
 function editDevicePanelInfo() {
   const device = getDevice();
   return {
-    title: `${device.name} · 设备管理`,
+    title: `${escapeHtml(device.name)} · 设备管理`,
     summary: "设备管理弹窗用于编辑设备名称、使用者、紧急联系人和备注，同时承接解绑设备。",
     tags: ["设备资料", "联系人", "解绑"],
     goals: [
@@ -3171,8 +3225,8 @@ function renderHeader(title, subtitle, back = false) {
       <div class="header-row">
         ${back ? `<button class="back-button" type="button" data-action="back" aria-label="返回">${icon("chevron-left")}</button>` : ""}
         <div class="header-title">
-          <h1>${title}</h1>
-          <p>${subtitle}</p>
+          <h1>${escapeHtml(title)}</h1>
+          <p>${escapeHtml(subtitle)}</p>
         </div>
         <div class="header-actions">
           ${showAddDevice ? `<button class="icon-button" type="button" data-action="open-add-device" aria-label="添加设备" title="添加设备">${icon("plus")}</button>` : ""}
@@ -3233,7 +3287,7 @@ function renderGlobalMap() {
         <div class="global-zone zone-school"></div>
         <div class="global-road road-one"></div>
         <div class="global-road road-two"></div>
-        ${devices.map(renderGlobalMapPin).join("")}
+        ${devices.filter((device) => device.hasReported !== false).map(renderGlobalMapPin).join("")}
         <button class="map-fab layer" type="button" data-action="toast-map-layer" aria-label="地图图层">${icon("layers")}</button>
         <div class="map-provider-note">${icon("map")} 国内暂定高德 / 海外 Google · 实时 10 分钟前</div>
       </div>
@@ -3247,9 +3301,9 @@ function renderGlobalMapPin(device) {
   const statusText = alarms[0]?.type || statusLabel(device.status);
   const expandedClass = shouldExpandMapPin(device) ? "expanded" : "compact-pin";
   return `
-    <button class="global-map-pin ${device.mapClass} ${severityClass} category-${device.category} ${expandedClass}" type="button" data-open-device="${device.id}" data-detail-tab="map" aria-label="${device.name} ${devicePlace(device)} ${statusText}">
+    <button class="global-map-pin ${device.mapClass} ${severityClass} category-${device.category} ${expandedClass}" type="button" data-open-device="${device.id}" data-detail-tab="map" aria-label="${escapeHtml(device.name)} ${devicePlace(device)} ${statusText}">
       <span>${icon(deviceIcon(device))}</span>
-      <strong>${device.name}</strong>
+      <strong>${escapeHtml(device.name)}</strong>
       <small>${devicePlace(device)} · ${statusText}</small>
     </button>
   `;
@@ -3261,9 +3315,10 @@ function renderMapDeviceCard(device) {
     <button class="map-device-card ${device.status} ${alarms.length ? "has-alert" : ""}" type="button" data-open-device="${device.id}" data-detail-tab="map">
       <div class="map-device-avatar ${device.color}">${icon(deviceIcon(device))}</div>
       <div>
-        <strong>${device.name}</strong>
+        <strong>${escapeHtml(device.name)}</strong>
         <span>${device.categoryLabel} · ${statusLabel(device.status)} · ${devicePlace(device)}</span>
-        <small>${device.battery}% · ${device.model}${alarms[0] ? ` · ${alarms[0].type}` : ""}</small>
+        <small>${deviceBatteryLabel(device)} · ${device.model}${alarms[0] ? ` · ${alarms[0].type}` : ""}</small>
+        ${subjectForDevice(device.id) ? `<small>使用者：${escapeHtml(subjectForDevice(device.id).name)}</small>` : ""}
       </div>
     </button>
   `;
@@ -3304,16 +3359,17 @@ function renderDevices() {
 
 function renderDeviceCard(device) {
   return `
-    <button class="device-card ${device.status}" type="button" data-open-device="${device.id}">
+    <article class="device-card ${device.status}">
+    <button class="device-card-main" type="button" data-open-device="${device.id}">
       <div class="device-top">
         <div class="device-name">
-          <strong>${device.name}</strong>
+          <strong>${escapeHtml(device.name)}</strong>
           <span>${device.model} · ${device.scenario}</span>
         </div>
         <span class="status-pill ${statusClass(device.status)}">${statusLabel(device.status)}</span>
       </div>
       <div class="device-meta-grid">
-        <span>${icon("battery-medium")}<strong>${device.battery}%</strong><small>电量</small></span>
+        <span>${icon("battery-medium")}<strong>${deviceBatteryLabel(device)}</strong><small>电量</small></span>
         <span>${icon("navigation")}<strong>${device.locateType}</strong><small>定位</small></span>
         <span>${icon("signal")}<strong>${device.signal}</strong><small>信号</small></span>
       </div>
@@ -3322,6 +3378,8 @@ function renderDeviceCard(device) {
         <span>${device.lastEvent}</span>
       </div>
     </button>
+    ${renderSubjectAssociation(device)}
+    </article>
   `;
 }
 
@@ -3357,14 +3415,15 @@ function renderDeviceHero(device) {
     <section class="detail-hero">
       <div class="detail-hero-top">
         <div>
-          <h2>${device.name}</h2>
+          <h2>${escapeHtml(device.name)}</h2>
           <p>${device.permission === "owner" ? "我的设备" : "分享给我的设备"} · ${device.location}</p>
         </div>
         <div class="device-avatar ${device.color}">${icon(deviceIcon(device))}</div>
       </div>
+      ${renderSubjectAssociation(device)}
       <div class="device-stats">
         <div class="stat-tile"><span>状态</span><strong>${statusLabel(device.status)}</strong></div>
-        <div class="stat-tile"><span>电量</span><strong>${device.battery}%</strong></div>
+        <div class="stat-tile"><span>电量</span><strong>${deviceBatteryLabel(device)}</strong></div>
         <div class="stat-tile"><span>定位</span><strong>${device.locateType}</strong></div>
       </div>
       <div class="quick-grid">
@@ -3378,6 +3437,7 @@ function renderDeviceHero(device) {
 }
 
 function renderOverview(device) {
+  if (device.hasReported === false) return renderUnreportedDevice();
   const alarms = deviceAlarms(device.id);
   return `
     <section class="section">
@@ -3407,6 +3467,7 @@ function renderOverview(device) {
 }
 
 function renderMap(device) {
+  if (device.hasReported === false) return renderUnreportedDevice();
   return `
     <section class="section">
       <div class="map-card" role="img" aria-label="模拟地图，展示设备位置、轨迹和围栏">
@@ -3415,7 +3476,7 @@ function renderMap(device) {
         <div class="map-pin main">${icon("map-pin")}</div>
         <div class="map-pin alert">${icon("triangle-alert")}</div>
         <div class="map-caption">
-          <span>${device.name} · ${device.locateType}</span>
+          <span>${escapeHtml(device.name)} · ${device.locateType}</span>
           <span>国内暂定高德 / 海外 Google</span>
         </div>
       </div>
@@ -3476,6 +3537,7 @@ function renderMap(device) {
 }
 
 function renderHealth(device) {
+  if (device.hasReported === false) return renderUnreportedDevice();
   if (device.category === "pet") return renderPetHealth(device);
   if (device.category === "item") return renderItemHealth(device);
   const range = mock.healthRanges[state.healthRange] || mock.healthRanges.week;
@@ -3525,7 +3587,9 @@ function renderHealthRangeTabs() {
 
 function renderPetHealth(device) {
   const range = mock.healthRanges[state.healthRange] || mock.healthRanges.week;
-  const pet = device.pet;
+  const subject = subjectForDevice(device.id);
+  const profile = subject?.type === "PET" ? subject : null;
+  const pet = profile ? { ...device.pet, species: profile.species, breed: profile.breed || "未填写", birthday: profile.birthday || "未填写", ageLabel: profile.birthday ? petAgeLabel(profile.birthday) : "未填写", gender: profile.gender === "male" ? "公" : profile.gender === "female" ? "母" : "未填写", weight: profile.weight ? `${profile.weight} kg` : "未填写" } : device.pet;
   return `
     ${pet ? `
     <section class="section">
@@ -3533,14 +3597,14 @@ function renderPetHealth(device) {
         <div class="pet-profile-head">
           <div class="device-avatar ${device.color}">${icon("paw-print")}</div>
           <div>
-            <strong>${device.name}</strong>
-            <span>${pet.species} · ${pet.breed} · ${pet.gender}${pet.neutered ? ` · ${pet.neutered}` : ""}</span>
+            <strong>${escapeHtml(device.name)}</strong>
+            <span>${escapeHtml(pet.species)} · ${escapeHtml(pet.breed)} · ${escapeHtml(pet.gender)}${pet.neutered ? ` · ${escapeHtml(pet.neutered)}` : ""}</span>
           </div>
           <button class="small-icon-button" type="button" data-action="toast-pet-edit" aria-label="编辑档案">${icon("pencil")}</button>
         </div>
         <div class="pet-profile-grid">
-          <div><span>年龄</span><strong>${pet.ageLabel}</strong><small>${pet.birthday}</small></div>
-          <div><span>体重</span><strong>${pet.weight}</strong><small>${pet.weightTrend}</small></div>
+          <div><span>年龄</span><strong>${escapeHtml(pet.ageLabel)}</strong><small>${escapeHtml(pet.birthday)}</small></div>
+          <div><span>体重</span><strong>${escapeHtml(pet.weight)}</strong><small>${escapeHtml(pet.weightTrend || "")}</small></div>
           <div><span>最近疫苗</span><strong>${pet.vaccine}</strong><small>${pet.nextVaccine}</small></div>
         </div>
       </div>
@@ -3582,7 +3646,7 @@ function renderItemHealth(device) {
   return `
     <section class="section">
       <div class="metric-grid">
-        <div class="metric-card"><span>电量</span><strong>${device.battery}%</strong><small>${device.battery <= 30 ? "建议处理" : "状态正常"}</small></div>
+        <div class="metric-card"><span>电量</span><strong>${deviceBatteryLabel(device)}</strong><small>${device.battery <= 30 ? "建议处理" : "状态正常"}</small></div>
         <div class="metric-card"><span>连接方式</span><strong>${device.locateType}</strong><small>最近位置来源</small></div>
         <div class="metric-card"><span>离身提醒</span><strong>${deviceAlarms(device.id).length ? "有提醒" : "正常"}</strong><small>${device.lastEvent}</small></div>
         <div class="metric-card"><span>最后位置</span><strong>${device.status === "online" ? "可用" : "离线"}</strong><small>${device.location}</small></div>
@@ -3806,6 +3870,10 @@ function renderMine() {
         <button class="small-icon-button" type="button" data-action="open-settings" data-settings="profile" aria-label="编辑资料">${icon("pencil")}</button>
       </div>
     </section>
+    <section class="section">
+      <div class="settings-group-title">家人和宠物</div>
+      <div class="settings-list"><button class="settings-item" type="button" data-action="open-subjects"><span class="settings-icon">${icon("users")}</span><span><strong>家人和宠物</strong><small>${mock.subjects.filter((subject) => subject.status === "ACTIVE" && subject.type === "PERSON").length} 位家人 · ${mock.subjects.filter((subject) => subject.status === "ACTIVE" && subject.type === "PET").length} 只宠物 · 资料与关联设备</small></span>${icon("chevron-right")}</button></div>
+    </section>
     ${mineGroups.map((group) => `
       <section class="section">
         <div class="settings-group-title">${group.title}</div>
@@ -3902,7 +3970,267 @@ function renderSettingsItem(panel, iconName, title, desc) {
   `;
 }
 
+function petAgeLabel(birthday) {
+  const birth = new Date(`${birthday}T00:00:00`);
+  const today = new Date();
+  const months = Math.max(0, (today.getFullYear() - birth.getFullYear()) * 12 + today.getMonth() - birth.getMonth() - (today.getDate() < birth.getDate() ? 1 : 0));
+  return `${Math.floor(months / 12)} 岁 ${months % 12} 个月`;
+}
+
+function getSubject(id = state.selectedSubjectId) {
+  return mock.subjects.find((subject) => subject.id === id) || null;
+}
+
+function linkedSubjectDevices(subjectId) {
+  return mock.subjectBindings.filter((binding) => binding.subjectId === subjectId)
+    .map((binding) => mock.devices.find((device) => device.id === binding.deviceId)).filter(Boolean);
+}
+
+function subjectForDevice(deviceId) {
+  const binding = mock.subjectBindings.find((item) => item.deviceId === deviceId);
+  return binding ? getSubject(binding.subjectId) : null;
+}
+
+function subjectTypeLabel(type) {
+  return type === "PET" ? "宠物" : "家人";
+}
+
+function subjectDeviceSummary(subject) {
+  const devices = linkedSubjectDevices(subject.id);
+  if (!devices.length) return "未关联设备";
+  return `${devices.length} 台设备 · ${devices.filter((device) => device.status === "online").length} 台在线`;
+}
+
+function renderUnreportedDevice() {
+  return `<section class="section"><div class="panel-card"><h3>${icon("radio-receiver")}等待设备首次上报</h3><p>设备已关联使用者。收到设备上报后，才会显示位置、状态和采样数据。</p></div></section>`;
+}
+
+function resetSubjectDemo() {
+  const initial = JSON.parse(initialSubjectDemo);
+  mock.subjects = initial.subjects;
+  mock.subjectBindings = initial.bindings;
+  mock.devices = initial.devices;
+  subjectSequence = 1;
+  demoDeviceSequence = 1;
+  state.subjectFilter = "all";
+  state.subjectArchived = false;
+  state.selectedSubjectId = null;
+  state.subjectDraft = null;
+  state.subjectError = "";
+  state.addStep = "identify";
+  state.addDraft = { imei: "", name: "", subjectId: "" };
+  state.addCandidate = null;
+  state.addError = "";
+  state.addReturnModal = null;
+  state.addReturnSubjectId = null;
+}
+
+function renderSubjectAssociation(device) {
+  if (device.category === "item") return "";
+  const subject = subjectForDevice(device.id);
+  if (!subject) return `<span class="subject-association">${icon(device.permission === "owner" ? "user-round" : "lock")}<span>${device.permission === "owner" ? "未关联家人或宠物" : "分享设备 · 档案未共享"}</span></span>`;
+  return `<button class="subject-association" type="button" data-action="open-subject" data-subject-id="${escapeHtml(subject.id)}" aria-label="查看${escapeHtml(subject.name)}的档案">${icon(subject.type === "PET" ? "paw-print" : "user-round")}<span>使用者：${escapeHtml(subject.name)}</span>${icon("chevron-right")}</button>`;
+}
+
+function subjectSheet(title, body, backAction = "close-modal") {
+  return `<div class="modal-backdrop" data-action="close-modal">
+    <section class="bottom-sheet subject-sheet" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}" data-sheet>
+      <div class="sheet-header"><h2>${escapeHtml(title)}</h2><button class="small-icon-button" type="button" data-action="${backAction}" aria-label="${backAction === "close-modal" ? "关闭" : "返回"}">${icon(backAction === "close-modal" ? "x" : "arrow-left")}</button></div>
+      ${body}
+    </section></div>`;
+}
+
+function renderSubjectManager() {
+  const records = mock.subjects.filter((subject) => (subject.status === "ARCHIVED") === state.subjectArchived)
+    .filter((subject) => state.subjectFilter === "all" || subject.type === state.subjectFilter);
+  const archivedCount = mock.subjects.filter((subject) => subject.status === "ARCHIVED").length;
+  return subjectSheet("家人和宠物", `
+    <div class="subject-type-switch subject-filter" aria-label="档案类型筛选">${[["all", "全部"], ["PERSON", "家人"], ["PET", "宠物"]].map(([type, label]) => `<button type="button" class="${state.subjectFilter === type ? "active" : ""}" data-action="filter-subjects" data-subject-type="${type}" aria-pressed="${state.subjectFilter === type}">${label}</button>`).join("")}</div>
+    ${state.subjectArchived ? `<p class="field-helper">已归档的档案不再用于添加设备。</p>` : `<p class="field-helper">管理家人和宠物的资料，查看他们使用的设备。</p>`}
+    <div class="subject-manager-list">${records.length ? records.map((subject) => `<button class="subject-list-card" type="button" data-action="open-subject" data-subject-id="${escapeHtml(subject.id)}">
+      <span class="subject-avatar ${subject.type === "PET" ? "pet" : "person"}">${icon(subject.type === "PET" ? "paw-print" : "user-round")}</span>
+      <span class="subject-card-copy"><strong>${escapeHtml(subject.name)}</strong><span>${subjectTypeLabel(subject.type)}${subject.species ? ` · ${escapeHtml(subject.species)}` : ""}</span><small>${subject.status === "ARCHIVED" ? "已归档" : subjectDeviceSummary(subject)}</small></span>${icon("chevron-right")}</button>`).join("") : `<div class="subject-empty">${icon("users")}<strong>${state.subjectArchived ? "暂无已归档档案" : state.subjectFilter === "PET" ? "还没有宠物档案" : state.subjectFilter === "PERSON" ? "还没有家人档案" : "还没有家人或宠物档案"}</strong><p>${state.subjectArchived ? "已归档的资料会保留在这里。" : "先添加一份档案，也可以在添加设备时创建。"}</p></div>`}</div>
+    <div class="subject-form-actions"><button class="primary-button full-width" type="button" data-action="new-subject">${icon("user-plus")}添加家人或宠物</button>
+    <button class="text-button" type="button" data-action="toggle-archived-subjects">${state.subjectArchived ? "返回当前档案" : `已归档档案（${archivedCount}）`}</button></div>`);
+}
+
+function renderSubjectDetail() {
+  const subject = getSubject();
+  if (!subject) return subjectSheet("档案不可用", `<div class="subject-empty"><p>这份档案已不可用，请返回列表。</p></div>`, "subject-detail-back");
+  const devices = linkedSubjectDevices(subject.id);
+  const fields = subject.type === "PET" ? [["类型", subject.species], ["品种", subject.breed], ["生日", subject.birthday], ["性别", subject.gender === "male" ? "公" : subject.gender === "female" ? "母" : ""], ["体重", subject.weight ? `${subject.weight} kg` : ""]]
+    : [["关系", subject.relationship], ["生日", subject.birthday], ["性别", subject.gender === "male" ? "男" : subject.gender === "female" ? "女" : ""]];
+  return subjectSheet(`${subject.name}的档案`, `
+    <div class="subject-list-card"><span class="subject-avatar ${subject.type === "PET" ? "pet" : "person"}">${icon(subject.type === "PET" ? "paw-print" : "user-round")}</span><span class="subject-card-copy"><strong>${escapeHtml(subject.name)}</strong><span>${subjectTypeLabel(subject.type)} · ${subject.status === "ARCHIVED" ? "已归档" : subjectDeviceSummary(subject)}</span></span></div>
+    <section class="subject-detail-section"><h3>基本资料</h3><div class="subject-profile-grid">${fields.map(([label, value]) => `<div class="subject-profile-item"><span>${label}</span><strong>${escapeHtml(value || "未填写")}</strong></div>`).join("")}</div></section>
+    <section class="subject-detail-section"><h3>关联设备 <small>${devices.length} 台</small></h3><div class="subject-linked-list">${devices.length ? devices.map((device) => `<button class="subject-list-card" type="button" data-open-device="${escapeHtml(device.id)}"><span class="subject-avatar person">${icon(deviceIcon(device))}</span><span class="subject-card-copy"><strong>${escapeHtml(device.name)}</strong><span>${escapeHtml(device.model)} · ${statusLabel(device.status)}</span><small>${escapeHtml(device.location)}</small></span>${icon("chevron-right")}</button>`).join("") : `<div class="subject-empty">${icon("radio-receiver")}<strong>未关联设备</strong><p>${subject.status === "ARCHIVED" ? "这份档案已归档。" : "添加设备后，就能查看设备的位置和状态。"}</p></div>`}</div></section>
+    ${state.subjectError ? `<p class="subject-error" role="alert">${escapeHtml(state.subjectError)}</p>` : ""}
+    ${subject.status !== "ARCHIVED" ? `<div class="subject-form-actions"><button class="primary-button full-width" type="button" data-action="add-device-for-subject">${icon("plus")}添加设备</button><button class="ghost-button" type="button" data-action="edit-subject">${icon("pencil")}编辑资料</button><button class="text-button" type="button" data-action="request-archive-subject">归档档案</button></div>` : ""}`, "subject-detail-back");
+}
+
+function subjectFormField(key, label, options = {}) {
+  const value = state.subjectDraft[key] || "";
+  const id = `subject-${key}`;
+  const input = options.values ? `<select id="${id}" name="${key}" data-subject-field="${key}"><option value="">请选择</option>${options.values.map(([item, title]) => `<option value="${item}" ${value === item ? "selected" : ""}>${title}</option>`).join("")}</select>`
+    : `<input id="${id}" name="${key}" data-subject-field="${key}" type="${options.type || "text"}" value="${escapeHtml(value)}" ${options.type === "date" ? `max="${todayDateString()}"` : options.type === "number" ? 'min="0.1" max="500" step="0.1" inputmode="decimal"' : 'maxlength="30"'} ${options.required ? 'aria-required="true"' : ""} />`;
+  return `<div class="field"><label for="${id}">${label}${options.required ? "（必填）" : ""}</label>${input}</div>`;
+}
+
+function todayDateString() {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+}
+
+function renderSubjectForm() {
+  const draft = state.subjectDraft;
+  const editing = Boolean(draft.id);
+  return subjectSheet(editing ? "编辑资料" : "添加家人或宠物", `
+    <form class="subject-inline-form" data-form="subject" novalidate>
+      ${editing ? `<p class="field-helper">${subjectTypeLabel(draft.type)}档案</p>` : `<div class="subject-type-switch" aria-label="档案类型">${[["PERSON", "家人", "user-round"], ["PET", "宠物", "paw-print"]].map(([type, label, glyph]) => `<button type="button" class="${draft.type === type ? "active" : ""}" data-action="set-subject-type" data-subject-type="${type}" aria-pressed="${draft.type === type}">${icon(glyph)}${label}</button>`).join("")}</div>`}
+      ${subjectFormField("name", draft.type === "PET" ? "宠物名字" : "家人称呼", { required: true })}
+      ${draft.type === "PET" ? subjectFormField("species", "宠物类型", { required: true, values: [["狗", "狗"], ["猫", "猫"], ["其他", "其他"]] }) + subjectFormField("breed", "品种") : subjectFormField("relationship", "与我的关系", { values: [["妈妈", "妈妈"], ["爸爸", "爸爸"], ["长辈", "长辈"], ["孩子", "孩子"], ["伴侣", "伴侣"], ["本人", "本人"], ["其他家人", "其他家人"]] })}
+      <div class="subject-profile-grid">${subjectFormField("birthday", "生日", { type: "date" })}${subjectFormField("gender", "性别", { values: draft.type === "PET" ? [["male", "公"], ["female", "母"]] : [["male", "男"], ["female", "女"]] })}</div>
+      ${draft.type === "PET" ? subjectFormField("weight", "体重（kg）", { type: "number" }) : ""}
+      ${state.subjectError ? `<p class="subject-error" role="alert">${escapeHtml(state.subjectError)}</p>` : ""}
+      <div class="subject-form-actions"><button class="primary-button full-width" type="submit">${icon("check")}${state.subjectFormReturn === "add-device" ? "保存并继续添加设备" : "保存档案"}</button><button class="ghost-button full-width" type="button" data-action="cancel-subject-form">取消</button></div>
+    </form>`, "cancel-subject-form");
+}
+
+function startSubjectForm(returnModal, existing = null) {
+  state.subjectFormReturn = returnModal;
+  state.subjectDraft = existing ? { ...existing } : { type: state.subjectFilter === "PET" ? "PET" : "PERSON", name: "", birthday: "", gender: "", relationship: "", species: "", breed: "", weight: "" };
+  state.subjectError = "";
+  state.modal = "subject-form";
+  render();
+  document.querySelector("#subject-name")?.focus();
+}
+
+function cancelSubjectForm() {
+  state.modal = state.subjectFormReturn;
+  state.subjectDraft = null;
+  state.subjectError = "";
+  render();
+}
+
+function saveSubjectForm() {
+  const draft = state.subjectDraft;
+  draft.name = draft.name.trim();
+  let error = "";
+  if (!draft.name || draft.name.length > 30) error = "请填写 1 至 30 字的称呼或名字。";
+  else if (draft.type === "PET" && !["狗", "猫", "其他"].includes(draft.species)) error = "请选择宠物类型。";
+  else if (draft.birthday && (!/^\d{4}-\d{2}-\d{2}$/.test(draft.birthday) || Number.isNaN(Date.parse(draft.birthday)) || new Date(draft.birthday).toISOString().slice(0, 10) !== draft.birthday || draft.birthday > todayDateString())) error = "请填写有效的生日，生日不能晚于今天。";
+  else if (draft.type === "PET" && draft.weight && (!Number.isFinite(Number(draft.weight)) || Number(draft.weight) <= 0 || Number(draft.weight) > 500)) error = "体重应大于 0 且不超过 500 kg。";
+  const existing = draft.id ? getSubject(draft.id) : null;
+  if (draft.id && (!existing || existing.status === "ARCHIVED")) error = "这份档案已不可编辑，请返回列表。";
+  if (error) {
+    state.subjectError = error;
+    render();
+    document.querySelector(error.includes("宠物类型") ? "#subject-species" : error.includes("生日") ? "#subject-birthday" : error.includes("体重") ? "#subject-weight" : "#subject-name")?.focus();
+    return;
+  }
+  const subject = { id: existing?.id || `subject-demo-${subjectSequence++}`, type: draft.type, name: draft.name, birthday: draft.birthday, gender: draft.gender, status: "ACTIVE",
+    ...(draft.type === "PET" ? { species: draft.species, breed: draft.breed.trim(), weight: draft.weight } : { relationship: draft.relationship }) };
+  if (existing) Object.assign(existing, subject);
+  else mock.subjects.push(subject);
+  state.selectedSubjectId = subject.id;
+  state.subjectError = "";
+  state.subjectDraft = null;
+  state.modal = state.subjectFormReturn;
+  if (state.modal === "add-device") { state.addDraft.subjectId = subject.id; state.addError = ""; }
+  if (state.modal === "subjects") { state.subjectArchived = false; state.subjectFilter = "all"; }
+  showToast(existing ? "档案资料已保存" : "档案已添加");
+}
+
+function renderSubjectArchiveConfirm() {
+  const subject = getSubject();
+  return subjectSheet("归档档案", `<div class="panel-card"><h3>${escapeHtml(subject?.name || "档案")}</h3><p>归档后将从当前家人和宠物列表移出，资料会保留在已归档档案中。</p></div><div class="subject-form-actions"><button class="danger-button" type="button" data-action="confirm-archive-subject">确认归档</button><button class="ghost-button" type="button" data-action="cancel-archive-subject">取消</button></div>`, "cancel-archive-subject");
+}
+
+function renderSubjectBindingFields() {
+  const subjects = mock.subjects.filter((subject) => subject.status === "ACTIVE");
+  return `<section class="sheet-section subject-binding-field"><h3>给谁使用</h3><p class="field-helper">选择这台设备的使用者。</p>
+    ${subjects.length ? `<div class="field"><label for="add-subject">家人或宠物</label><select id="add-subject" data-add-field="subjectId"><option value="">请选择家人或宠物</option>${subjects.map((subject) => `<option value="${escapeHtml(subject.id)}" ${subject.id === state.addDraft.subjectId ? "selected" : ""}>${escapeHtml(subject.name)} · ${subjectTypeLabel(subject.type)}</option>`).join("")}</select></div>` : `<p class="field-helper">还没有档案，先添加家人或宠物即可继续。</p>`}
+    <button class="ghost-button full-width" type="button" data-action="new-subject-in-bind">${icon("user-plus")}添加家人或宠物</button></section>`;
+}
+
+function openDeviceAddition(subject = null) {
+  state.addMode = "scan";
+  state.addStep = "identify";
+  state.addDraft = { imei: "", name: "", subjectId: subject?.id || "" };
+  state.addCandidate = null;
+  state.addError = "";
+  state.addReturnModal = subject ? "subject-detail" : null;
+  state.addReturnSubjectId = subject?.id || null;
+  state.modal = "add-device";
+  render();
+}
+
+function identifyPrototypeDevice(mode, element) {
+  let candidate;
+  if (mode === "imei") {
+    const imei = state.addDraft.imei.trim();
+    if (!/^\d{15}$/.test(imei)) { state.addError = "请填写 15 位设备 IMEI。"; render(); document.querySelector("#manual-imei")?.focus(); return; }
+    candidate = { imei, model: "EV05", name: state.addDraft.name.trim() || "新手表" };
+  } else if (mode === "ble") {
+    const discovered = mock.discoveredDevices.find((device) => device.id === element.dataset.bleId);
+    if (!discovered) return;
+    const imei = discovered.id.match(/\d{15}/)?.[0];
+    if (!imei) { state.addError = "未识别到设备标识，请改用扫码或 IMEI。"; render(); return; }
+    candidate = { imei, model: discovered.model, name: discovered.name };
+  } else candidate = { imei: `863450071235${String(demoDeviceSequence).padStart(3, "0")}`, model: "EV05", name: "新手表" };
+  const duplicate = mock.devices.find((device) => device.hardware?.imei === candidate.imei);
+  if (duplicate) { state.addError = "这台设备已在列表中，请进入设备详情查看，或使用另一台设备。"; render(); return; }
+  state.addCandidate = candidate;
+  state.addDraft.name = state.addDraft.name.trim() || candidate.name;
+  state.addStep = "assign";
+  state.addError = "";
+  render();
+}
+
+function bindPrototypeDevice() {
+  const subject = getSubject(state.addDraft.subjectId);
+  if (!state.addCandidate || !subject || subject.status !== "ACTIVE") { state.addError = "请先选择或添加一位家人或一只宠物。"; render(); document.querySelector("#add-subject")?.focus(); return; }
+  const name = state.addDraft.name.trim();
+  if (!name || name.length > 30) { state.addError = "请填写 1 至 30 字的设备名称。"; render(); document.querySelector("#device-name")?.focus(); return; }
+  if (mock.devices.some((device) => device.hardware?.imei === state.addCandidate.imei)) { state.addError = "这台设备已添加，请返回设备列表查看。"; render(); return; }
+  const template = mock.devices.find((device) => device.model === state.addCandidate.model) || mock.devices[0];
+  const id = `demo-device-${demoDeviceSequence++}`;
+  mock.devices.push({ ...template, id, name, model: state.addCandidate.model, status: "pending", hasReported: false, battery: null, signal: "未上报", locateType: "未上报", location: "尚无定位上报", lastEvent: "等待设备首次上报", permission: "owner", metrics: {}, pet: undefined, hardware: { ...Object.fromEntries(Object.keys(template.hardware).map((key) => [key, "未读取"])), imei: state.addCandidate.imei } });
+  mock.subjectBindings.push({ id: `binding-${id}`, subjectId: subject.id, deviceId: id });
+  state.selectedDeviceId = id;
+  state.modal = state.addReturnModal;
+  if (state.modal === "subject-detail") state.selectedSubjectId = subject.id;
+  if (!state.modal) { state.route = "home"; state.tab = "devices"; }
+  state.addCandidate = null;
+  state.addError = "";
+  showToast("设备已添加并关联，等待首次上报");
+}
+
+function bindSubjectEvents() {
+  document.querySelectorAll("[data-subject-field]").forEach((input) => input.addEventListener("input", () => { state.subjectDraft[input.dataset.subjectField] = input.value; }));
+  document.querySelectorAll("[data-add-field]").forEach((input) => input.addEventListener("input", () => { state.addDraft[input.dataset.addField] = input.value; }));
+  document.querySelector("[data-form='subject']")?.addEventListener("submit", (event) => { event.preventDefault(); saveSubjectForm(); });
+  const dialog = document.querySelector(".subject-sheet");
+  if (!dialog) return;
+  dialog.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      handleAction("close-modal", dialog.querySelector(".sheet-header button"), event);
+    } else if (event.key === "Tab") {
+      const controls = Array.from(dialog.querySelectorAll("button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])"));
+      const first = controls[0], last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    }
+  });
+  if (!dialog.contains(document.activeElement)) dialog.querySelector("button")?.focus();
+}
+
 function renderModal() {
+  if (state.modal === "subjects") return renderSubjectManager();
+  if (state.modal === "subject-detail") return renderSubjectDetail();
+  if (state.modal === "subject-form") return renderSubjectForm();
+  if (state.modal === "subject-archive") return renderSubjectArchiveConfirm();
   if (state.modal === "share") return renderShareModal();
   if (state.modal === "add-device") return renderAddDeviceModal();
   if (state.modal === "edit-device") return renderEditDeviceModal();
@@ -3922,7 +4250,7 @@ function renderShareModal() {
     <div class="modal-backdrop" data-action="close-modal">
       <section class="bottom-sheet" role="dialog" aria-modal="true" aria-label="设备分享" data-sheet>
         <div class="sheet-header">
-          <h2>分享 ${device.name}</h2>
+          <h2>分享 ${escapeHtml(device.name)}</h2>
           <button class="small-icon-button" type="button" data-action="close-modal" aria-label="关闭">${icon("x")}</button>
         </div>
         <div class="field">
@@ -3964,24 +4292,30 @@ function renderShareModal() {
 }
 
 function renderAddDeviceModal() {
+  const assigning = state.addStep === "assign" && state.addCandidate;
   return `
     <div class="modal-backdrop" data-action="close-modal">
-      <section class="bottom-sheet" role="dialog" aria-modal="true" aria-label="添加设备" data-sheet>
+      <section class="bottom-sheet subject-sheet" role="dialog" aria-modal="true" aria-label="添加设备" data-sheet>
         <div class="sheet-header">
-          <h2>添加设备</h2>
+          <h2>添加设备 · ${assigning ? "给谁使用" : "识别设备"}</h2>
           <button class="small-icon-button" type="button" data-action="close-modal" aria-label="关闭">${icon("x")}</button>
         </div>
+        ${assigning ? `
+          <div class="panel-card"><h3>${icon("badge-check")}已识别设备</h3><p>${escapeHtml(state.addCandidate.model)} · ${escapeHtml(state.addCandidate.imei)}</p></div>
+          <div class="sheet-section"><div class="field"><label for="device-name">设备名称</label><input id="device-name" maxlength="30" data-add-field="name" value="${escapeHtml(state.addDraft.name)}" /></div></div>
+          ${renderSubjectBindingFields()}
+          ${state.addError ? `<p class="subject-error" role="alert">${escapeHtml(state.addError)}</p>` : ""}
+          <div class="subject-form-actions"><button class="primary-button full-width" type="button" data-action="bind-device">${icon("link")}确认添加并关联</button><button class="ghost-button full-width" type="button" data-action="add-identify-back">返回识别设备</button></div>
+        ` : `
         <div class="segmented-control" aria-label="添加设备方式">
           <button class="${state.addMode === "scan" ? "active" : ""}" type="button" data-add-mode="scan">${icon("scan-line")}扫码</button>
           <button class="${state.addMode === "imei" ? "active" : ""}" type="button" data-add-mode="imei">${icon("keyboard")}IMEI</button>
           <button class="${state.addMode === "ble" ? "active" : ""}" type="button" data-add-mode="ble">${icon("bluetooth")}BLE</button>
         </div>
-        ${renderAutoPanelDownload()}
         ${renderAddDeviceContent()}
-        <div class="panel-card">
-          <h3>${icon("badge-check")}绑定前确认</h3>
-          <p>系统会自动确认设备是否可用、是否已被其他账号绑定，以及当前账号是否可以添加这台设备。</p>
-        </div>
+        ${state.addError ? `<p class="subject-error" role="alert">${escapeHtml(state.addError)}</p>` : ""}
+        <p class="field-helper">识别设备后，选择一位家人或一只宠物使用。</p>
+        `}
       </section>
     </div>
   `;
@@ -3993,13 +4327,13 @@ function renderAddDeviceContent() {
       <div class="sheet-section">
         <div class="field">
           <label for="manual-imei">设备 IMEI</label>
-          <input id="manual-imei" inputmode="numeric" value="863450071234001" />
+          <input id="manual-imei" inputmode="numeric" maxlength="15" data-add-field="imei" placeholder="填写设备上的 15 位 IMEI" value="${escapeHtml(state.addDraft.imei)}" />
         </div>
         <div class="field">
           <label for="device-name">设备名称</label>
-          <input id="device-name" value="妈妈手表" />
+          <input id="device-name" maxlength="30" data-add-field="name" placeholder="例如：妈妈的新手表" value="${escapeHtml(state.addDraft.name)}" />
         </div>
-        <button class="primary-button full-width" type="button" data-action="bind-device">${icon("badge-check")}校验并绑定</button>
+        <button class="primary-button full-width" type="button" data-action="identify-device">${icon("arrow-right")}下一步：给谁使用</button>
       </div>
     `;
   }
@@ -4014,8 +4348,8 @@ function renderAddDeviceContent() {
           ${mock.discoveredDevices.map((device) => `
             <div class="list-card">
               <div class="list-row">
-                <div><strong>${device.name}</strong><span>${device.model} · ${device.id} · 信号${device.signal}</span></div>
-                <button class="ghost-button" type="button" data-action="connect-ble">${icon("link")}连接</button>
+                <div><strong>${escapeHtml(device.name)}</strong><span>${device.model} · ${device.id} · 信号${device.signal}</span></div>
+                <button class="ghost-button" type="button" data-action="identify-ble" data-ble-id="${escapeHtml(device.id)}">${icon("link")}选择</button>
               </div>
             </div>
           `).join("")}
@@ -4030,7 +4364,7 @@ function renderAddDeviceContent() {
         <strong>扫描设备二维码</strong>
         <span>识别 IMEI 后进入设备资料填写和绑定校验</span>
       </div>
-      <button class="primary-button full-width" type="button" data-action="bind-device">${icon("scan-line")}模拟扫码成功</button>
+      <button class="primary-button full-width" type="button" data-action="identify-scan">${icon("scan-line")}模拟扫码成功</button>
     </div>
   `;
 }
@@ -4070,11 +4404,12 @@ function renderEditDeviceModal() {
         <div class="form-grid">
           <div class="field">
             <label for="edit-device-name">设备名称</label>
-            <input id="edit-device-name" value="${device.name}" />
+            <input id="edit-device-name" value="${escapeHtml(device.name)}" />
           </div>
           <div class="field">
             <label for="edit-device-user">使用者</label>
-            <input id="edit-device-user" value="${device.model === "EV04" ? "作业人员" : "家庭成员"}" />
+            <input id="edit-device-user" value="${escapeHtml(subjectForDevice(device.id)?.name || (device.category === "item" ? "物品设备" : "未提供使用者档案"))}" readonly />
+            ${renderSubjectAssociation(device)}
           </div>
           <div class="field">
             <label for="edit-phone">紧急联系人手机号</label>
@@ -4602,7 +4937,7 @@ function renderH5Modal() {
             </div>
             <button class="list-card" type="button" data-action="h5-open-device">
               <div class="list-row">
-                <div><strong>${device.name} 使用说明</strong><span>绑定、定位、充电和告警说明</span></div>
+                <div><strong>${escapeHtml(device.name)} 使用说明</strong><span>绑定、定位、充电和告警说明</span></div>
                 ${icon("chevron-right")}
               </div>
             </button>
@@ -4787,6 +5122,7 @@ function bindOtpInputs() {
 }
 
 function bindEvents() {
+  bindSubjectEvents();
   document.querySelectorAll("[data-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       state.tab = button.dataset.tab;
@@ -4802,6 +5138,7 @@ function bindEvents() {
       state.detailTab = button.dataset.detailTab || "overview";
       state.route = "detail";
       state.loggedIn = true;
+      state.modal = null;
       render();
     });
   });
@@ -4965,7 +5302,64 @@ function bindEvents() {
 
 function handleAction(action, element, event) {
   const actions = {
+    "open-subjects"() {
+      state.subjectFilter = "all";
+      state.subjectArchived = false;
+      state.subjectError = "";
+      state.modal = "subjects";
+      render();
+    },
+    "open-subject"() {
+      if (!getSubject(element.dataset.subjectId)) return;
+      state.subjectDetailReturn = state.modal === "subjects" ? "subjects" : state.modal === "edit-device" ? "edit-device" : null;
+      state.selectedSubjectId = element.dataset.subjectId;
+      state.subjectError = "";
+      state.modal = "subject-detail";
+      render();
+    },
+    "subject-detail-back"() { state.modal = state.subjectDetailReturn; state.subjectError = ""; render(); },
+    "filter-subjects"() { state.subjectFilter = element.dataset.subjectType; render(); },
+    "toggle-archived-subjects"() { state.subjectArchived = !state.subjectArchived; render(); },
+    "new-subject"() { startSubjectForm("subjects"); },
+    "new-subject-in-bind"() { startSubjectForm("add-device"); },
+    "edit-subject"() {
+      const subject = getSubject();
+      if (subject?.status === "ACTIVE") startSubjectForm("subject-detail", subject);
+    },
+    "set-subject-type"() {
+      if (state.subjectDraft.id || !["PERSON", "PET"].includes(element.dataset.subjectType)) return;
+      state.subjectDraft.type = element.dataset.subjectType;
+      state.subjectError = "";
+      render();
+    },
+    "cancel-subject-form"() { cancelSubjectForm(); },
+    "request-archive-subject"() {
+      if (getSubject()?.status !== "ACTIVE") return;
+      if (linkedSubjectDevices(state.selectedSubjectId).length) {
+        state.subjectError = "这份档案仍有关联设备，请先解除设备关联，再归档档案。";
+      } else state.modal = "subject-archive";
+      render();
+    },
+    "cancel-archive-subject"() { state.modal = "subject-detail"; render(); },
+    "confirm-archive-subject"() {
+      const subject = getSubject();
+      if (!subject || subject.status !== "ACTIVE") return;
+      if (linkedSubjectDevices(subject.id).length) { state.subjectError = "这份档案仍有关联设备，暂时不能归档。"; state.modal = "subject-detail"; render(); return; }
+      subject.status = "ARCHIVED";
+      state.modal = "subjects";
+      state.subjectArchived = false;
+      state.subjectFilter = "all";
+      showToast("档案已归档，资料保留在已归档档案中");
+    },
+    "add-device-for-subject"() { const subject = getSubject(); if (subject?.status === "ACTIVE") openDeviceAddition(subject); },
+    "identify-device"() { identifyPrototypeDevice("imei", element); },
+    "identify-scan"() { identifyPrototypeDevice("scan", element); },
+    "identify-ble"() { identifyPrototypeDevice("ble", element); },
+    "add-identify-back"() { state.addStep = "identify"; state.addError = ""; render(); },
     reset() {
+      resetSubjectDemo();
+      state.toast = "";
+      window.clearTimeout(showToast.timer);
       state.loggedIn = false;
       state.route = "login";
       state.tab = "map";
@@ -5055,9 +5449,7 @@ function handleAction(action, element, event) {
       render();
     },
     "open-add-device"() {
-      state.modal = "add-device";
-      state.addMode = "scan";
-      render();
+      openDeviceAddition();
     },
     "open-edit-device"() {
       state.modal = "edit-device";
@@ -5083,7 +5475,12 @@ function handleAction(action, element, event) {
     "close-modal"() {
       const isBackdrop = element.classList.contains("modal-backdrop");
       if (!isBackdrop || event?.target === element) {
-        state.modal = null;
+        if (state.modal === "subject-form") { cancelSubjectForm(); return; }
+        if (state.modal === "subject-archive") state.modal = "subject-detail";
+        else if (state.modal === "subject-detail") state.modal = state.subjectDetailReturn;
+        else if (state.modal === "add-device") { state.modal = state.addReturnModal; if (state.modal === "subject-detail") state.selectedSubjectId = state.addReturnSubjectId; }
+        else state.modal = null;
+        state.subjectError = "";
         render();
       }
     },
@@ -5125,8 +5522,7 @@ function handleAction(action, element, event) {
       showToast("消息已标为已读");
     },
     "bind-device"() {
-      state.modal = null;
-      showToast("设备校验通过，已进入绑定成功流程");
+      bindPrototypeDevice();
     },
     "connect-ble"() {
       showToast("BLE 已连接，正在读取设备参数");
@@ -5233,7 +5629,12 @@ function handleAction(action, element, event) {
       showToast("服务协议与隐私政策将在正式版本中打开详情页");
     },
     "toast-pet-edit"() {
-      showToast("宠物档案编辑：品种、生日、体重、疫苗记录可在正式版本完善");
+      const subject = subjectForDevice(state.selectedDeviceId);
+      if (subject?.type === "PET" && subject.status === "ACTIVE") {
+        state.selectedSubjectId = subject.id;
+        state.subjectDetailReturn = null;
+        startSubjectForm(null, subject);
+      } else showToast("尚未提供可编辑的宠物档案");
     },
     "toast-panel-update"() {
       showToast("面板检查：物模型与面板版本已是当前型号最新版本");
@@ -5296,7 +5697,7 @@ function showToast(message) {
   window.clearTimeout(showToast.timer);
   showToast.timer = window.setTimeout(() => {
     state.toast = "";
-    render();
+    app.querySelector(".toast")?.remove();
   }, 2600);
 }
 

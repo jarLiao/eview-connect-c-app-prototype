@@ -1,13 +1,25 @@
-# Eview Connect C App Prototype
+# Eview Connect C 端 App 原型
 
-Static interactive HTML prototype for the Eview Connect C-side device management app.
+Eview Connect C 端设备管理 App 的静态交互原型，保留地图、设备、消息、我的四个底部入口。
 
-The authentication prototype includes interactive login, registration, email verification countdown, and password reset flows.
+认证演示包含登录、注册、邮箱验证码倒计时和找回密码。
 
-## Files
+## 家人和宠物档案
+
+- “我的 → 家人和宠物”支持新增、编辑、按类型筛选和归档；仍有关联设备的档案会阻止归档。
+- 设备列表、地图卡片和详情展示使用者；设备列表及详情的使用者标签可以进入档案。
+- 档案详情展示基本资料和关联设备，点击设备返回原有设备详情。未关联设备的档案提供添加入口。
+- 添加设备保留扫码、IMEI 和 BLE 方式，识别后选择“给谁使用”；可就地新增档案，保存或取消后保留设备信息。
+- 档案与设备分别保存，通过稳定 ID 关联。种子演示中妈妈关联手表和挂坠，爸爸暂未关联设备，Milo 和栗子分别关联宠物设备。
+- 在线、电量和位置属于设备；新增演示设备等待首次上报，不生成虚假的位置或健康数据。物品保留原设备分类，分享设备不会自动开放使用者档案。
+
+这些操作只改变当前页面中的演示数据，不调用服务器。刷新页面或点击“重置演示”恢复初始数据；不能作为 Android 实现或真实业务验收证据。
+
+## 文件
 
 - `index.html`
 - `styles.css`
 - `app.js`
+- `assets/lucide.min.js`：本地 Lucide 图标，许可证见 `assets/lucide-LICENSE`，打开原型无需访问图标 CDN。
 
-Open `index.html` directly or publish the folder with GitHub Pages.
+浏览器直接打开 `index.html` 即可。原型属于独立子模块，提交和发布遵守主仓库 `web/README.md` 中的边界约定。
