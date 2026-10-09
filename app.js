@@ -7,7 +7,10 @@ const mock = {
   user: {
     id: "u-lily",
     name: "Lily Chen",
-    email: "lily.chen@email.com",
+    fullName: "陈莉",
+    email: "lily.chen@example.com",
+    phone: "",
+    avatar: "",
     role: "设备拥有者",
   },
   devices: [
@@ -441,6 +444,11 @@ const state = {
   subjectError: "",
   configCategory: "home",
   settingsPanel: "profile",
+  profileEditor: null,
+  profileAvatarDraft: "",
+  profileSaving: false,
+  profileAppearance: ["light", "dark"].includes(new URLSearchParams(location.search).get("appearance"))
+    ? new URLSearchParams(location.search).get("appearance") : "system",
   toast: "",
   auth: {
     purpose: "register",
@@ -471,6 +479,8 @@ const app = document.getElementById("app");
 const apiPanel = document.getElementById("api-panel");
 const demoPanel = document.getElementById("demo-panel");
 let verificationCountdownTimer = null;
+let profileOperation = 0;
+const initialAccountDemo = JSON.stringify(mock.user);
 
 function $(selector, root = document) {
   return root.querySelector(selector);
@@ -1766,8 +1776,11 @@ const apiPageMap = {
 
 function render() {
   app.dataset.theme = state.brandTheme;
+  app.dataset.appearance = state.profileAppearance;
   if (!state.loggedIn) {
     app.innerHTML = renderAuthRoute();
+  } else if (state.route === "account-profile") {
+    app.innerHTML = renderAccountProfile();
   } else if (state.route === "detail") {
     app.innerHTML = renderDetail();
   } else {
@@ -1840,6 +1853,7 @@ function renderApiPanel() {
 }
 
 function getApiPanelInfo() {
+  if (state.route === "account-profile") return { title: "账号资料原型", summary: "本地演示交互，不发送服务器请求。", apiIds: [], gaps: [] };
   if (["subjects", "subject-detail", "subject-form", "subject-archive"].includes(state.modal)) return {
     title: "档案与设备关联设计",
     summary: "本轮新增的是 HTML 本地交互。家人与宠物独立保存，关联通过稳定档案 ID、设备 ID 和绑定 ID 表达。",
@@ -3833,7 +3847,7 @@ function renderMine() {
     {
       title: "账号",
       items: [
-        ["profile", "user-round-pen", "账号资料", "头像、昵称、邮箱和手机号"],
+        ["profile", "user-round-pen", "账号资料", "头像、昵称和姓名"],
         ["security", "shield-check", "账号与安全", "修改密码、登录设备和账号注销"],
       ],
     },
@@ -3861,14 +3875,11 @@ function renderMine() {
   ];
   return `
     <section class="section">
-      <div class="profile-card">
-        <div class="profile-avatar">${icon("user-round")}</div>
-        <div>
-          <strong>${mock.user.name}</strong>
-          <span>${mock.user.email}</span>
-        </div>
-        <button class="small-icon-button" type="button" data-action="open-settings" data-settings="profile" aria-label="编辑资料">${icon("pencil")}</button>
-      </div>
+      <button class="profile-card mine-profile-card" type="button" data-action="open-settings" data-settings="profile" aria-label="查看账号资料">
+        ${renderAccountAvatar("profile-avatar")}
+        <span class="mine-profile-copy"><strong>${escapeHtml(mock.user.name || "未设置昵称")}</strong><span>${escapeHtml(mock.user.email || "未设置邮箱")}</span></span>
+        ${icon("chevron-right")}
+      </button>
     </section>
     <section class="section">
       <div class="settings-group-title">家人和宠物</div>
@@ -4227,6 +4238,7 @@ function bindSubjectEvents() {
 }
 
 function renderModal() {
+  if (state.modal?.startsWith("profile-")) return renderAccountProfileSheet();
   if (state.modal === "subjects") return renderSubjectManager();
   if (state.modal === "subject-detail") return renderSubjectDetail();
   if (state.modal === "subject-form") return renderSubjectForm();
@@ -4688,7 +4700,7 @@ function renderConfigCategoryContent(id) {
 
 function renderSettingsModal() {
   const panelMap = {
-    profile: ["账号资料", renderProfileSettings()],
+    profile: ["账号资料", ""],
     security: ["账号与安全", renderSecuritySettings()],
     notifications: ["通知设置", renderNotificationSettings()],
     map: ["地区与地图服务", renderMapSettings()],
@@ -4710,16 +4722,165 @@ function renderSettingsModal() {
   `;
 }
 
-function renderProfileSettings() {
+function renderAccountAvatar(className) {
+  return `<span class="${className}">${mock.user.avatar
+    ? `<img src="${escapeHtml(mock.user.avatar)}" alt="头像" />`
+    : icon("user-round")}</span>`;
+}
+
+function renderAccountProfile() {
+  const editing = state.modal?.startsWith("profile-");
   return `
-    <div class="form-grid">
-      <div class="field"><label for="profile-name">昵称</label><input id="profile-name" value="${mock.user.name}" /></div>
-      <div class="field"><label for="profile-email">邮箱</label><input id="profile-email" type="email" value="${mock.user.email}" /></div>
-      <div class="field"><label for="profile-phone">手机号</label><input id="profile-phone" value="+86 138 0000 1234" /></div>
-      <div class="field"><label for="profile-region">国家 / 地区</label><select id="profile-region"><option>中国大陆</option><option>中国香港</option><option>美国</option><option>欧洲</option></select></div>
-    </div>
-    <button class="primary-button full-width" type="button" data-action="save-settings">${icon("save")}保存资料</button>
+    <section class="account-profile-page" ${editing ? 'inert aria-hidden="true"' : ""}>
+      <header class="account-profile-header">
+        <button type="button" class="account-icon-button" data-action="profile-back" aria-label="返回我的">${icon("arrow-left")}</button>
+        <h1>账号资料</h1><span aria-hidden="true"></span>
+      </header>
+      <div class="account-profile-content">
+        <div class="account-avatar-section">
+          <button class="account-avatar-button" type="button" data-action="profile-avatar-options" aria-label="更换头像">
+            <span class="account-avatar-image">${renderAccountAvatar("account-avatar")}<span class="account-avatar-camera">${icon("camera")}</span></span>
+            <span>更换头像</span>
+          </button>
+        </div>
+        <section class="account-group" aria-labelledby="account-personal-heading">
+          <h2 id="account-personal-heading">个人资料</h2>
+          <div class="account-group-list">
+            ${[["name", "昵称"], ["fullName", "姓名"]].map(([field, label]) => `
+              <button class="account-row" type="button" data-action="profile-edit" data-profile-field="${field}" aria-label="修改${label}">
+                <span class="account-row-label">${label}</span><span class="account-row-value ${mock.user[field] ? "" : "is-empty"}">${escapeHtml(mock.user[field] || "未设置")}</span>${icon("chevron-right")}
+              </button>`).join("")}
+          </div>
+        </section>
+        <section class="account-group" aria-labelledby="account-login-heading">
+          <h2 id="account-login-heading">登录信息</h2>
+          <div class="account-group-list">
+            <div class="account-row account-row-readonly"><span class="account-row-label">邮箱</span><span class="account-row-value ${mock.user.email ? "" : "is-empty"}">${escapeHtml(mock.user.email || "未设置")}</span></div>
+            <div class="account-row account-row-readonly"><span class="account-row-label">手机号</span><span class="account-row-value ${mock.user.phone ? "" : "is-empty"}">${escapeHtml(mock.user.phone || "未设置")}</span></div>
+          </div>
+        </section>
+      </div>
+    </section>
+    <input id="account-avatar-file" type="file" accept="image/png,image/jpeg" hidden />
   `;
+}
+
+function accountSheet(title, content) {
+  return `<div class="modal-backdrop account-profile-overlay" data-action="profile-cancel">
+    <section class="bottom-sheet account-edit-sheet" role="dialog" aria-modal="true" aria-label="${title}" aria-busy="${state.profileSaving}" tabindex="-1" data-sheet>
+      <div class="account-sheet-handle" aria-hidden="true"></div>
+      <div class="sheet-header"><h2>${title}</h2><button class="account-icon-button" type="button" data-action="profile-cancel" aria-label="关闭" ${state.profileSaving ? "disabled" : ""}>${icon("x")}</button></div>
+      ${content}
+    </section>
+  </div>`;
+}
+
+function profileSaveButton(action, label = "保存", disabled = false) {
+  return `<button type="${action === "profile-save-field" ? "submit" : "button"}" class="account-primary-button" ${action === "profile-save-field" ? "" : `data-action="${action}"`} ${state.profileSaving || disabled ? "disabled" : ""}>${state.profileSaving ? '<span class="account-spinner" aria-hidden="true"></span>保存中…' : label}</button>`;
+}
+
+function renderAccountProfileSheet() {
+  if (state.modal === "profile-edit") {
+    const draft = state.profileEditor;
+    const label = draft.field === "name" ? "昵称" : "姓名";
+    return accountSheet(`修改${label}`, `<form data-form="account-field" class="account-field-form">
+      <label for="account-field-input">${label}</label>
+      <div class="account-field-input-wrap"><input id="account-field-input" type="text" maxlength="60" value="${escapeHtml(draft.value)}" placeholder="输入${label}" autocomplete="off" ${state.profileSaving ? "disabled" : ""} /><button type="button" class="account-clear-input" data-action="profile-clear-input" aria-label="清空${label}" ${state.profileSaving ? "disabled" : ""}>${icon("circle-x")}</button></div>
+      <div class="account-field-meta"><span>最多 60 个字符</span><span id="account-field-count">${draft.value.length}/60</span></div>
+      <div class="account-sheet-actions"><button class="account-secondary-button" type="button" data-action="profile-cancel" ${state.profileSaving ? "disabled" : ""}>取消</button>${profileSaveButton("profile-save-field", "保存", draft.value.trim() === mock.user[draft.field])}</div>
+    </form>`);
+  }
+  if (state.modal === "profile-avatar-preview") {
+    return accountSheet("使用这张照片？", `<div class="account-avatar-preview"><img src="${escapeHtml(state.profileAvatarDraft)}" alt="所选头像预览" /></div>
+      <div class="account-sheet-actions"><button class="account-secondary-button" type="button" data-action="profile-cancel" ${state.profileSaving ? "disabled" : ""}>取消</button>${profileSaveButton("profile-save-avatar", "使用照片")}</div>`);
+  }
+  return accountSheet("更换头像", `<div class="account-photo-actions">
+    <button class="account-photo-action" type="button" data-action="profile-select-photo" ${state.profileSaving ? "disabled" : ""}>${icon("image")}<span>从相册选择</span>${icon("chevron-right")}</button>
+    <button class="account-photo-action account-photo-remove" type="button" data-action="profile-remove-avatar" ${state.profileSaving || !mock.user.avatar ? "disabled" : ""}>${icon("trash-2")}<span>${state.profileSaving ? "移除中…" : "移除头像"}</span></button>
+  </div><button class="account-secondary-button full-width" type="button" data-action="profile-cancel" ${state.profileSaving ? "disabled" : ""}>取消</button>`);
+}
+
+function cancelProfileEdit() {
+  if (state.profileSaving) return;
+  const field = state.profileEditor?.field;
+  profileOperation++;
+  state.profileEditor = null;
+  state.profileAvatarDraft = "";
+  state.modal = null;
+  render();
+  app.querySelector(field ? `[data-profile-field="${field}"]` : ".account-avatar-button")?.focus();
+}
+
+function clearProfileFeedback() {
+  state.toast = "";
+  window.clearTimeout(showToast.timer);
+}
+
+function saveProfileDemo(field, value) {
+  if (state.profileSaving || !["name", "fullName", "avatar"].includes(field)) return;
+  state.profileSaving = true;
+  const operation = ++profileOperation;
+  render();
+  // 只模拟本地保存反馈，不上传图片、不调用服务端。
+  window.setTimeout(() => {
+    if (operation !== profileOperation || state.route !== "account-profile") return;
+    mock.user[field] = value;
+    state.profileSaving = false;
+    state.profileEditor = null;
+    state.profileAvatarDraft = "";
+    state.modal = null;
+    showToast(field === "avatar" ? (value ? "头像已更新" : "头像已移除") : "已保存");
+  }, 500);
+}
+
+function bindAccountProfileEvents() {
+  const input = app.querySelector("#account-field-input");
+  const syncDraft = () => {
+    if (!input || !state.profileEditor || state.profileSaving) return;
+    state.profileEditor.value = input.value;
+    app.querySelector("#account-field-count").textContent = `${input.value.length}/60`;
+    app.querySelector('[data-form="account-field"] [type="submit"]').disabled = input.value.trim() === mock.user[state.profileEditor.field];
+  };
+  input?.addEventListener("input", syncDraft);
+  app.querySelector('[data-form="account-field"]')?.addEventListener("submit", event => {
+    event.preventDefault();
+    if (state.profileEditor && !state.profileSaving && state.profileEditor.value.trim() !== mock.user[state.profileEditor.field]) {
+      saveProfileDemo(state.profileEditor.field, state.profileEditor.value.trim());
+    }
+  });
+  app.querySelector("#account-avatar-file")?.addEventListener("change", event => {
+    const file = event.target.files?.[0];
+    if (!file || state.profileSaving) return;
+    if (!["image/png", "image/jpeg"].includes(file.type) || file.size > 5 * 1024 * 1024) { showToast("请选择 5 MB 以内的 PNG 或 JPG 图片"); return; }
+    const operation = ++profileOperation;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (operation !== profileOperation || state.route !== "account-profile") return;
+      const preview = new Image();
+      preview.onload = () => {
+        if (operation !== profileOperation || state.route !== "account-profile") return;
+        state.profileAvatarDraft = reader.result;
+        state.modal = "profile-avatar-preview";
+        render();
+      };
+      preview.onerror = () => { if (operation === profileOperation) showToast("这张照片无法打开，请重新选择"); };
+      preview.src = reader.result;
+    };
+    reader.onerror = () => { if (operation === profileOperation) showToast("无法读取照片，请重新选择"); };
+    reader.readAsDataURL(file);
+  });
+  const dialog = app.querySelector(".account-edit-sheet");
+  if (!dialog) return;
+  dialog.addEventListener("keydown", event => {
+    if (event.key === "Escape") { event.preventDefault(); cancelProfileEdit(); }
+    if (event.key !== "Tab") return;
+    const focusable = [...dialog.querySelectorAll("button:not(:disabled), input:not(:disabled)")];
+    if (!focusable.length) { event.preventDefault(); return; }
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  });
+  (input || dialog.querySelector("button:not(:disabled)") || dialog).focus();
 }
 
 function renderSecuritySettings() {
@@ -5123,6 +5284,7 @@ function bindOtpInputs() {
 
 function bindEvents() {
   bindSubjectEvents();
+  bindAccountProfileEvents();
   document.querySelectorAll("[data-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       state.tab = button.dataset.tab;
@@ -5302,6 +5464,39 @@ function bindEvents() {
 
 function handleAction(action, element, event) {
   const actions = {
+    "profile-back"() {
+      if (state.profileSaving) return;
+      profileOperation++;
+      state.profileEditor = null;
+      state.profileAvatarDraft = "";
+      state.modal = null;
+      state.route = "home";
+      state.tab = "mine";
+      render();
+    },
+    "profile-edit"() {
+      const field = element.dataset.profileField;
+      if (!["name", "fullName"].includes(field)) return;
+      clearProfileFeedback();
+      state.profileEditor = { field, value: mock.user[field] || "" };
+      state.modal = "profile-edit";
+      render();
+    },
+    "profile-avatar-options"() { clearProfileFeedback(); state.modal = "profile-avatar"; render(); },
+    "profile-select-photo"() { app.querySelector("#account-avatar-file")?.click(); },
+    "profile-cancel"() {
+      if (element.classList.contains("modal-backdrop") && event?.target !== element) return;
+      cancelProfileEdit();
+    },
+    "profile-clear-input"() {
+      const input = app.querySelector("#account-field-input");
+      if (!input || state.profileSaving) return;
+      input.value = "";
+      input.dispatchEvent(new Event("input"));
+      input.focus();
+    },
+    "profile-save-avatar"() { if (state.profileAvatarDraft) saveProfileDemo("avatar", state.profileAvatarDraft); },
+    "profile-remove-avatar"() { if (mock.user.avatar) saveProfileDemo("avatar", ""); },
     "open-subjects"() {
       state.subjectFilter = "all";
       state.subjectArchived = false;
@@ -5358,6 +5553,11 @@ function handleAction(action, element, event) {
     "add-identify-back"() { state.addStep = "identify"; state.addError = ""; render(); },
     reset() {
       resetSubjectDemo();
+      profileOperation++;
+      Object.assign(mock.user, JSON.parse(initialAccountDemo));
+      state.profileEditor = null;
+      state.profileAvatarDraft = "";
+      state.profileSaving = false;
       state.toast = "";
       window.clearTimeout(showToast.timer);
       state.loggedIn = false;
@@ -5461,7 +5661,13 @@ function handleAction(action, element, event) {
     },
     "open-settings"() {
       state.settingsPanel = element.dataset.settings || "profile";
-      state.modal = "settings";
+      if (state.settingsPanel === "profile") {
+        clearProfileFeedback();
+        state.route = "account-profile";
+        state.profileEditor = null;
+        state.profileAvatarDraft = "";
+        state.modal = null;
+      } else state.modal = "settings";
       render();
     },
     "open-h5"() {
@@ -5707,4 +5913,10 @@ function refreshIcons() {
   }
 }
 
+// 深链接仅打开合成资料演示，不建立账号会话或服务器连接。
+if (["#account-profile", "#mine"].includes(location.hash)) {
+  state.loggedIn = true;
+  state.tab = "mine";
+  state.route = location.hash === "#account-profile" ? "account-profile" : "home";
+}
 render();

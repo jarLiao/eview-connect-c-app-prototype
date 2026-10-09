@@ -3761,6 +3761,93 @@ textarea:focus-visible {
   }
 }
 
+/* 账号资料沿用品牌色，主页面只呈现用户可以查看或修改的资料。 */
+.phone-screen:has(.account-profile-page) {
+  --account-bg: #f3f5f6;
+  --account-surface: #fff;
+  --account-text: #18212b;
+  --account-muted: #77828e;
+  --account-line: #e9edef;
+  --account-accent: var(--primary);
+  background: var(--account-bg);
+}
+
+.prototype-stage:has(.account-profile-page) { grid-template-columns: minmax(0, 414px); }
+.prototype-stage:has(.account-profile-page) .api-panel,
+.prototype-stage:has(.account-profile-page) .demo-panel { display: none; }
+.account-profile-page { display: flex; flex: 1; flex-direction: column; min-height: 0; color: var(--account-text); background: var(--account-bg); }
+.account-profile-header { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; flex: 0 0 60px; padding: 0 12px; background: var(--account-surface); border-bottom: 1px solid var(--account-line); }
+.account-profile-header h1 { margin: 0; text-align: center; font-size: 18px; font-weight: 650; }
+.account-icon-button { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--account-text); }
+.account-icon-button .lucide { width: 22px; height: 22px; }
+.account-profile-content { flex: 1; min-height: 0; overflow-y: auto; padding: 0 16px 32px; }
+.account-avatar-section { display: flex; justify-content: center; padding: 30px 0 26px; }
+.account-avatar-button { display: grid; justify-items: center; gap: 12px; min-width: 144px; padding: 0; border: 0; background: transparent; color: var(--account-accent); font-size: 14px; font-weight: 600; }
+.account-avatar-image { position: relative; display: block; }
+.account-avatar { display: grid; place-items: center; width: 96px; height: 96px; overflow: hidden; border-radius: 50%; background: var(--primary-soft); color: var(--account-accent); }
+.account-avatar .lucide { width: 44px; height: 44px; stroke-width: 1.5; }
+.account-avatar img, .profile-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.account-avatar-camera { position: absolute; right: -1px; bottom: -1px; display: grid; place-items: center; width: 30px; height: 30px; border: 3px solid var(--account-bg); border-radius: 50%; color: #fff; background: var(--primary); }
+.account-avatar-camera .lucide { width: 15px; height: 15px; }
+.account-group { margin: 0 0 24px; }
+.account-group h2 { margin: 0 12px 9px; color: var(--account-muted); font-size: 12px; font-weight: 500; }
+.account-group-list { overflow: hidden; border-radius: 14px; background: var(--account-surface); }
+.account-row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 60px; width: 100%; padding: 14px 16px; border: 0; text-align: left; background: transparent; color: var(--account-text); }
+.account-row + .account-row::before { position: absolute; top: 0; right: 0; left: 16px; height: 1px; content: ""; background: var(--account-line); }
+.account-row-label { flex: 0 0 auto; font-size: 15px; }
+.account-row-value { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--account-muted); text-align: right; font-size: 14px; }
+.account-row-value.is-empty { color: var(--account-muted); }
+.account-row > .lucide { flex: 0 0 16px; width: 16px; height: 16px; color: var(--account-muted); }
+.account-row-readonly { gap: 24px; }
+.mine-profile-card { width: 100%; grid-template-columns: 52px minmax(0, 1fr) 20px; text-align: left; }
+.mine-profile-card > .profile-avatar { width: 52px; height: 52px; border-radius: 50%; color: #fff; overflow: hidden; }
+.mine-profile-card > .lucide { width: 20px; height: 20px; color: var(--muted); }
+.mine-profile-copy { min-width: 0; }
+.mine-profile-copy > span { overflow-wrap: anywhere; }
+.account-profile-overlay { color: var(--account-text); }
+.account-edit-sheet { max-height: calc(100% - 72px); padding: 10px 20px max(24px, env(safe-area-inset-bottom)); border-radius: 24px 24px 0 0; background: var(--account-surface); color: var(--account-text); }
+.account-sheet-handle { width: 32px; height: 4px; margin: 0 auto 12px; border-radius: 4px; background: var(--account-line); }
+.account-edit-sheet .sheet-header { margin-bottom: 22px; }
+.account-edit-sheet .sheet-header h2 { font-size: 19px; font-weight: 650; }
+.account-field-form > label { display: block; margin-bottom: 8px; font-size: 13px; color: var(--account-muted); }
+.account-field-input-wrap { display: flex; align-items: center; border: 1px solid var(--account-line); border-radius: 12px; background: var(--account-bg); }
+.account-field-input-wrap:focus-within { border-color: var(--primary); }
+.account-field-input-wrap input { width: 100%; min-width: 0; min-height: 52px; padding: 12px 14px; border: 0; border-radius: 12px; background: transparent; color: var(--account-text); outline-offset: -3px; }
+.account-field-input-wrap input::placeholder { color: var(--account-muted); }
+.account-clear-input { display: grid; place-items: center; flex: 0 0 44px; height: 44px; padding: 0; border: 0; color: var(--account-muted); background: transparent; }
+.account-clear-input .lucide { width: 18px; height: 18px; }
+.account-field-meta { display: flex; justify-content: space-between; margin-top: 9px; color: var(--account-muted); font-size: 12px; }
+.account-sheet-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 28px; }
+.account-primary-button, .account-secondary-button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 12px 18px; border: 0; border-radius: 12px; font-weight: 600; }
+.account-primary-button { color: #fff; background: var(--primary); }
+.account-secondary-button { color: var(--account-text); background: var(--account-bg); }
+.account-edit-sheet button:disabled { cursor: default; opacity: .5; }
+.account-edit-sheet [aria-busy="true"] { cursor: progress; }
+.account-photo-actions { display: grid; margin: -6px 0 20px; }
+.account-photo-action { display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 14px 2px; text-align: left; border: 0; background: transparent; color: var(--account-text); }
+.account-photo-action + .account-photo-action { border-top: 1px solid var(--account-line); }
+.account-photo-action .lucide { flex: 0 0 20px; width: 20px; height: 20px; }
+.account-photo-action span { flex: 1; }
+.account-photo-action > .lucide:last-child { color: var(--account-muted); }
+.account-photo-remove { color: #bf554b; }
+.account-avatar-preview { display: grid; place-items: center; padding: 6px 0 10px; }
+.account-avatar-preview img { width: min(180px, 70vw); height: min(180px, 70vw); object-fit: cover; border-radius: 50%; }
+.account-spinner { width: 16px; height: 16px; border: 2px solid #ffffff60; border-top-color: #fff; border-radius: 50%; animation: account-spin .75s linear infinite; }
+@keyframes account-spin { to { transform: rotate(360deg); } }
+
+.phone-screen[data-appearance="dark"]:has(.account-profile-page) {
+  --account-bg: #11191e; --account-surface: #1c272d; --account-text: #edf2f4; --account-muted: #a4b2bb; --account-line: #2c3a42; --account-accent: #82cbc3; --primary-soft: #223f3d;
+}
+@media (prefers-color-scheme: dark) {
+  .phone-screen[data-appearance="system"]:has(.account-profile-page) {
+    --account-bg: #11191e; --account-surface: #1c272d; --account-text: #edf2f4; --account-muted: #a4b2bb; --account-line: #2c3a42; --account-accent: #82cbc3; --primary-soft: #223f3d;
+  }
+}
+@media (hover: hover) {
+  .account-row:hover, .account-photo-action:hover { background: var(--account-bg); }
+  .account-icon-button:hover { background: var(--account-bg); }
+}
+
 .device-card-main {
   display: grid;
   gap: 8px;
