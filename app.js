@@ -442,6 +442,10 @@ const state = {
   subjectFormReturn: "subjects",
   subjectDetailReturn: "subjects",
   subjectError: "",
+  subjectProfileReturn: null,
+  subjectProfileEditor: null,
+  subjectProfileAvatarDraft: "",
+  subjectProfileSaving: false,
   configCategory: "home",
   settingsPanel: "profile",
   profileEditor: null,
@@ -480,6 +484,7 @@ const apiPanel = document.getElementById("api-panel");
 const demoPanel = document.getElementById("demo-panel");
 let verificationCountdownTimer = null;
 let profileOperation = 0;
+let subjectProfileOperation = 0;
 const initialAccountDemo = JSON.stringify(mock.user);
 
 function $(selector, root = document) {
@@ -1781,6 +1786,8 @@ function render() {
     app.innerHTML = renderAuthRoute();
   } else if (state.route === "account-profile") {
     app.innerHTML = renderAccountProfile();
+  } else if (state.route === "subject-profile") {
+    app.innerHTML = renderSubjectProfile();
   } else if (state.route === "detail") {
     app.innerHTML = renderDetail();
   } else {
@@ -4017,6 +4024,11 @@ function renderUnreportedDevice() {
 }
 
 function resetSubjectDemo() {
+  subjectProfileOperation++;
+  state.subjectProfileEditor = null;
+  state.subjectProfileAvatarDraft = "";
+  state.subjectProfileSaving = false;
+  state.subjectProfileReturn = null;
   const initial = JSON.parse(initialSubjectDemo);
   mock.subjects = initial.subjects;
   mock.subjectBindings = initial.bindings;
@@ -4059,7 +4071,7 @@ function renderSubjectManager() {
     <div class="subject-type-switch subject-filter" aria-label="档案类型筛选">${[["all", "全部"], ["PERSON", "家人"], ["PET", "宠物"]].map(([type, label]) => `<button type="button" class="${state.subjectFilter === type ? "active" : ""}" data-action="filter-subjects" data-subject-type="${type}" aria-pressed="${state.subjectFilter === type}">${label}</button>`).join("")}</div>
     ${state.subjectArchived ? `<p class="field-helper">已归档的档案不再用于添加设备。</p>` : `<p class="field-helper">管理家人和宠物的资料，查看他们使用的设备。</p>`}
     <div class="subject-manager-list">${records.length ? records.map((subject) => `<button class="subject-list-card" type="button" data-action="open-subject" data-subject-id="${escapeHtml(subject.id)}">
-      <span class="subject-avatar ${subject.type === "PET" ? "pet" : "person"}">${icon(subject.type === "PET" ? "paw-print" : "user-round")}</span>
+      ${renderSubjectAvatar(subject, `subject-avatar ${subject.type === "PET" ? "pet" : "person"}`)}
       <span class="subject-card-copy"><strong>${escapeHtml(subject.name)}</strong><span>${subjectTypeLabel(subject.type)}${subject.species ? ` · ${escapeHtml(subject.species)}` : ""}</span><small>${subject.status === "ARCHIVED" ? "已归档" : subjectDeviceSummary(subject)}</small></span>${icon("chevron-right")}</button>`).join("") : `<div class="subject-empty">${icon("users")}<strong>${state.subjectArchived ? "暂无已归档档案" : state.subjectFilter === "PET" ? "还没有宠物档案" : state.subjectFilter === "PERSON" ? "还没有家人档案" : "还没有家人或宠物档案"}</strong><p>${state.subjectArchived ? "已归档的资料会保留在这里。" : "先添加一份档案，也可以在添加设备时创建。"}</p></div>`}</div>
     <div class="subject-form-actions"><button class="primary-button full-width" type="button" data-action="new-subject">${icon("user-plus")}添加家人或宠物</button>
     <button class="text-button" type="button" data-action="toggle-archived-subjects">${state.subjectArchived ? "返回当前档案" : `已归档档案（${archivedCount}）`}</button></div>`);
@@ -4072,7 +4084,7 @@ function renderSubjectDetail() {
   const fields = subject.type === "PET" ? [["类型", subject.species], ["品种", subject.breed], ["生日", subject.birthday], ["性别", subject.gender === "male" ? "公" : subject.gender === "female" ? "母" : ""], ["体重", subject.weight ? `${subject.weight} kg` : ""]]
     : [["关系", subject.relationship], ["生日", subject.birthday], ["性别", subject.gender === "male" ? "男" : subject.gender === "female" ? "女" : ""]];
   return subjectSheet(`${subject.name}的档案`, `
-    <div class="subject-list-card"><span class="subject-avatar ${subject.type === "PET" ? "pet" : "person"}">${icon(subject.type === "PET" ? "paw-print" : "user-round")}</span><span class="subject-card-copy"><strong>${escapeHtml(subject.name)}</strong><span>${subjectTypeLabel(subject.type)} · ${subject.status === "ARCHIVED" ? "已归档" : subjectDeviceSummary(subject)}</span></span></div>
+    <div class="subject-list-card">${renderSubjectAvatar(subject, `subject-avatar ${subject.type === "PET" ? "pet" : "person"}`)}<span class="subject-card-copy"><strong>${escapeHtml(subject.name)}</strong><span>${subjectTypeLabel(subject.type)} · ${subject.status === "ARCHIVED" ? "已归档" : subjectDeviceSummary(subject)}</span></span></div>
     <section class="subject-detail-section"><h3>基本资料</h3><div class="subject-profile-grid">${fields.map(([label, value]) => `<div class="subject-profile-item"><span>${label}</span><strong>${escapeHtml(value || "未填写")}</strong></div>`).join("")}</div></section>
     <section class="subject-detail-section"><h3>关联设备 <small>${devices.length} 台</small></h3><div class="subject-linked-list">${devices.length ? devices.map((device) => `<button class="subject-list-card" type="button" data-open-device="${escapeHtml(device.id)}"><span class="subject-avatar person">${icon(deviceIcon(device))}</span><span class="subject-card-copy"><strong>${escapeHtml(device.name)}</strong><span>${escapeHtml(device.model)} · ${statusLabel(device.status)}</span><small>${escapeHtml(device.location)}</small></span>${icon("chevron-right")}</button>`).join("") : `<div class="subject-empty">${icon("radio-receiver")}<strong>未关联设备</strong><p>${subject.status === "ARCHIVED" ? "这份档案已归档。" : "添加设备后，就能查看设备的位置和状态。"}</p></div>`}</div></section>
     ${state.subjectError ? `<p class="subject-error" role="alert">${escapeHtml(state.subjectError)}</p>` : ""}
@@ -4085,6 +4097,245 @@ function subjectFormField(key, label, options = {}) {
   const input = options.values ? `<select id="${id}" name="${key}" data-subject-field="${key}"><option value="">请选择</option>${options.values.map(([item, title]) => `<option value="${item}" ${value === item ? "selected" : ""}>${title}</option>`).join("")}</select>`
     : `<input id="${id}" name="${key}" data-subject-field="${key}" type="${options.type || "text"}" value="${escapeHtml(value)}" ${options.type === "date" ? `max="${todayDateString()}"` : options.type === "number" ? 'min="0.1" max="500" step="0.1" inputmode="decimal"' : 'maxlength="30"'} ${options.required ? 'aria-required="true"' : ""} />`;
   return `<div class="field"><label for="${id}">${label}${options.required ? "（必填）" : ""}</label>${input}</div>`;
+}
+
+const subjectProfileFields = {
+  name: { label: "姓名", type: "text", required: true, maxLength: 100 },
+  relationship: { label: "与我的关系", type: "text", maxLength: 60 },
+  gender: { label: "性别", type: "select" },
+  birthday: { label: "生日", type: "date" },
+  height: { label: "身高", type: "number", unit: "cm", max: 300 },
+  weight: { label: "体重", type: "number", unit: "kg", max: 500 },
+  healthMonitoringEnabled: { label: "健康监测", type: "select", values: [["true", "开启"], ["false", "关闭"]] },
+  species: { label: "宠物类型", type: "select", required: true, values: [["狗", "狗"], ["猫", "猫"], ["其他", "其他"]] },
+  breed: { label: "品种", type: "text", maxLength: 100 },
+  neutered: { label: "绝育状态", type: "select", values: [["true", "已绝育"], ["false", "未绝育"]] },
+  activityTargetMinutes: { label: "每日活动目标", type: "number", unit: "分钟", integer: true, max: 2147483647 }
+};
+
+function subjectProfileGroups(subject) {
+  return subject.type === "PET"
+    ? [["基本资料", ["name", "species", "breed", "gender", "birthday"]], ["身体信息", ["weight"]], ["照护设置", ["neutered", "activityTargetMinutes"]]]
+    : [["基本资料", ["name", "relationship", "gender", "birthday"]], ["身体信息", ["height", "weight"]], ["健康设置", ["healthMonitoringEnabled"]]];
+}
+
+function subjectProfileConfig(subject, field) {
+  const config = { ...subjectProfileFields[field] };
+  if (field === "name" && subject.type === "PET") config.label = "名字";
+  if (field === "gender") config.values = subject.type === "PET"
+    ? [["male", "公"], ["female", "母"], ["unknown", "未知"]]
+    : [["male", "男"], ["female", "女"], ["unknown", "未说明"]];
+  return config;
+}
+
+function subjectProfileValue(subject, field) {
+  return subject[field] == null ? "" : String(subject[field]);
+}
+
+function subjectProfileLabel(subject, field) {
+  const config = subjectProfileConfig(subject, field);
+  const value = subjectProfileValue(subject, field);
+  if (!value) return "未设置";
+  if (config.values) return config.values.find(([key]) => key === value)?.[1] || value;
+  return config.unit ? `${value} ${config.unit}` : value;
+}
+
+function renderSubjectAvatar(subject, className = "account-avatar") {
+  return `<span class="${className}">${subject.avatar
+    ? `<img src="${escapeHtml(subject.avatar)}" alt="头像" />`
+    : icon(subject.type === "PET" ? "paw-print" : "user-round")}</span>`;
+}
+
+function renderSubjectProfile() {
+  const subject = getSubject();
+  const editing = state.modal?.startsWith("subject-profile-");
+  const editable = subject?.status === "ACTIVE";
+  return `<section class="account-profile-page subject-profile-page" ${editing ? 'inert aria-hidden="true"' : ""}>
+    <header class="account-profile-header"><button type="button" class="account-icon-button" data-action="subject-profile-back" aria-label="返回档案">${icon("arrow-left")}</button><h1>${subject?.type === "PET" ? "宠物资料" : "家人资料"}</h1><span aria-hidden="true"></span></header>
+    <div class="account-profile-content">
+      ${subject ? `<div class="account-avatar-section"><button class="account-avatar-button" type="button" data-action="subject-profile-avatar-options" aria-label="更换头像" ${editable ? "" : "disabled"}><span class="account-avatar-image">${renderSubjectAvatar(subject)}<span class="account-avatar-camera">${icon("camera")}</span></span><span>更换头像</span></button></div>
+      ${subjectProfileGroups(subject).map(([title, fields], index) => `<section class="account-group" aria-labelledby="subject-group-${index}"><h2 id="subject-group-${index}">${title}</h2><div class="account-group-list">${fields.map(field => {
+        const config = subjectProfileConfig(subject, field);
+        return `<button class="account-row" type="button" data-action="subject-profile-edit" data-subject-profile-field="${field}" aria-label="修改${config.label}" ${editable ? "" : "disabled"}><span class="account-row-label">${config.label}</span><span class="account-row-value ${subjectProfileValue(subject, field) ? "" : "is-empty"}">${escapeHtml(subjectProfileLabel(subject, field))}</span>${editable ? icon("chevron-right") : ""}</button>`;
+      }).join("")}</div></section>`).join("")}` : `<div class="subject-profile-unavailable">${icon("user-round-x")}<p>这份档案暂时不可用，请返回列表。</p></div>`}
+    </div></section><input id="subject-avatar-file" type="file" accept="image/png,image/jpeg" hidden />`;
+}
+
+function openSubjectProfile(subject) {
+  if (!subject || subject.status !== "ACTIVE") return;
+  subjectProfileOperation++;
+  clearProfileFeedback();
+  state.subjectProfileReturn = { route: state.route, modal: state.modal };
+  state.selectedSubjectId = subject.id;
+  state.subjectProfileEditor = null;
+  state.subjectProfileAvatarDraft = "";
+  state.subjectProfileSaving = false;
+  state.route = "subject-profile";
+  state.modal = null;
+  render();
+}
+
+function closeSubjectProfile() {
+  if (state.subjectProfileSaving) return;
+  subjectProfileOperation++;
+  clearProfileFeedback();
+  state.subjectProfileEditor = null;
+  state.subjectProfileAvatarDraft = "";
+  state.route = state.subjectProfileReturn?.route || "home";
+  state.modal = state.subjectProfileReturn?.modal || null;
+  state.subjectProfileReturn = null;
+  render();
+}
+
+function beginSubjectProfileEdit(field) {
+  const subject = getSubject();
+  if (state.subjectProfileSaving || !subject || subject.status !== "ACTIVE" || !subjectProfileGroups(subject).some(([, fields]) => fields.includes(field))) return;
+  subjectProfileOperation++;
+  clearProfileFeedback();
+  state.subjectProfileAvatarDraft = "";
+  state.subjectProfileEditor = { subjectId: subject.id, field, value: subjectProfileValue(subject, field), error: "" };
+  state.modal = "subject-profile-edit";
+  render();
+}
+
+function beginSubjectProfileAvatar() {
+  if (state.subjectProfileSaving || getSubject()?.status !== "ACTIVE") return;
+  subjectProfileOperation++;
+  clearProfileFeedback();
+  state.subjectProfileEditor = null;
+  state.subjectProfileAvatarDraft = "";
+  state.modal = "subject-profile-avatar";
+  render();
+}
+
+function cancelSubjectProfileEdit() {
+  if (state.subjectProfileSaving) return;
+  const field = state.subjectProfileEditor?.field;
+  subjectProfileOperation++;
+  state.subjectProfileEditor = null;
+  state.subjectProfileAvatarDraft = "";
+  state.modal = null;
+  render();
+  app.querySelector(field ? `[data-subject-profile-field="${field}"]` : ".account-avatar-button")?.focus();
+}
+
+function subjectProfileSheet(title, content) {
+  return accountSheet(title, content, { cancelAction: "subject-profile-cancel", saving: state.subjectProfileSaving, sheetClass: "subject-profile-edit-sheet" });
+}
+
+function subjectProfileSaveButton(action, label, disabled = false) {
+  return `<button type="${action === "subject-profile-save-field" ? "submit" : "button"}" class="account-primary-button" ${action === "subject-profile-save-field" ? "" : `data-action="${action}"`} ${state.subjectProfileSaving || disabled ? "disabled" : ""}>${state.subjectProfileSaving ? '<span class="account-spinner" aria-hidden="true"></span>保存中…' : label}</button>`;
+}
+
+function renderSubjectProfileSheet() {
+  const subject = getSubject();
+  if (!subject) return "";
+  const cancel = `<button class="account-secondary-button" type="button" data-action="subject-profile-cancel" ${state.subjectProfileSaving ? "disabled" : ""}>取消</button>`;
+  if (state.modal === "subject-profile-edit") {
+    const draft = state.subjectProfileEditor;
+    const config = subjectProfileConfig(subject, draft.field);
+    const disabled = state.subjectProfileSaving ? "disabled" : "";
+    const input = config.type === "select"
+      ? `<select id="subject-profile-input" ${disabled}><option value="">${config.required ? "请选择" : "未设置"}</option>${config.values.map(([key, label]) => `<option value="${key}" ${draft.value === key ? "selected" : ""}>${label}</option>`).join("")}</select>`
+      : `<input id="subject-profile-input" type="${config.type}" value="${escapeHtml(draft.value)}" ${config.maxLength ? `maxlength="${config.maxLength}"` : ""} ${config.type === "date" ? `max="${todayDateString()}"` : ""} ${config.type === "number" ? `min="0" max="${config.max}" step="${config.integer ? 1 : 0.1}" inputmode="${config.integer ? "numeric" : "decimal"}"` : ""} autocomplete="off" ${disabled} />`;
+    return subjectProfileSheet(`修改${config.label}`, `<form data-form="subject-profile-field" class="account-field-form" novalidate><label for="subject-profile-input">${config.label}${config.unit ? `（${config.unit}）` : ""}</label><div class="account-field-input-wrap">${input}<button type="button" class="account-clear-input" data-action="subject-profile-clear-input" aria-label="清空${config.label}" ${disabled}>${icon("circle-x")}</button></div>${config.maxLength ? `<div class="account-field-meta"><span>最多 ${config.maxLength} 个字符</span><span id="subject-profile-count">${draft.value.length}/${config.maxLength}</span></div>` : ""}<p class="subject-profile-field-error" id="subject-profile-error" role="alert" ${draft.error ? "" : "hidden"}>${escapeHtml(draft.error)}</p><div class="account-sheet-actions">${cancel}${subjectProfileSaveButton("subject-profile-save-field", "保存", draft.value.trim() === subjectProfileValue(subject, draft.field))}</div></form>`);
+  }
+  if (state.modal === "subject-profile-avatar-preview" || state.modal === "subject-profile-avatar-remove") {
+    const removing = state.modal === "subject-profile-avatar-remove";
+    return subjectProfileSheet(removing ? "移除头像？" : "使用这张照片？", `<div class="account-avatar-preview">${removing ? renderSubjectAvatar({ ...subject, avatar: "" }, "account-avatar subject-avatar-preview-empty") : `<img src="${escapeHtml(state.subjectProfileAvatarDraft)}" alt="所选头像预览" />`}</div><div class="account-sheet-actions">${cancel}${subjectProfileSaveButton(removing ? "subject-profile-confirm-remove" : "subject-profile-save-avatar", removing ? "移除头像" : "使用照片")}</div>`);
+  }
+  return subjectProfileSheet("更换头像", `<div class="account-photo-actions"><button class="account-photo-action" type="button" data-action="subject-profile-select-photo">${icon("image")}<span>从相册选择</span>${icon("chevron-right")}</button><button class="account-photo-action account-photo-remove" type="button" data-action="subject-profile-remove-avatar" ${subject.avatar ? "" : "disabled"}>${icon("trash-2")}<span>移除头像</span></button></div><div class="subject-profile-cancel-action">${cancel}</div>`);
+}
+
+function subjectProfileFieldError(subject, field, value) {
+  const config = subjectProfileConfig(subject, field);
+  if (!value) return config.required ? `请填写${config.label}` : "";
+  if (config.maxLength && value.length > config.maxLength) return `${config.label}不能超过 ${config.maxLength} 个字符`;
+  if (config.values && !config.values.some(([key]) => key === value)) return `请选择${config.label}`;
+  if (config.type === "number" && (!Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > config.max || (config.integer && !Number.isInteger(Number(value))))) return config.integer ? "请输入有效的活动分钟数" : `请输入 0～${config.max} 之间的数值`;
+  if (config.type === "date" && (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value)) || new Date(value).toISOString().slice(0, 10) !== value || value > todayDateString())) return "请选择有效的生日，生日不能晚于今天";
+  return "";
+}
+
+function saveSubjectProfileField(field, rawValue) {
+  const subject = getSubject();
+  if (state.subjectProfileSaving || !subject || subject.status !== "ACTIVE") return;
+  const value = rawValue.trim();
+  if (field !== "avatar") {
+    if (state.subjectProfileEditor?.field !== field || state.subjectProfileEditor.subjectId !== subject.id) return;
+    const error = subjectProfileFieldError(subject, field, value);
+    if (error) { state.subjectProfileEditor.error = error; render(); return; }
+    if (value === subjectProfileValue(subject, field)) return;
+  } else if (!["subject-profile-avatar-preview", "subject-profile-avatar-remove"].includes(state.modal)) return;
+  const subjectId = subject.id;
+  state.subjectProfileSaving = true;
+  const operation = ++subjectProfileOperation;
+  render();
+  window.setTimeout(() => {
+    if (operation !== subjectProfileOperation || state.route !== "subject-profile" || state.selectedSubjectId !== subjectId) return;
+    const current = getSubject(subjectId);
+    if (!current || current.status !== "ACTIVE") { state.subjectProfileSaving = false; cancelSubjectProfileEdit(); showToast("这份档案暂时不可编辑"); return; }
+    current[field] = ["neutered", "healthMonitoringEnabled"].includes(field) && value ? value === "true" : value;
+    state.subjectProfileSaving = false;
+    state.subjectProfileEditor = null;
+    state.subjectProfileAvatarDraft = "";
+    state.modal = null;
+    showToast(field === "avatar" ? (value ? "头像已更新" : "头像已移除") : "已保存");
+    app.querySelector(field === "avatar" ? ".account-avatar-button" : `[data-subject-profile-field="${field}"]`)?.focus();
+  }, 500);
+}
+
+function bindSubjectProfileEvents() {
+  if (state.route !== "subject-profile") return;
+  const input = app.querySelector("#subject-profile-input");
+  const sync = () => {
+    const draft = state.subjectProfileEditor;
+    if (!input || !draft || state.subjectProfileSaving) return;
+    draft.value = input.value;
+    draft.error = "";
+    const count = app.querySelector("#subject-profile-count");
+    if (count) count.textContent = `${input.value.length}/${subjectProfileConfig(getSubject(), draft.field).maxLength}`;
+    app.querySelector("#subject-profile-error").hidden = true;
+    input.removeAttribute("aria-invalid");
+    app.querySelector('[data-form="subject-profile-field"] [type="submit"]').disabled = input.value.trim() === subjectProfileValue(getSubject(), draft.field);
+  };
+  input?.addEventListener("input", sync);
+  input?.addEventListener("change", sync);
+  app.querySelector('[data-form="subject-profile-field"]')?.addEventListener("submit", event => {
+    event.preventDefault();
+    if (state.subjectProfileEditor) saveSubjectProfileField(state.subjectProfileEditor.field, state.subjectProfileEditor.value);
+  });
+  app.querySelector("#subject-avatar-file")?.addEventListener("change", event => {
+    const file = event.target.files?.[0];
+    if (!file || state.subjectProfileSaving || state.modal !== "subject-profile-avatar") return;
+    if (!["image/png", "image/jpeg"].includes(file.type) || file.size > 5 * 1024 * 1024) { showToast("请选择 5 MB 以内的 PNG 或 JPG 图片"); return; }
+    const operation = ++subjectProfileOperation;
+    const subjectId = state.selectedSubjectId;
+    const current = () => operation === subjectProfileOperation && state.route === "subject-profile" && state.selectedSubjectId === subjectId && state.modal === "subject-profile-avatar";
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (!current()) return;
+      const preview = new Image();
+      preview.onload = () => { if (!current()) return; state.subjectProfileAvatarDraft = reader.result; state.modal = "subject-profile-avatar-preview"; render(); };
+      preview.onerror = () => { if (current()) showToast("这张照片无法打开，请重新选择"); };
+      preview.src = reader.result;
+    };
+    reader.onerror = () => { if (current()) showToast("无法读取照片，请重新选择"); };
+    reader.readAsDataURL(file);
+  });
+  const dialog = app.querySelector(".subject-profile-edit-sheet");
+  if (!dialog) return;
+  if (state.subjectProfileEditor?.error) { input?.setAttribute("aria-invalid", "true"); input?.setAttribute("aria-describedby", "subject-profile-error"); }
+  dialog.addEventListener("keydown", event => {
+    if (event.key === "Escape") { event.preventDefault(); cancelSubjectProfileEdit(); }
+    if (event.key !== "Tab") return;
+    const controls = [...dialog.querySelectorAll("button:not(:disabled), input:not(:disabled), select:not(:disabled)")];
+    if (!controls.length) { event.preventDefault(); return; }
+    const first = controls[0], last = controls[controls.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  });
+  (input || dialog.querySelector("button:not(:disabled)") || dialog).focus();
 }
 
 function todayDateString() {
@@ -4108,6 +4359,7 @@ function renderSubjectForm() {
 }
 
 function startSubjectForm(returnModal, existing = null) {
+  if (existing) { openSubjectProfile(existing); return; }
   state.subjectFormReturn = returnModal;
   state.subjectDraft = existing ? { ...existing } : { type: state.subjectFilter === "PET" ? "PET" : "PERSON", name: "", birthday: "", gender: "", relationship: "", species: "", breed: "", weight: "" };
   state.subjectError = "";
@@ -4238,6 +4490,7 @@ function bindSubjectEvents() {
 }
 
 function renderModal() {
+  if (state.modal?.startsWith("subject-profile-")) return renderSubjectProfileSheet();
   if (state.modal?.startsWith("profile-")) return renderAccountProfileSheet();
   if (state.modal === "subjects") return renderSubjectManager();
   if (state.modal === "subject-detail") return renderSubjectDetail();
@@ -4765,11 +5018,13 @@ function renderAccountProfile() {
   `;
 }
 
-function accountSheet(title, content) {
-  return `<div class="modal-backdrop account-profile-overlay" data-action="profile-cancel">
-    <section class="bottom-sheet account-edit-sheet" role="dialog" aria-modal="true" aria-label="${title}" aria-busy="${state.profileSaving}" tabindex="-1" data-sheet>
+function accountSheet(title, content, options = {}) {
+  const cancelAction = options.cancelAction || "profile-cancel";
+  const saving = options.saving ?? state.profileSaving;
+  return `<div class="modal-backdrop account-profile-overlay" data-action="${cancelAction}">
+    <section class="bottom-sheet account-edit-sheet ${options.sheetClass || ""}" role="dialog" aria-modal="true" aria-label="${title}" aria-busy="${saving}" tabindex="-1" data-sheet>
       <div class="account-sheet-handle" aria-hidden="true"></div>
-      <div class="sheet-header"><h2>${title}</h2><button class="account-icon-button" type="button" data-action="profile-cancel" aria-label="关闭" ${state.profileSaving ? "disabled" : ""}>${icon("x")}</button></div>
+      <div class="sheet-header"><h2>${title}</h2><button class="account-icon-button" type="button" data-action="${cancelAction}" aria-label="关闭" ${saving ? "disabled" : ""}>${icon("x")}</button></div>
       ${content}
     </section>
   </div>`;
@@ -4834,6 +5089,7 @@ function saveProfileDemo(field, value) {
 }
 
 function bindAccountProfileEvents() {
+  if (state.route !== "account-profile") return;
   const input = app.querySelector("#account-field-input");
   const syncDraft = () => {
     if (!input || !state.profileEditor || state.profileSaving) return;
@@ -5284,6 +5540,7 @@ function bindOtpInputs() {
 
 function bindEvents() {
   bindSubjectEvents();
+  bindSubjectProfileEvents();
   bindAccountProfileEvents();
   document.querySelectorAll("[data-tab]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -5521,6 +5778,31 @@ function handleAction(action, element, event) {
       const subject = getSubject();
       if (subject?.status === "ACTIVE") startSubjectForm("subject-detail", subject);
     },
+    "subject-profile-back"() { closeSubjectProfile(); },
+    "subject-profile-edit"() { beginSubjectProfileEdit(element.dataset.subjectProfileField); },
+    "subject-profile-avatar-options"() { beginSubjectProfileAvatar(); },
+    "subject-profile-select-photo"() { if (!state.subjectProfileSaving) app.querySelector("#subject-avatar-file")?.click(); },
+    "subject-profile-cancel"() {
+      if (element.classList.contains("modal-backdrop") && event?.target !== element) return;
+      cancelSubjectProfileEdit();
+    },
+    "subject-profile-clear-input"() {
+      const input = app.querySelector("#subject-profile-input");
+      if (!input || state.subjectProfileSaving) return;
+      input.value = "";
+      input.dispatchEvent(new Event("input"));
+      input.dispatchEvent(new Event("change"));
+      input.focus();
+    },
+    "subject-profile-save-avatar"() {
+      if (state.subjectProfileAvatarDraft) saveSubjectProfileField("avatar", state.subjectProfileAvatarDraft);
+    },
+    "subject-profile-remove-avatar"() {
+      if (!state.subjectProfileSaving && getSubject()?.avatar) {
+        state.modal = "subject-profile-avatar-remove"; state.subjectProfileAvatarDraft = ""; render();
+      }
+    },
+    "subject-profile-confirm-remove"() { saveSubjectProfileField("avatar", ""); },
     "set-subject-type"() {
       if (state.subjectDraft.id || !["PERSON", "PET"].includes(element.dataset.subjectType)) return;
       state.subjectDraft.type = element.dataset.subjectType;
@@ -5914,9 +6196,15 @@ function refreshIcons() {
 }
 
 // 深链接仅打开合成资料演示，不建立账号会话或服务器连接。
-if (["#account-profile", "#mine"].includes(location.hash)) {
+if (["#account-profile", "#mine", "#person-profile", "#pet-profile"].includes(location.hash)) {
   state.loggedIn = true;
   state.tab = "mine";
   state.route = location.hash === "#account-profile" ? "account-profile" : "home";
+  if (["#person-profile", "#pet-profile"].includes(location.hash)) {
+    state.selectedSubjectId = location.hash === "#pet-profile" ? "subject-milo" : "subject-mom";
+    state.subjectDetailReturn = "subjects";
+    state.subjectProfileReturn = { route: "home", modal: "subject-detail" };
+    state.route = "subject-profile";
+  }
 }
 render();
