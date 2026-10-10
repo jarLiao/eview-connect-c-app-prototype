@@ -4,16 +4,16 @@ const apiBaseline = {
   android_commit: "941735ed265e156c8e72feb406cf47491116051a",
   design: "Android-App业务对象与设备分享实体设计V0.1；用户确认没有后续补充约定",
   evidence: "Evmars-Mock/document/validation/2026-10-10-原型设计与App接口边界梳理.md",
-  verification: "本轮源码与公开文档核对；未执行认证、业务请求或真机验收",
-  backend_scope: "据后端同事反馈，App Device / App Subject 为 App 业务分组；公共接口例外及后端源码/版本待确认",
+  verification: "本次只检查了 App 代码和接口文档，没有重新测试实际操作。",
+  backend_scope: "后端同事说 App Device / App Subject 是给 App 使用的接口；账号、头像和 AI 的接口能否继续使用，以及服务器代码和版本，还需要后端确认。",
   base_url: "路径相对所选环境的 /admin/；AI 可被运行时环境覆盖",
 };
 
 const apiCategories = {
-  current: { label: "当前 App 调用", hint: "源码存在 Prod 调用链；业务支持范围另列。" },
-  published: { label: "已发布 · 未接入", hint: "公开文档已声明，未接入当前 App；不表示后端未实现。" },
-  pending: { label: "待后端确认", hint: "仍可达的旧请求，需确认替代契约或移除方案。" },
-  requirement: { label: "原型需求", hint: "仅表达交互需要；没有确认的方法、路径和字段。" },
+  current: { label: "App 已在使用", hint: "App 代码已接上这些接口；不代表所有场景都测试通过。" },
+  published: { label: "文档里有，App 还没用", hint: "后端接口文档里已经列出，App 还没有使用。" },
+  pending: { label: "App 还在用的旧接口", hint: "需要和后端确认：继续保留、换成新接口，还是停用。" },
+  requirement: { label: "功能需要，接口还没定", hint: "原型里有这个功能，但具体用什么接口还没有约定。" },
 };
 const apiRegistry = {};
 
@@ -21,10 +21,10 @@ function registerApi(id, method, path, title, category, pages, note, source = ""
   const doc = apiEvidence.operations[`${method} ${path}`];
   apiRegistry[id] = {
     id, method, path, title, category, pages, note, source, client_contract: client,
-    backend_scope: path?.startsWith("/app/") ? "App 业务分组（据后端反馈）；具体权限和业务行为仍以确认/验收为准"
-      : category === "requirement" ? "尚无确认契约" : "待后端确认支持范围",
-    app_usage: category === "current" ? "存在 Prod 调用链" : category === "pending" ? "旧请求仍可达" : "当前未接入",
-    contract_status: category === "requirement" ? "尚无确认契约" : doc ? "公开文档已声明" : "本次 12 个公开分组未见；不代表服务端不存在",
+    backend_scope: path?.startsWith("/app/") ? "后端说这是给 App 使用的接口；具体功能和权限仍需测试确认"
+      : category === "requirement" ? "还没有约定接口" : "待后端确认：App 能否继续使用此接口",
+    app_usage: category === "current" ? "App 已在使用" : category === "pending" ? "App 还在使用这个旧接口" : category === "requirement" ? "接口还没定" : "App 还没用",
+    contract_status: category === "requirement" ? "还没有约定接口" : doc ? "接口文档里已有" : "本次查看的 12 组接口文档里没找到；不代表服务器上没有",
     document_key: doc ? `${method} ${path}` : null,
   };
 }

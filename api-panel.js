@@ -39,17 +39,17 @@ function renderApiPanel() {
   const info = getApiPanelInfo();
   apiPanel.innerHTML = `
     <section class="api-card api-card-primary">
-      <div class="api-kicker">${icon("server")} API 接入对照</div>
+      <div class="api-kicker">${icon("server")} 接口使用情况</div>
       <h2>${escapeHtml(info.title)}</h2>
       <p>核对日期 ${apiBaseline.reviewed_at} · Android ${apiBaseline.android_commit.slice(0, 7)}</p>
       <div class="api-view-switch" role="group" aria-label="API 查看范围">
         <button type="button" data-action="api-view-page" aria-pressed="${apiPanelView === "page"}">当前页面</button>
         <button type="button" data-action="api-view-all" aria-pressed="${apiPanelView === "all"}">全部接口</button>
       </div>
-      <div class="api-truth-note"><strong>调用事实与支持范围分别核对</strong><span>App 两个业务分组共 37 项：19 项有调用链，18 项未接入。公共账号、头像和 AI 的支持范围待后端确认。此网页仅做本地交互演示。</span></div>
-      <details class="api-evidence-note"><summary>查看来源与验证边界</summary>
+      <div class="api-truth-note"><strong>App 用没用？后端是否同意使用？</strong><span>后端给 App 的两组接口共 37 项：App 已用 19 项，还有 18 项没用。账号、头像和 AI 的接口也在用，但需要后端确认能否继续使用。</span></div>
+      <details class="api-evidence-note"><summary>查看判断依据和测试情况</summary>
         <p>${escapeHtml(apiBaseline.backend_scope)}</p><p>${escapeHtml(apiBaseline.base_url)}</p>
-        <p>OpenAPI 采集：${escapeHtml(apiEvidence.captured_at)}。静态快照，不自动追踪服务器变更。</p>
+        <p>接口文档读取日期：${escapeHtml(apiEvidence.captured_at)}。此处不会自动跟随服务器更新；网页操作仅为本地演示。</p>
         <p>${escapeHtml(apiBaseline.verification)}</p><p>${escapeHtml(apiBaseline.design)}</p>
         <p>核对记录：${escapeHtml(apiBaseline.evidence)}</p>
       </details>
@@ -74,13 +74,14 @@ function renderApiPanel() {
 function renderApiDetails(api) {
   const doc = api.document_key ? apiEvidence.operations[api.document_key] : null;
   const scopePending = !api.path?.startsWith("/app/") && api.category === "current";
-  const label = api.category === "current" ? (scopePending ? "支持范围待确认" : "已接入调用链") : apiCategories[api.category].label;
+  const label = ({ current: "App 已在使用", published: "App 还没用", pending: "App 还在用 · 旧接口", requirement: "接口还没定" })[api.category];
   return `<details class="api-item" data-api-entry="${escapeHtml(api.id)}">
     <summary>
       <span class="api-method method-${api.method?.toLowerCase() || "tbd"}">${api.method || "待定"}</span>
       <span class="api-summary-text"><strong>${escapeHtml(api.title)}</strong>
         <code>${escapeHtml(api.path || (api.id === "avatar" ? "服务端返回的头像 URL" : "方法、路径和字段待确认"))}</code>
-        <span class="api-status-label ${scopePending || api.category === "pending" ? "is-pending" : ""}">${label}</span>
+        <span class="api-status-label ${api.category === "pending" ? "is-pending" : ""}">${label}</span>
+        ${scopePending ? '<span class="api-status-label is-pending">需后端确认能否继续使用</span>' : ""}
       </span><span class="api-chevron">${icon("chevron-down")}</span>
     </summary>
     <div class="api-item-body">
@@ -90,14 +91,14 @@ function renderApiDetails(api) {
         <button class="api-json-button" type="button" data-action="export-api-json" data-api-id="${api.id}" aria-label="导出 ${escapeHtml(api.title)} JSON">${icon("download")}导出 JSON</button>
       </div>
       <dl class="api-meta">
-        <div><dt>App 状态</dt><dd>${escapeHtml(api.app_usage)}</dd></div>
-        <div><dt>支持范围</dt><dd>${escapeHtml(api.backend_scope)}</dd></div>
-        <div><dt>契约来源</dt><dd>${api.category === "requirement" ? "原型需求，尚无确认契约" : escapeHtml(doc ? `${doc.group} / ${doc.tags.join("、")} · ${doc.operation_id}` : api.contract_status)}</dd></div>
-        ${api.source ? `<div><dt>代码依据</dt><dd>${escapeHtml(api.source)}</dd></div>` : ""}
+        <div><dt>App 有没有用</dt><dd>${escapeHtml(api.app_usage)}</dd></div>
+        <div><dt>后端怎么说</dt><dd>${escapeHtml(api.backend_scope)}</dd></div>
+        <div><dt>接口文档</dt><dd>${api.category === "requirement" ? "只有功能需求，接口还没约定" : escapeHtml(doc ? `${doc.group} / ${doc.tags.join("、")} · ${doc.operation_id}` : api.contract_status)}</dd></div>
+        ${api.source ? `<div><dt>代码位置</dt><dd>${escapeHtml(api.source)}</dd></div>` : ""}
       </dl>
-      ${api.client_contract ? renderApiJsonBlock("客户端请求与解析边界", api.client_contract) : ""}
-      ${doc ? `${renderApiJsonBlock("OpenAPI 请求字段（文档声明）", { parameters: doc.parameters, request_body: doc.request_body, schemas: apiSchemasFor(doc, [doc.parameters, doc.request_body]) })}
-        ${renderApiJsonBlock("OpenAPI 响应字段（文档声明）", { responses: doc.responses, schemas: apiSchemasFor(doc, doc.responses) })}` : ""}
+      ${api.client_contract ? renderApiJsonBlock("App 发送和读取的字段", api.client_contract) : ""}
+      ${doc ? `${renderApiJsonBlock("接口文档里的请求字段", { parameters: doc.parameters, request_body: doc.request_body, schemas: apiSchemasFor(doc, [doc.parameters, doc.request_body]) })}
+        ${renderApiJsonBlock("接口文档里的响应字段", { responses: doc.responses, schemas: apiSchemasFor(doc, doc.responses) })}` : ""}
       <p class="api-verification-note">${escapeHtml(apiBaseline.verification)}</p>
     </div>
   </details>`;
