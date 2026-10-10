@@ -47,6 +47,7 @@ function renderApiPanel() {
         <button type="button" data-action="api-view-all" aria-pressed="${apiPanelView === "all"}">全部接口</button>
       </div>
       <div class="api-truth-note"><strong>App 用没用？后端是否同意使用？</strong><span>后端给 App 的两组接口共 37 项：App 已用 19 项，还有 18 项没用。账号、头像和 AI 的接口也在用，但需要后端确认能否继续使用。</span></div>
+      <p class="api-need-explainer">另看“App 是否需要”：需要保留 / 后续补接 / 按功能选用 / 当前不用。这是按当前功能提出的建议，不表示接口已测试通过。</p>
       <details class="api-evidence-note"><summary>查看判断依据和测试情况</summary>
         <p>${escapeHtml(apiBaseline.backend_scope)}</p><p>${escapeHtml(apiBaseline.base_url)}</p>
         <p>接口文档读取日期：${escapeHtml(apiEvidence.captured_at)}。此处不会自动跟随服务器更新；网页操作仅为本地演示。</p>
@@ -82,6 +83,7 @@ function renderApiDetails(api) {
         <code>${escapeHtml(api.path || (api.id === "avatar" ? "服务端返回的头像 URL" : "方法、路径和字段待确认"))}</code>
         <span class="api-status-label ${api.category === "pending" ? "is-pending" : ""}">${label}</span>
         ${scopePending ? '<span class="api-status-label is-pending">需后端确认能否继续使用</span>' : ""}
+        ${api.app_need ? `<span class="api-need-label">App 是否需要：<strong>${escapeHtml(api.app_need.label)}</strong></span>` : ""}
       </span><span class="api-chevron">${icon("chevron-down")}</span>
     </summary>
     <div class="api-item-body">
@@ -92,6 +94,7 @@ function renderApiDetails(api) {
       </div>
       <dl class="api-meta">
         <div><dt>App 有没有用</dt><dd>${escapeHtml(api.app_usage)}</dd></div>
+        ${api.app_need ? `<div><dt>App 是否需要</dt><dd>${escapeHtml(api.app_need.label)}。${escapeHtml(api.app_need.reason)}</dd></div>` : ""}
         <div><dt>后端怎么说</dt><dd>${escapeHtml(api.backend_scope)}</dd></div>
         <div><dt>接口文档</dt><dd>${api.category === "requirement" ? "只有功能需求，接口还没约定" : escapeHtml(doc ? `${doc.group} / ${doc.tags.join("、")} · ${doc.operation_id}` : api.contract_status)}</dd></div>
         ${api.source ? `<div><dt>代码位置</dt><dd>${escapeHtml(api.source)}</dd></div>` : ""}

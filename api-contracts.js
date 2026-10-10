@@ -148,6 +148,33 @@ for (const [id, title, pages, note] of [
   ["feedback", "意见反馈与人工服务", ["feedback", "chat"], "AI 聊天不能代替反馈工单；需求先保留，不预设路径和 DTO。"],
 ]) registerApi(id, null, null, title, "requirement", pages, note);
 
+// 功能取舍与“App 用没用”是两个维度。这里只评估两个 App 分组的 37 个操作。
+const apiNeedLabels = { keep: "需要保留", next: "后续补接", optional: "按功能选用", not_now: "当前不用" };
+function setApiNeed(ids, code, reason) {
+  ids.forEach(id => {
+    apiRegistry[id].app_need = {
+      code, label: apiNeedLabels[code], reason,
+      basis: "按当前 App 与原型功能提出的建议，尚未经后端确认；当前不用不代表删除服务器接口。",
+    };
+  });
+}
+setApiNeed(["subjects", "personCreate", "personRead", "personUpdate", "petCreate", "petRead", "petUpdate"], "keep", "家人与宠物档案的列表、新增、查看和修改需要这些接口。");
+setApiNeed(["personBindings", "petBindings", "products", "product", "bindings", "bind", "unbind"], "keep", "添加设备、选择使用者、展示关联设备及解绑时需要。");
+setApiNeed(["state", "realtime"], "keep", "设备列表、地图和详情需要在线状态、最新位置与遥测数据。");
+setApiNeed(["personShares", "petShares", "deviceShares"], "keep", "查看分享记录及归档前检查需要；对象分享读取目前只用于归档检查。");
+setApiNeed(["personShareCreate", "petShareCreate", "deviceShareCreate"], "next", "分享家人、宠物或设备需要；先补齐邀请接收、接受、拒绝、撤销与权限规则。");
+setApiNeed(["propertyRead", "propertyWrite"], "next", "远程查看和修改设备设置需要；先确认属性格式、执行结果和读回规则。");
+setApiNeed(["function"], "next", "立即定位等设备操作需要；先确认命令参数、执行结果和超时处理。");
+setApiNeed(["events"], "next", "设备事件与告警页面有用途；需要明确事件类型、时间范围、分页和返回字段，不能假定已覆盖所有历史数据。");
+setApiNeed(["alarmState"], "next", "告警已读、未读和重要标记有用途；需后端确认是按当前用户还是全局保存状态。");
+setApiNeed(["personBind", "petBind", "personUnbind", "petUnbind"], "optional", "与当前通用绑定/解绑入口用途重叠，暂不重复接；需先确认产品关联、权限和副作用是否一致。");
+setApiNeed(["targets"], "optional", "目前从对象列表选择家人/宠物；如果此接口提供更准确的可绑定对象范围，再考虑替换。");
+setApiNeed(["resolveProduct"], "optional", "需要按厂商、品牌、型号和固件自动识别产品时再接；手动选择产品暂不依赖它。");
+setApiNeed(["bindSelf"], "optional", "做一键给自己使用时再接；文档说明会在缺少本人档案时自动创建，要先确定产品流程。");
+setApiNeed(["unbindSelf"], "optional", "做批量解绑时再接；当前单台解绑已有入口。");
+setApiNeed(["appLocation"], "optional", "需要手机代设备上报位置时再接，具体场景需后端确认；仅查看设备地图不需要此接口。");
+setApiNeed(["switchProduct"], "not_now", "普通用户当前没有切换设备产品类型的功能；该接口会解绑并按新产品重新绑定，建议用于确认后的维护流程。");
+
 const apiPageTitles = {
   login: "登录与会话", register: "邮箱注册", "reset-password": "找回密码", verification: "邮箱验证码",
   "register-credentials": "提交注册", "reset-credentials": "提交新密码", account: "本人账号资料",
