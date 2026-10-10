@@ -28,6 +28,43 @@ Eview Connect C 端设备管理 App 的静态交互原型，保留地图、设�
 - `index.html`
 - `styles.css`
 - `app.js`
+- `api-contracts.js`：逐项维护的 App 调用、公开未接入、待确认和原型需求映射。
+- `api-evidence.js`：2026-10-10 公开 OpenAPI 的选定操作/字段快照，不包含示例值或默认值。
+- `api-panel.js`：API 侧栏与 JSON 导出，共用同一目录。
 - `assets/lucide.min.js`：本地 Lucide 图标，许可证见 `assets/lucide-LICENSE`，打开原型无需访问图标 CDN。
 
 浏览器直接打开 `index.html` 即可。原型属于独立子模块，提交和发布遵守主仓库 `web/README.md` 中的边界约定。
+
+## API 接入对照（2026-10-10）
+
+桌面侧栏可切换“当前页面 / 全部接口”。本人账号资料和人员/宠物资料页也展示侧栏；手机窄屏继续展示纯原型。侧栏记录的是 Android Prod 的调用事实，网页演示仍不请求业务服务器。
+
+| 分类 | 本轮数量 | 含义 |
+|---|---:|---|
+| 当前 App 调用 | 33 | 19 个 App 业务操作 + 13 个公共操作 + 1 条动态头像读取规则；有调用链不等于全部场景已验收 |
+| 已发布 · 未接入 | 18 | 两个 App 分组有公开定义，但 App 未使用该方法/路径 |
+| 待后端确认 | 4 | 首页/聊天仍可达的旧 `/c/v1` 请求；无本轮抓包，不推定 404 |
+| 原型需求 | 14 | 缺口按业务合并表达；方法、路径留空，不用表 CRUD 拼装分享流程 |
+
+共覆盖两个 App 分组的 37 个公开操作。公共账号、文件、AI 即使存在调用，也单独标注“支持范围待确认”，不根据分组名称抹去实际使用事实。复制/导出为 `schema_version: 2`，使用 `groups` 和逐项状态/来源取代旧 `implemented_apis` / `suggested_apis`；不再兼容旧导出字段。
+
+展开条目可分别看客户端请求/解析说明与 OpenAPI 参数、请求体、响应和引用实体。文档声明不自动变成客户端可写白名单；例如本人 PUT 只提交原 username 和变更的 nickname/name/avatar，头像上传仍明确记录 multipart 与公开文档 JSON 的差异。账号资料不是 PERSON/PET 档案，设备分享也不自动开放对象资料。
+
+事实来源为 Android `941735e`、2026-10-10 公开文档快照及主仓库 `document/validation/2026-10-10-原型设计与App接口边界梳理.md`。后端源码/部署版本、公共接口例外和分享业务缺口仍待确认。此目录是带日期的人工核对结果，页面不会实时读取 OpenAPI。
+
+### 后续维护
+
+1. 保存本次公开文档，不带账号密码、Token 或业务样例。分别取得 `/v3/api-docs/upms` 与 `/v3/api-docs/default`，记录真实采集日期；生成器本身不联网。
+2. 运行下方命令提取所需定义。`sha256` 对应传入文件的实际字节；旧核对报告的响应哈希含义保持不变。
+3. 对照 Android 调用入口、Prod 门禁和 DTO，人工更新 `api-contracts.js`。不能只靠 Retrofit 方法存在判断已接入；“来源基线”须同步更新。
+4. 核对页面、复制和导出，再按子模块边界提交。若公开 App 数量改变，生成器/检查器会失败，应重新核对完整清单后更新预期，不能只改数字。
+
+```powershell
+python scripts/build-api-snapshot.py --upms <upms.json> --public <default.json> --captured-at <实际采集日期>
+node scripts/check-api-contracts.cjs
+node --check api-panel.js
+node --check app.js
+git diff --check
+```
+
+生成器只提取 App Device / App Subject 和 7 个公共操作，保留引用实体与字段约束，剔除示例/default。其余公共依赖以客户端声明为来源，不虚构 OpenAPI。公开上传媒体类型等差异保留原样，在人工层注释，避免把修正意见伪装成服务器定义。
