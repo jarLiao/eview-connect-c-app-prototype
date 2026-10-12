@@ -695,7 +695,7 @@ function escapeHtml(value) {
 function renderDemoPanel() {
   if (!demoPanel) return;
   const info = getDemoPanelInfo();
-  demoPanel.innerHTML = `
+  const pageHtml = `
     <div class="demo-card demo-card-primary">
       <div class="demo-kicker">页面说明</div>
       <h1>${info.title}</h1>
@@ -716,6 +716,7 @@ function renderDemoPanel() {
       ${renderExplanationList(toRequirementItems(info))}
     </div>
   `;
+  renderBusinessGuidePanel(demoPanel, getApiPanelInfo().key, pageHtml);
 }
 
 function renderExplanationList(items) {
@@ -746,6 +747,16 @@ function toRequirementItems(info) {
 function getDemoPanelInfo() {
   if (!state.loggedIn) return authPanelInfo();
   if (state.modal) return modalPanelInfo();
+  if (["account-profile", "subject-profile"].includes(state.route)) {
+    const account = state.route === "account-profile";
+    return {
+      title: account ? "账号资料" : "照护对象资料",
+      summary: account ? "查看和维护本人的头像、昵称和姓名。" : "查看和维护人员或宠物的资料，头像和基础字段分别编辑。",
+      tags: [account ? "本人账号" : "人员 / 宠物", "资料编辑", "头像预览"],
+      goals: ["点击可编辑字段进入编辑层，保存后回到资料页。", "选择头像后先预览，确认后更新当前演示资料。"],
+      review: ["取消编辑保留原资料，保存过程有明确反馈。", "原型修改只保存在当前页面内存中，刷新恢复合成演示数据。"],
+    };
+  }
   if (state.route === "detail") return detailPanelInfo();
   return tabPanelInfo();
 }
@@ -4639,10 +4650,10 @@ function refreshIcons() {
   }
 }
 
-// 深链接仅打开合成资料演示，不建立账号会话或服务器连接。
-if (["#account-profile", "#mine", "#person-profile", "#pet-profile"].includes(location.hash)) {
+// 深链接仅打开合成演示，不建立账号会话或服务器连接。
+if (["#account-profile", "#mine", "#person-profile", "#pet-profile", "#devices"].includes(location.hash)) {
   state.loggedIn = true;
-  state.tab = "mine";
+  state.tab = location.hash === "#devices" ? "devices" : "mine";
   state.route = location.hash === "#account-profile" ? "account-profile" : "home";
   if (["#person-profile", "#pet-profile"].includes(location.hash)) {
     state.selectedSubjectId = location.hash === "#pet-profile" ? "subject-milo" : "subject-mom";
@@ -4651,4 +4662,5 @@ if (["#account-profile", "#mine", "#person-profile", "#pet-profile"].includes(lo
     state.route = "subject-profile";
   }
 }
+initBusinessGuidePanel(demoPanel);
 render();

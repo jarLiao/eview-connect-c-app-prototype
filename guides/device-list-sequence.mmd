@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant App as App
+    participant API as 后端
+    App->>API: GET /app/subjects
+    API-->>App: 对象列表
+    App->>App: 筛选自有 ACTIVE 人员/宠物
+    loop 每个符合条件的对象
+        App->>API: GET 人员或宠物 device-bindings
+        API-->>App: 设备绑定列表
+    end
+    App->>App: 按 deviceId 去重，合并使用者
+    loop 每台设备
+        App->>API: GET /app/device/{deviceId}/state
+        API-->>App: 在线状态
+    end
+    loop 每台设备
+        App->>API: GET /app/device/{deviceId}/realtime
+        API-->>App: 实时上报数据
+    end
+    App->>App: 组合卡片并显示

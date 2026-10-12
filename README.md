@@ -31,13 +31,40 @@ Eview Connect C 端设备管理 App 的静态交互原型，保留地图、设�
 - `api-contracts.js`：逐项维护的 App 调用、公开未接入、待确认和原型需求映射。
 - `api-evidence.js`：2026-10-10 公开 OpenAPI 的选定操作/字段快照，不包含示例值或默认值。
 - `api-panel.js`：API 侧栏与 JSON 导出，共用同一目录。
+- `business-guides.js`：业务技术说明内容；方法和路径引用现有 API 目录。
+- `business-guide.js`、`business-guide.css`：技术说明侧栏与完整文档的公共渲染和样式。
+- `guide-viewer.js`：流程图 / 时序图放大阅读，原型与导出共用。
+- `guides/`：本地图表、Mermaid 源图和生成的独立离线 HTML。
 - `assets/lucide.min.js`：本地 Lucide 图标，许可证见 `assets/lucide-LICENSE`，打开原型无需访问图标 CDN。
 
 浏览器直接打开 `index.html` 即可。原型属于独立子模块，提交和发布遵守主仓库 `web/README.md` 中的边界约定。
 
+## 业务技术说明
+
+右侧可切换“页面说明 / 技术说明”，随手机当前页面和弹层更新；切换说明不重置手机演示。账号和照护对象资料页也保留说明入口。先接入设备列表，其他业务显示“技术说明待补充”，不套用设备列表内容。
+
+- 直接预览：`index.html?guide=technical#devices`。默认打开合成设备演示及其技术说明，不建立真实账号会话。
+- 五个重点：接口、列表组合、卡片字段、刷新与异常、待补内容。先展示五项摘要，按需展开；流程图 / 时序图可放大。
+- “单独打开”和“下载 HTML”使用 [设备列表技术说明](guides/device-list.html)。下载文件内含样式、图表和阅读器，可离线转发。
+- 手机窄屏顶部有原型说明入口，打开同一篇完整文档。
+- 设备列表说明依据 Android `28dda97` 的实现；原型值仍为演示数据，本轮没有新增后端业务验收。左侧同时补上列表实际使用的 realtime，当前页面已使用接口由 4 项补齐为 5 项，全部接口总数不变。
+
+后续新增业务时，在 `business-guides.js` 按页面 key 添加说明；接口条目引用 `api-contracts.js` 的 ID。没有核对的业务保留待补充，不将原型交互推定为 App 实现。修改源内容、API 路径、样式、阅读器或图表后运行：
+
+```powershell
+node scripts/build-business-guides.cjs
+node scripts/build-business-guides.cjs --check
+node scripts/check-api-contracts.cjs
+node --check business-guide.js
+node --check guide-viewer.js
+node --check app.js
+```
+
+`guides/*.html` 和 `guides/guide-downloads.js` 是生成物，不直接修改；下载数据通过本地脚本载入并生成 Blob，兼容直接打开 file:// 原型。侧栏和离线文档共用 `business-guides.js`。图表使用仓库内 SVG，无运行时 CDN 依赖；修改 Mermaid 源图后需同步重新渲染对应 SVG，再重新生成 HTML。Android 主仓库中的带日期说明是原始核对记录，不由此生成器改写。
+
 ## API 接入对照（2026-10-12）
 
-桌面侧栏可切换“当前页面 / 全部接口”。本人账号资料和人员/宠物资料页也展示侧栏；手机窄屏继续展示纯原型。侧栏记录的是 Android Prod 的调用事实，网页演示仍不请求业务服务器。
+桌面侧栏可切换“当前页面 / 全部接口”。本人账号资料和人员/宠物资料页也展示侧栏；手机窄屏隐藏接口侧栏，设备列表保留独立技术说明入口。侧栏记录的是 Android Prod 的调用事实，网页演示仍不请求业务服务器。
 
 | 分类 | 本轮数量 | 含义 |
 |---|---:|---|

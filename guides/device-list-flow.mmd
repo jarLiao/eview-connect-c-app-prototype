@@ -1,0 +1,5 @@
+flowchart LR
+    A[筛选自有人员和宠物] --> B[查询各对象的设备绑定]
+    B --> C[按 deviceId 去重]
+    C --> D[补充 state 和 realtime]
+    D --> E[显示设备卡片]

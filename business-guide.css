@@ -1,0 +1,121 @@
+/* 说明工具只影响原型外围与离线文档，不改变手机内的业务布局。 */
+.guide-page-panel { display: grid; gap: 16px; min-width: 0; }
+.guide-page-panel[hidden], .business-guide[hidden], .guide-mobile-nav[hidden] { display: none; }
+.guide-tabs { position: sticky; top: 0; z-index: 2; display: flex; gap: 4px; padding: 4px; border: 1px solid #dce3e8; border-radius: 10px; background: #eef3f5; }
+.guide-tabs button { flex: 1; min-height: 44px; border: 0; border-radius: 7px; color: #536472; background: transparent; font: inherit; font-size: 14px; cursor: pointer; }
+.guide-tabs [aria-selected="true"] { color: #075c58; font-weight: 700; background: white; box-shadow: 0 1px 4px #182c3914; }
+.business-guide { display: grid; gap: 12px; min-width: 0; color: #18212b; font: 13px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; }
+.business-guide *, .guide-dialog *, .guide-mobile-nav { box-sizing: border-box; }
+.business-guide p { margin: 0; }
+.business-guide code { overflow-wrap: anywhere; font: 0.92em/1.6 Consolas, "Microsoft YaHei", monospace; color: #285264; background: #edf3f6; border-radius: 3px; padding: 1px 3px; }
+.guide-card, .guide-section { min-width: 0; border: 1px solid #dce3e8; border-radius: 8px; background: #fff; }
+.guide-card { padding: 18px; }
+.guide-intro { border-color: #b2d6d3; }
+.guide-kicker { display: block; color: #526575; font-size: 11px; }
+.guide-card h2, .guide-card h1 { margin: 7px 0 12px; font-size: 22px; line-height: 1.4; }
+.business-guide .guide-lead { color: #223d48; font-size: 14px; font-weight: 600; }
+.business-guide .guide-scope { margin-top: 10px; color: #526575; font-size: 12px; }
+.guide-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.guide-button { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 44px; padding: 8px 12px; border: 1px solid #b8cfce; border-radius: 6px; color: #075c58; background: #fff; font: inherit; font-size: 12px; text-decoration: none; cursor: pointer; }
+.guide-button:hover { background: #eaf5f3; }
+.guide-actions .guide-button { flex: 1; white-space: nowrap; }
+.guide-section > summary { position: relative; padding: 13px 34px 13px 16px; cursor: pointer; list-style: none; }
+.guide-section > summary::-webkit-details-marker { display: none; }
+.guide-section > summary::after { content: "+"; position: absolute; right: 15px; top: 13px; color: #526575; font-size: 18px; }
+.guide-section[open] > summary::after { content: "−"; }
+.guide-section > summary > span { display: flex; align-items: center; font-size: 14px; font-weight: 650; }
+.guide-section > summary > small { display: block; padding-left: 26px; margin-top: 3px; font-size: 11px; color: #526575; }
+.guide-section-number { display: inline-flex; flex: 0 0 20px; align-items: center; justify-content: center; width: 20px; height: 20px; margin-right: 6px; border-radius: 5px; color: #075c58; background: #e5f2ef; font-size: 11px; }
+.guide-section-body { padding: 14px 16px; border-top: 1px solid #e7edef; }
+.guide-steps { margin: 0; padding-left: 22px; }
+.guide-steps li { padding-left: 2px; margin-bottom: 12px; }
+.guide-steps li:last-child { margin-bottom: 0; }
+.guide-steps li::marker { color: #0c756f; font-weight: 700; }
+.guide-steps p, .guide-rules p { margin-top: 3px; color: #526575; }
+.business-guide .guide-example { margin-top: 16px; padding: 10px 12px; border-left: 3px solid #0c756f; background: #edf6f4; color: #28524f; }
+.guide-diagrams { display: grid; gap: 8px; margin-top: 16px; }
+.guide-diagrams > .guide-button { justify-content: space-between; }
+.guide-api-list { list-style: none; margin: 0; padding: 0; }
+.guide-api-list li + li { margin-top: 14px; padding-top: 14px; border-top: 1px solid #e7edef; }
+.guide-api-route { display: flex; align-items: baseline; gap: 8px; margin: 4px 0; }
+.guide-api-route b { color: #335c9a; font-size: 10px; }
+.guide-api-route code { min-width: 0; }
+.guide-api-list small { color: #526575; }
+.guide-fields { margin: 0; }
+.guide-fields > div + div { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e7edef; }
+.guide-fields dt { margin-bottom: 3px; font-weight: 650; }
+.guide-fields dd { margin: 0; color: #526575; }
+.guide-fields dd p { margin-top: 4px; }
+.guide-rules { list-style: none; padding: 0; margin: 0; }
+.guide-rules li + li { margin-top: 16px; }
+.guide-notes { margin-top: 16px; padding-top: 12px; border-top: 1px solid #e7edef; color: #526575; font-size: 12px; }
+.guide-notes p + p { margin-top: 8px; }
+.guide-footnote { padding: 6px 4px 12px; font-size: 11px; color: #526575; overflow-wrap: anywhere; }
+.guide-empty h2 { font-size: 20px; }
+.business-guide .guide-muted { margin-top: 14px; color: #526575; font-size: 12px; }
+.guide-tabs button:focus-visible, .business-guide :is(a, button, summary, [tabindex]):focus-visible, .guide-dialog button:focus-visible, .guide-mobile-nav a:focus-visible { outline: 3px solid #0c756f; outline-offset: -3px; }
+.demo-panel > [role="tabpanel"]:focus-visible { outline: 3px solid #0c756f; outline-offset: -3px; }
+.guide-mobile-nav { display: none; }
+.guide-dialog { width: 96vw; height: 92dvh; max-width: 1440px; max-height: none; padding: 0; border: 1px solid #dce3e8; border-radius: 10px; color: #18212b; background: #fff; font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; }
+.guide-dialog::backdrop { background: #142631b8; }
+.guide-dialog-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #dce3e8; background: #f1f6f7; }
+.guide-dialog-toolbar > div { display: flex; align-items: center; gap: 8px; }
+.guide-dialog-toolbar output { min-width: 38px; text-align: center; font-size: 12px; }
+.guide-dialog-toolbar button { min-width: 44px; }
+.guide-dialog-scroll { height: calc(100% - 65px); overflow: auto; padding: 20px; }
+.guide-dialog-scroll img { display: block; max-width: none; height: auto; margin: auto; }
+/* 生成的完整文档与下载版使用同一份 CSS。 */
+body.guide-document { margin: 0; background: #f2f6f8; }
+.guide-document .business-guide { max-width: 980px; margin: 0 auto; padding: 32px 24px 56px; gap: 24px; font-size: 15px; }
+.guide-document .guide-card { padding: 28px 32px; }
+.guide-document .guide-card h1 { font-size: 30px; }
+.guide-document .guide-lead { font-size: 17px; }
+.guide-document .guide-scope { font-size: 14px; }
+.guide-document-nav { display: flex; flex-wrap: wrap; gap: 8px; }
+.guide-document-nav a { display: inline-flex; align-items: center; min-height: 44px; padding: 6px 10px; color: #075c58; text-decoration: none; font-size: 13px; border: 1px solid #cbdcdd; border-radius: 6px; background: #fff; }
+.guide-document .guide-section > h2 { display: flex; align-items: center; margin: 0; padding: 20px 26px; font-size: 20px; line-height: 1.5; }
+.guide-document .guide-section-number { width: 24px; height: 24px; flex-basis: 24px; margin-right: 10px; font-size: 13px; }
+.guide-document .guide-section-body { padding: 24px 26px; }
+.guide-document .guide-api-route code { font-size: 14px; }
+.guide-document figure { margin: 8px 0 0; border: 1px solid #dce3e8; border-radius: 8px; overflow: hidden; }
+.guide-document figcaption { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 16px; font-size: 13px; background: #f1f6f7; }
+.guide-document figure > img { display: block; width: auto; height: auto; max-width: 100%; margin: auto; padding: 20px; }
+.guide-table-scroll { overflow-x: auto; }
+.guide-table-scroll table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.guide-table-scroll th, .guide-table-scroll td { min-width: 110px; padding: 12px; text-align: left; vertical-align: top; border-bottom: 1px solid #dce3e8; overflow-wrap: anywhere; }
+.guide-table-scroll th { color: #285264; background: #edf3f6; }
+.guide-table-scroll td:nth-child(2) { width: 28%; font-family: Consolas, "Microsoft YaHei", monospace; }
+.guide-document .guide-notes { font-size: 13px; }
+.guide-document .guide-footnote { font-size: 12px; }
+.guide-print-row { text-align: right; }
+@media (min-width: 901px) and (max-width: 1120px) {
+  .prototype-stage { grid-template-columns: minmax(360px, 414px) minmax(300px, 400px); }
+  .prototype-stage > .api-panel { grid-column: 1 / -1; max-height: 320px; }
+}
+@media (max-width: 520px) {
+  .guide-mobile-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 0 12px; border-bottom: 1px solid #c7d9d9; background: #e8f1f1; font: 12px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; }
+  .guide-mobile-nav span { color: #526575; }
+  .guide-mobile-nav a { display: inline-flex; align-items: center; min-height: 44px; color: #075c58; text-decoration: none; }
+  body:has(.guide-mobile-nav:not([hidden])) .phone-shell { height: calc(100dvh - 44px); }
+  .guide-document .business-guide { padding: 16px 12px 32px; gap: 16px; font-size: 14px; }
+  .guide-document .guide-card { padding: 20px; }
+  .guide-document .guide-card h1 { font-size: 25px; }
+  .guide-document .guide-section > h2 { padding: 16px; font-size: 17px; }
+  .guide-document .guide-section-body { padding: 16px; }
+  .guide-dialog-toolbar { flex-wrap: wrap; padding: 8px 12px; gap: 6px; }
+  .guide-dialog-toolbar > strong { width: 100%; }
+  .guide-dialog-toolbar > div { width: 100%; justify-content: space-between; gap: 4px; }
+  .guide-dialog-toolbar .guide-button { padding: 6px 10px; }
+  .guide-dialog-scroll { height: calc(100% - 90px); }
+}
+@media print {
+  .guide-document { background: #fff; }
+  .guide-document .business-guide { display: block; padding: 0; font-size: 10pt; }
+  .guide-document .guide-document-nav, .guide-document .guide-print-row, .guide-document .guide-button, .guide-dialog { display: none !important; }
+  .guide-document .guide-card, .guide-document .guide-section { border: 0; }
+  .guide-document .guide-section > h2 { break-after: avoid; }
+  .guide-document figure { break-inside: avoid; }
+  .guide-document figure > img { max-height: 235mm; object-fit: contain; }
+  .guide-document .guide-section-body, .guide-document .guide-card { padding: 12px 0; }
+  @page { size: A4; margin: 16mm; }
+}
