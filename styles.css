@@ -125,11 +125,13 @@ textarea:focus-visible {
 .api-category-hint { margin: 0 0 12px; color: #536472; font-size: 12px; line-height: 1.6; }
 .api-status-label { display: inline-block; margin-top: 6px; padding: 3px 6px; border-radius: 5px; background: #eef3f5; color: #40576a; font-size: 10px; line-height: 1.4; }
 .api-status-label.is-pending { background: #fff0d9; color: #854900; }
+.api-status-label.is-retired { background: #eceff2; color: #4b5560; }
 .api-need-label { display: block; margin-top: 7px; color: #536472; font-size: 11px; line-height: 1.5; }
 .api-summary-text .api-need-label strong { display: inline; color: #075f5a; font-size: inherit; line-height: inherit; }
 .api-card .api-need-explainer { margin-top: 12px; color: #536472; font-size: 12px; line-height: 1.6; }
 .api-category-pending, .api-category-requirement { border-color: #e5d4b9; }
 .api-category-published { border-color: #d4deec; }
+.api-category-retired { border-color: #d9dee3; }
 .method-tbd { background: #647482; }
 .api-contract-fields { min-width: 0; border-top: 1px solid var(--line); }
 .api-contract-fields > summary { display: block; min-height: 0; padding: 10px 0; font-size: 12px; color: #075f5a; cursor: pointer; list-style: disclosure-closed; }

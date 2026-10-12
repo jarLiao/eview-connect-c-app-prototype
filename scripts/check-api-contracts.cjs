@@ -17,8 +17,10 @@ const documentApp = Object.keys(evidence.operations).filter(key => key.includes(
 const app = apis.filter(api => api.path?.startsWith('/app/'));
 assert.deepEqual(app.map(api => `${api.method} ${api.path}`).sort(), documentApp, '完整覆盖 App 文档的方法+路径，不能重复或漏项');
 assert.equal(app.length, 37);
-assert.equal(app.filter(api => api.category === 'current').length, 19);
-assert.equal(app.filter(api => api.category === 'published').length, 18);
+assert.equal(app.filter(api => api.category === 'current').length, 20);
+assert.equal(app.filter(api => api.category === 'published').length, 17);
+assert.equal(apis.find(api => api.id === 'function').category, 'current');
+assert(apis.find(api => api.id === 'function').note.includes('singleLocating'));
 assert.deepEqual(Object.fromEntries(['keep', 'next', 'optional', 'not_now'].map(code => [code, app.filter(api => api.app_need?.code === code).length])), { keep: 19, next: 8, optional: 9, not_now: 1 });
 assert(app.every(api => api.app_need.reason && api.app_need.basis));
 assert.equal(apis.find(api => api.id === 'deviceShareCreate').app_need.code, 'next');
@@ -26,7 +28,8 @@ assert.equal(apis.find(api => api.id === 'switchProduct').app_need.code, 'not_no
 assert.equal(apis.find(api => api.id === 'personBind').app_need.code, 'optional');
 assert(apis.filter(api => !api.path?.startsWith('/app/')).every(api => !api.app_need));
 assert.equal(apis.filter(api => api.path?.startsWith('/c/v1/')).length, 4);
-assert(apis.filter(api => api.path?.startsWith('/c/v1/')).every(api => api.category === 'pending'));
+assert(apis.filter(api => api.path?.startsWith('/c/v1/')).every(api => api.category === 'retired' && api.app_usage.includes('已停止') && api.note.includes('404')));
+assert(!apis.some(api => api.category === 'pending'), '当前没有仍在调用的旧接口');
 assert(!apis.some(api => api.path?.startsWith('/evmars/mock/')));
 assert(apis.filter(api => api.category === 'requirement').every(api => api.method === null && api.path === null));
 assert(apis.filter(api => api.category === 'current' && !api.path?.startsWith('/app/')).every(api => api.backend_scope.includes('待后端确认')));
@@ -52,5 +55,5 @@ function visit(value, definitions) {
 }
 for (const api of apis.filter(api => api.document)) visit(api.document, api.document.schemas);
 console.log(JSON.stringify({ result: '通过', app_operations: app.length,
-  categories: Object.fromEntries(['current', 'published', 'pending', 'requirement'].map(key => [key, apis.filter(api => api.category === key).length])),
-  checks: ['37 个公开 App 操作逐一匹配', '19/18 接入分类', '功能需要按 19/8/9/1 另行标注', '4 个旧请求单独标识', '需求不预设路径', '公共依赖支持边界', '上传声明差异', '页面映射与引用完整性', '导出来源与无示例值'] }, null, 2));
+  categories: Object.fromEntries(['current', 'published', 'pending', 'retired', 'requirement'].map(key => [key, apis.filter(api => api.category === key).length])),
+  checks: ['37 个公开 App 操作逐一匹配', '20/17 接入分类', '功能需要按 19/8/9/1 另行标注', '4 个旧请求标为已停用', '需求不预设路径', '公共依赖支持边界', '上传声明差异', '页面映射与引用完整性', '导出来源与无示例值'] }, null, 2));

@@ -46,7 +46,7 @@ function renderApiPanel() {
         <button type="button" data-action="api-view-page" aria-pressed="${apiPanelView === "page"}">当前页面</button>
         <button type="button" data-action="api-view-all" aria-pressed="${apiPanelView === "all"}">全部接口</button>
       </div>
-      <div class="api-truth-note"><strong>App 用没用？后端是否同意使用？</strong><span>后端给 App 的两组接口共 37 项：App 已用 19 项，还有 18 项没用。账号、头像和 AI 的接口也在用，但需要后端确认能否继续使用。</span></div>
+      <div class="api-truth-note"><strong>App 用没用？后端是否同意使用？</strong><span>后端给 App 的两组接口共 37 项：App 已用 20 项，还有 17 项没用。账号、头像和 AI 的接口也在用，但需要后端确认能否继续使用。</span></div>
       <p class="api-need-explainer">另看“App 是否需要”：需要保留 / 后续补接 / 按功能选用 / 当前不用。这是按当前功能提出的建议，不表示接口已测试通过。</p>
       <details class="api-evidence-note"><summary>查看判断依据和测试情况</summary>
         <p>${escapeHtml(apiBaseline.backend_scope)}</p><p>${escapeHtml(apiBaseline.base_url)}</p>
@@ -75,13 +75,13 @@ function renderApiPanel() {
 function renderApiDetails(api) {
   const doc = api.document_key ? apiEvidence.operations[api.document_key] : null;
   const scopePending = !api.path?.startsWith("/app/") && api.category === "current";
-  const label = ({ current: "App 已在使用", published: "App 还没用", pending: "App 还在用 · 旧接口", requirement: "接口还没定" })[api.category];
+  const label = ({ current: "App 已在使用", published: "App 还没用", pending: "App 还在用 · 旧接口", retired: "App 已停用 · 旧接口", requirement: "接口还没定" })[api.category];
   return `<details class="api-item" data-api-entry="${escapeHtml(api.id)}">
     <summary>
       <span class="api-method method-${api.method?.toLowerCase() || "tbd"}">${api.method || "待定"}</span>
       <span class="api-summary-text"><strong>${escapeHtml(api.title)}</strong>
         <code>${escapeHtml(api.path || (api.id === "avatar" ? "服务端返回的头像 URL" : "方法、路径和字段待确认"))}</code>
-        <span class="api-status-label ${api.category === "pending" ? "is-pending" : ""}">${label}</span>
+        <span class="api-status-label ${api.category === "pending" ? "is-pending" : api.category === "retired" ? "is-retired" : ""}">${label}</span>
         ${scopePending ? '<span class="api-status-label is-pending">需后端确认能否继续使用</span>' : ""}
         ${api.app_need ? `<span class="api-need-label">App 是否需要：<strong>${escapeHtml(api.app_need.label)}</strong></span>` : ""}
       </span><span class="api-chevron">${icon("chevron-down")}</span>

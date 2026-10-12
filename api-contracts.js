@@ -1,10 +1,10 @@
 // 人工核对层：公开文档不等于 App 已接入；更新时同时核对调用入口和运行门禁。
 const apiBaseline = {
-  reviewed_at: "2026-10-10",
-  android_commit: "941735ed265e156c8e72feb406cf47491116051a",
+  reviewed_at: "2026-10-12",
+  android_commit: "d40f46f7c2e5fff264ed90ed6e115c97a0a2d215",
   design: "Android-App业务对象与设备分享实体设计V0.1；用户确认没有后续补充约定",
-  evidence: "Evmars-Mock/document/validation/2026-10-10-原型设计与App接口边界梳理.md",
-  verification: "本次只检查了 App 代码和接口文档，没有重新测试实际操作。",
+  evidence: "Evmars-Mock/document/validation/2026-10-10-原型设计与App接口边界梳理.md；旧请求停用见 2026-10-12-旧请求关闭与数量文案修正验证.md",
+  verification: "除 4 个已停用的旧请求在 2026-10-12 有真机修改前后抓包外，本次只检查了 App 代码和接口文档，没有重新测试实际操作。",
   backend_scope: "后端同事说 App Device / App Subject 是给 App 使用的接口；账号、头像和 AI 的接口能否继续使用，以及服务器代码和版本，还需要后端确认。",
   base_url: "路径相对所选环境的 /admin/；AI 可被运行时环境覆盖",
 };
@@ -13,6 +13,7 @@ const apiCategories = {
   current: { label: "App 已在使用", hint: "App 代码已接上这些接口；不代表所有场景都测试通过。" },
   published: { label: "文档里有，App 还没用", hint: "后端接口文档里已经列出，App 还没有使用。" },
   pending: { label: "App 还在用的旧接口", hint: "需要和后端确认：继续保留、换成新接口，还是停用。" },
+  retired: { label: "App 已停用的旧接口", hint: "App 已不再调用。停用前在当前环境实测返回 404；是否提供正式接口，等后端确认。" },
   requirement: { label: "功能需要，接口还没定", hint: "原型里有这个功能，但具体用什么接口还没有约定。" },
 };
 const apiRegistry = {};
@@ -22,8 +23,10 @@ function registerApi(id, method, path, title, category, pages, note, source = ""
   apiRegistry[id] = {
     id, method, path, title, category, pages, note, source, client_contract: client,
     backend_scope: path?.startsWith("/app/") ? "后端说这是给 App 使用的接口；具体功能和权限仍需测试确认"
-      : category === "requirement" ? "还没有约定接口" : "待后端确认：App 能否继续使用此接口",
-    app_usage: category === "current" ? "App 已在使用" : category === "pending" ? "App 还在使用这个旧接口" : category === "requirement" ? "接口还没定" : "App 还没用",
+      : category === "requirement" ? "还没有约定接口" : category === "retired" ? "待后端确认：提供正式接口，还是确认不提供"
+      : "待后端确认：App 能否继续使用此接口",
+    app_usage: category === "current" ? "App 已在使用" : category === "pending" ? "App 还在使用这个旧接口"
+      : category === "retired" ? "App 已停止调用（2026-10-12）" : category === "requirement" ? "接口还没定" : "App 还没用",
     contract_status: category === "requirement" ? "还没有约定接口" : doc ? "接口文档里已有" : "本次查看的 12 组接口文档里没找到；不代表服务器上没有",
     document_key: doc ? `${method} ${path}` : null,
   };
@@ -57,7 +60,7 @@ for (const [type, label] of [["person", "人员"], ["pet", "宠物"]]) {
   registerApi(`${type}Shares`, "GET", `${detail}/shares`, `${label}分享关联检查`, "current", [...pages, "share"],
     "当前只用于归档前检查分享；不是邀请收件箱、共享对象详情或接受邀请入口。", subjectSource);
   registerApi(`${type}ShareCreate`, "POST", `${detail}/shares`, `创建${label}分享`, "published", [...pages, "share"],
-    "App 尚未接入。此前独立 API 测试与管理 CRUD 测试，均不能当作 App 完整邀请流程验收。");
+    "App 尚未接入；Android 已写好请求代码（2026-10-10），页面尚未调用。此前独立 API 测试与管理 CRUD 测试，均不能当作 App 完整邀请流程验收。");
 }
 
 const deviceRows = [
@@ -74,13 +77,13 @@ const deviceRows = [
   ["bindSelf", "POST", "/app/device/bind-self", "绑定到本人", "published", ["add-device"], "当前 App 走显式对象绑定，不能将此路径当作同义替换。"],
   ["unbindSelf", "POST", "/app/device/unbind-devices", "批量解绑本人设备", "published", ["edit-device"], "当前 App 使用绑定 ID 单条解绑，此批量入口尚未接入。"],
   ["switchProduct", "POST", "/app/device/bind/{id}/switch-product", "切换绑定产品", "published", ["edit-device", "config"], "公开文档声明，App 未接入。"],
-  ["deviceShareCreate", "POST", "/app/device/{deviceId}/shares", "创建设备分享", "published", ["share"], "App 未开放创建/接受/拒绝/撤销闭环；角色、范围、邀请状态及权限收口待确认。"],
-  ["propertyRead", "GET", "/app/device/{deviceId}/property", "读取设备属性", "published", ["config"], "HTTP 云配置 runtime 默认未启用；文档可见不代表已读写设备。"],
-  ["propertyWrite", "POST", "/app/device/{deviceId}/property", "写设备属性", "published", ["config"], "App 未接入此路径；需明确 ACK、读回、权限、幂等与失败语义。"],
-  ["function", "POST", "/app/device/{deviceId}/function", "调用设备功能", "published", ["config", "location"], "App 未接入此路径；设备能力与实际执行结果需独立验证。"],
+  ["deviceShareCreate", "POST", "/app/device/{deviceId}/shares", "创建设备分享", "published", ["share"], "App 未开放创建/接受/拒绝/撤销闭环；角色、范围、邀请状态及权限收口待确认。Android 已写好请求代码（2026-10-10），页面尚未调用，仍按“还没用”统计。"],
+  ["propertyRead", "GET", "/app/device/{deviceId}/property", "读取设备属性", "published", ["config"], "HTTP 云配置 runtime 默认未启用；文档可见不代表已读写设备。Android 已写好请求代码（2026-10-10），页面尚未调用，仍按“还没用”统计。"],
+  ["propertyWrite", "POST", "/app/device/{deviceId}/property", "写设备属性", "published", ["config"], "App 未接入此路径；需明确 ACK、读回、权限、幂等与失败语义。Android 已写好请求代码（2026-10-10），页面尚未调用，仍按“还没用”统计。"],
+  ["function", "POST", "/app/device/{deviceId}/function", "调用设备功能", "current", ["config", "location"], "目前只用于云设备地图页的“立即定位”（functionId=singleLocating），成功只提示请求已受理，位置仍来自 realtime。其他功能未接入；设备实际执行结果、超时与重复请求规则待确认。"],
   ["events", "GET", "/app/device/{deviceId}/events", "设备事件", "published", ["messages", "alerts", "overview"], "未接入；不能直接当作 App 告警列表、推送或未读计数契约。"],
   ["appLocation", "POST", "/app/device/{deviceId}/app-location", "上报 App 位置", "published", ["location", "map"], "文档已声明，当前未接入此路径。"],
-  ["alarmState", "POST", "/app/device/{deviceId}/alarm-state", "上报告警状态", "published", ["alerts", "messages"], "文档已声明，当前未接入；与消息已读、告警处置不预设等价。"],
+  ["alarmState", "POST", "/app/device/{deviceId}/alarm-state", "上报告警状态", "published", ["alerts", "messages"], "文档已声明，当前未接入；与消息已读、告警处置不预设等价。Android 已写好请求代码（2026-10-10），页面尚未调用，仍按“还没用”统计。"],
 ];
 for (const [id, method, path, title, category, pages, note] of deviceRows) {
   registerApi(id, method, path, title, category, pages, note, category === "current" ? deviceSource : "");
@@ -123,13 +126,13 @@ publicApi("chatCreate", "POST", "/chat/create", "创建 AI 消息", ["chat"], "�
 publicApi("chatStream", "GET", "/chat/msg/list", "读取 AI 消息流", ["chat"], "已接入真实流读取；与首页洞察、健康分析分别核对。", "core/network/ai/AiAssistantClient.kt", { query: ["key"], response: "流式响应，由客户端解析" });
 publicApi("aiModels", "GET", "/aiModel/list", "深度模式模型列表", ["chat"], "深度模式选择模型时读取；本次公开文档未见准确路径。", "core/network/ai/AiAssistantApi.kt", { headers: ["Authorization（值不导出）", "TENANT-ID", "lang"], response: "ApiResponse<List<AiAssistantModelDto>>" });
 
-for (const [id, path, title, pages, source] of [
-  ["oldInsights", "/c/v1/ai/insights", "首页洞察旧请求", ["devices", "map"], "DashboardSnapshotLoader → RemoteAiRepository"],
-  ["oldUnread", "/c/v1/alerts/unread-count", "首页未读计数旧请求", ["devices", "map", "messages"], "DashboardSnapshotLoader → RemoteAlertRepository"],
-  ["oldTheme", "/c/v1/tenant/theme", "首页品牌主题旧请求", ["devices", "map"], "DashboardSnapshotLoader → RemoteManifestRepository"],
-  ["oldQuick", "/c/v1/knowledge/quick-questions", "聊天快捷问题旧请求", ["chat"], "ChatViewModel.init → RemoteKnowledgeRepository"],
-]) registerApi(id, "GET", path, title, "pending", pages,
-  "源码确认普通入口仍可达，本轮没有抓包/状态码证据；不声称已复现 404。失败降级不等于没有请求。见 TRIAL-17。", source);
+for (const [id, path, title, pages, source, display] of [
+  ["oldInsights", "/c/v1/ai/insights", "首页洞察旧请求", ["devices", "map"], "RemoteAiRepository.homeInsights：直接返回空列表", "首页本来没有洞察展示位，界面无变化"],
+  ["oldUnread", "/c/v1/alerts/unread-count", "首页未读计数旧请求", ["devices", "map", "messages"], "RemoteAlertRepository.unreadAlertCount：抛出“不可用”，按可选区降级", "数量未知，设备页显示“—”和“告警暂不可用”，不显示 0"],
+  ["oldTheme", "/c/v1/tenant/theme", "首页品牌主题旧请求", ["devices", "map", "mine"], "RemoteManifestRepository.currentBrandTheme：抛出“不可用”，按可选区降级", "“我的”品牌卡显示“默认品牌”"],
+  ["oldQuick", "/c/v1/knowledge/quick-questions", "聊天快捷问题旧请求", ["chat"], "RemoteKnowledgeRepository.quickQuestions：直接返回空列表", "聊天页不显示推荐问题，AI 会话不受影响"],
+]) registerApi(id, "GET", path, title, "retired", pages,
+  `2026-10-12 起 Prod 不再发出此请求，对应 Retrofit 声明已删除。停用前固定机冷启动/进入聊天实测返回 404，停用后完整路径 0 次。页面：${display}。正式接口或确认不提供，待后端答复；见 TRIAL-17。`, source);
 
 for (const [id, title, pages, note] of [
   ["shareFlow", "分享邀请完整流程", ["share", "messages"], "邀请收件箱、接受/拒绝、撤销、重发、权限变更缺少确认的 App 动作契约；不使用 ShareGrant 表 CRUD 拼接业务流程。"],
