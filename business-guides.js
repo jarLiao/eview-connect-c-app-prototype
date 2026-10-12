@@ -82,3 +82,256 @@ const businessGuides = {
     ],
   },
 };
+
+Object.assign(businessGuides, {
+  subjects: {
+    title: "照护对象技术说明", file: "subjects.html", pages: ["subjects", "subject", "person", "pet"],
+    reviewedAt: "2026-10-12", baseline: "86fa2f9",
+    source: "RemoteSubjectRepository.kt / SubjectProfileValues.kt / RemoteSubjectAvatarEditor.kt",
+    lead: "人员和宠物共用管理流程，按类型调用接口；保存后回读详情和列表再更新界面。",
+    scope: "资料写入仅开放给本人名下 ACTIVE 的 PERSON / PET。本人账号资料是另一类资源。",
+    sections: [
+      { id: "apis", title: "用哪些接口", summary: "列表 + 两类对象读写 + 关联检查", apis: [
+        ["subjects", "读取照护对象列表", "进入管理页及保存后刷新"],
+        [["personCreate", "petCreate"], "创建人员 / 宠物", "只发送一次 POST"],
+        [["personRead", "petRead"], "读取对象详情", "进入详情、写入前后核对"],
+        [["personUpdate", "petUpdate"], "修改资料、头像或归档", "按操作发送差量 PATCH"],
+        [["personBindings", "petBindings"], "读取关联设备", "详情展示及归档前检查"],
+        [["personShares", "petShares"], "检查分享关系", "当前用于归档前检查"],
+        ["upload", "上传对象头像", "用户确认预览后上传"],
+      ], notes: ["路径中的 personId / petId 是对象数字 ID。页面中的 PERSON:101 / PET:101 是带类型的标识，不能整个放进数值路径。"] },
+      { id: "flow", title: "业务流程怎么走", summary: "列表 → 详情 → 编辑 → 回读", steps: [
+        ["读取", "按人员 / 宠物筛选列表；点击对象后读取详情和关联设备，不用名称识别对象。"],
+        ["新增", "校验表单，POST 一次；使用返回的对象 ID 查询详情，再查列表确认出现。"],
+        ["编辑", "保存前重读详情，检查待改字段没有被其他入口修改；PATCH 差量后回读详情和列表。"],
+        ["归档", "重新确认归属及状态，设备关联和分享记录均为空才允许提交 ARCHIVED；确认详情状态及列表移除。"],
+      ], diagrams: [{ title: "照护对象操作流程", file: "subjects-flow.svg" }, { title: "编辑资料回读时序", file: "subjects-sequence.svg" }], notes: ["归档只提交 status=ARCHIVED，不自动解绑或撤销分享；任何分享记录非空都会阻止当前归档流程。"] },
+      { id: "fields", title: "字段怎么提交", summary: "创建有 profile，编辑为顶层差量", fields: [
+        ["创建公共部分", "type、displayName、profile", "未填写项省略；名称必填，PERSON / PET 必须与入口一致。"],
+        ["身高与体重", "创建：profile.heightCm / weightKg；编辑：height / weight", "创建和 PATCH 不能直接复用同一个请求对象；宠物没有身高项。"],
+        ["人员资料", "gender、birthDate、relationToOwner、healthMonitoringEnabled", "创建放 profile；编辑放根层。生日为 YYYY-MM-DD，false 不能当作未填写。"],
+        ["宠物资料", "species、breed、gender、birthDate、neutered、activityTargetMinutes", "新增 species 必须选 DOG / CAT / OTHER；neutered 发送 1 / 0，数值 0 要保留。"],
+        ["对象头像", "PATCH 顶层 avatarUrl", "先上传再保存返回地址，移除发送空串；与本人账号的 avatar 字段不同。"],
+      ], notes: ["普通资料目前不支持清空已有值，不能把 null、空串和省略当成同一种操作。头像移除是单独实现的例外。"] },
+      { id: "failure", title: "失败时怎么处理", summary: "不盲目重建、不覆盖其他人的修改", rules: [
+        ["写入结果未确认", "请求超时或回查不一致时先刷新核对，不自动重发 POST / PATCH，也不能按名称猜测创建成功。"],
+        ["编辑冲突", "待改字段与编辑基线不一致时停止保存，刷新后重新编辑。"],
+        ["关联未确认", "设备或分享关系读取失败时阻止归档，不能把读取失败当作空列表。"],
+        ["头像失败", "上传和保存地址分别确认；上传成功但资料保存失败，不等于头像已更新，也不自动删除服务器文件。"],
+      ] },
+      { id: "gaps", title: "哪些内容还要补", summary: "清空、恢复、共享与文件回收", rules: [
+        ["尚未开放", "普通资料清空、备注、创建时选图上传、归档对象列表及恢复。"],
+        ["后端待确认", "PET species 文档差异、共享对象可见范围、分享关系下的归档规则、上传文件回收。"],
+      ], notes: ["对象头像沿用账号头像的图片校验与上传接口；新增 / 编辑 / 归档的既有验收范围见主仓库对应验证记录，本轮只整理说明。"] },
+    ],
+  },
+  bindings: {
+    title: "设备绑定与解绑技术说明", file: "device-binding.html", pages: ["add-device", "edit-device"],
+    reviewedAt: "2026-10-12", baseline: "86fa2f9",
+    source: "RemoteAppDeviceLifecycleRepository.kt / AppDeviceLifecycleApiService.kt / AppDeviceLifecycleModels.kt",
+    lead: "选择产品和使用者后绑定设备；写入后从对象与通用绑定两个入口回查，结果一致才确认成功。",
+    scope: "绑定目标是本人名下 ACTIVE 的人员或宠物。解绑解除一条关联，不等于删除设备或转移所有权。",
+    sections: [
+      { id: "apis", title: "用哪些接口", summary: "选对象、选产品、写入与双视图回查", apis: [
+        ["subjects", "选择使用者", "筛出本人 ACTIVE 人员 / 宠物"],
+        [["personRead", "petRead"], "核对使用者详情", "写入及回查前确认身份、归属、状态"],
+        ["products", "读取可选产品", "按 productKey 选择，不能硬编码型号"],
+        ["product", "读取已有设备的产品", "管理页先确认自有关系；不用于探测未绑定设备"],
+        [["personBindings", "petBindings"], "读取对象侧设备关联", "与通用查询对照"],
+        ["bindings", "读取通用绑定视图", "query：bindType、bindToId"],
+        ["bind", "绑定设备", "一次 POST，随后回查"],
+        ["unbind", "解除关联", "DELETE 路径传绑定记录 ID"],
+      ], notes: ["当前写入使用 /app/device/bind 这组接口；人员 / 宠物路径下的绑定写入入口尚未接入，不混用。"] },
+      { id: "flow", title: "业务流程怎么走", summary: "预检 → 写一次 → 两处查一致", steps: [
+        ["准备", "取得 deviceId，读取产品及使用者。校验输入和目标，保留所选 productKey。"],
+        ["绑定前检查", "已绑定其他对象时拒绝自动改绑；同一对象已存在且产品相同，只回查确认，不重复创建。"],
+        ["绑定后确认", "POST 后分别查对象 device-bindings 和带条件的 /app/device/bindings，绑定记录及产品一致才刷新列表。"],
+        ["解绑", "先核对原绑定记录，再 DELETE /bind/{id}；两处均确认该 bindingId 不存在后刷新关系。"],
+      ], diagrams: [{ title: "绑定与解绑流程", file: "binding-flow.svg" }, { title: "绑定后双视图回查时序", file: "binding-sequence.svg" }] },
+      { id: "fields", title: "参数怎么区分", summary: "deviceId、bindingId、对象 ID 各有用途", fields: [
+        ["deviceId", "设备标识 String", "当前校验为 1–128 位字母、数字、下划线或连字符；不要自行当作数值解析。"],
+        ["bindType", "PERSON / PET", "与选择的使用者类型保持一致。"],
+        ["bindToId", "对象数字 ID（Long）", "来自人员 / 宠物资料，不传 PERSON:101 这样的组合值。"],
+        ["productKey", "可选产品返回值", "与选中的产品一致，不把产品名称或型号当作 key。"],
+        ["bindingId", "绑定记录的 id", "由查询结果取得，专用于核对和解绑，不等于 deviceId。"],
+      ] },
+      { id: "failure", title: "失败时怎么处理", summary: "明确拒绝与结果未确认分开展示", rules: [
+        ["服务端拒绝", "保留可理解的拒绝提示，不继续进入成功页面。"],
+        ["写入后超时 / 断网", "不能认定服务器没执行；进入结果未确认状态，先重新查询绑定关系，不自动重放写入。"],
+        ["两个视图不一致", "记录重复、数量或内容不一致都不能确认成功，不从部分结果推断关系。"],
+        ["账号或环境变化", "终止当前确认流程，丢弃旧上下文结果；不要把前一账号的关联写入当前列表。"],
+      ] },
+      { id: "gaps", title: "哪些内容还要补", summary: "扫码实机、异常链与所有权规则", rules: [
+        ["仍需真机验证", "扫码入口、新版拒绝提示、断网后写入回查及真实硬件持续上报。"],
+        ["后端待确认", "改绑 / 转移所有权、共享关系失效等规则。不能从解绑成功自动推定这些操作已完成。"],
+      ] },
+    ],
+  },
+  overview: {
+    title: "设备详情技术说明", file: "device-detail.html", pages: ["overview", "health", "alerts"],
+    reviewedAt: "2026-10-12", baseline: "86fa2f9",
+    source: "RemoteAppDeviceReadRepository.kt / RemoteDeviceInsightRepository.kt / CloudDeviceInsightViewModel.kt",
+    lead: "设备基础状态与健康告警分开读取；基础信息先显示，规则结果返回后再补 AI 内容。",
+    scope: "先确认设备仍属于当前账号可访问的自有对象。健康 / 告警已接入，是否有数据取决于所选环境。",
+    sections: [
+      { id: "apis", title: "用哪些接口", summary: "基础数据 + 产品 + 分享只读 + 分析", apis: [
+        [["state", "realtime"], "在线状态、定位和遥测", "复用设备列表发现及读取链路"],
+        ["product", "设备产品资料", "确认关系后读取，可单独降级"],
+        ["deviceShares", "设备直接分享记录", "只读，不代表邀请操作开放"],
+        ["insightOverview", "概览指标与摘要", "先 includeSummary=false，再 true"],
+        ["insightHealth", "日 / 周 / 月健康数据", "首次进入或切换周期时读取"],
+        ["insightAlerts", "近期告警列表", "进入设备后读取"],
+        ["insightAnalysis", "单条告警解释", "打开告警后先 includeAi=false，再 true"],
+      ], notes: ["新增分析接口来自当前客户端声明，不在原 37 项 App Device / App Subject 快照中。原有 /events 与这组告警读取接口不是同一入口。"] },
+      { id: "flow", title: "页面怎么加载", summary: "确认关系 → 基础信息 → 规则 → AI", steps: [
+        ["确认设备", "以 deviceId 查当前对象关联；不能因为 state / realtime 能访问就认定拥有该设备。"],
+        ["填充基础区域", "展示状态、遥测、使用者和产品；各区域独立保留加载、空数据和失败状态。"],
+        ["读取分析", "读取概览和告警列表。概览先展示规则结果，再请求 AI；健康首次进入标签才读取。"],
+        ["按交互补充", "切换健康周期重新读取；点告警后请求该 alertId 的规则解释及 AI，关闭时取消解释请求。"],
+      ], diagrams: [{ title: "设备详情分区加载流程", file: "detail-flow.svg" }, { title: "规则先显示再补 AI 时序", file: "detail-sequence.svg" }] },
+      { id: "fields", title: "每个区域展示什么", summary: "缺失值留空，不用演示数填充", fields: [
+        ["在线 / 电量 / 位置", "state、realtime", "沿用设备列表规则；状态未知不能显示离线，电量 0% 不能丢弃。"],
+        ["产品与使用者", "product + 对象绑定", "产品信息和关联对象分别读取；设备昵称不因 productName 存在而自动获得。"],
+        ["概览与健康指标", "metrics 的 value / unit / available", "使用服务端单位与可用标记；没有值显示 —，不补零。"],
+        ["健康趋势", "trend.points、period、date", "日 / 周 / 月分别读取；date 当前按 UTC 日期，小时桶转换为手机时区展示。"],
+        ["告警", "alerts 的 alertId、timeMillis、risk", "按实际返回展示；告警解释使用同一设备与 alertId，不等于推送或已读状态。"],
+        ["AI 摘要 / 解释", "summary / analysis、risk", "AI 返回后替换同一请求区域；失败保留已有规则结果，不编造分析。"],
+      ] },
+      { id: "refresh", title: "刷新和失败怎么处理", summary: "基础轮询与 AI 请求分开", rules: [
+        ["基础数据", "前台每轮结束约 15 秒后刷新 state / realtime；离页或后台停止。更新不重建地图或强制复位视野。"],
+        ["分析数据", "不跟随 15 秒轮询反复请求 AI。手动刷新重读概览、告警及已打开过的健康区域。"],
+        ["环境未部署", "404 显示环境未提供；拒绝或返回无效时清除受限结果，不把缺数据解释成健康正常。"],
+        ["读取慢或失败", "规则先显示，AI 独立等待；AI 失败不自动重试。普通网络失败可保留同设备上次结果并标记失败。"],
+        ["切换设备 / 账号", "取消旧请求，并核对设备、账号和环境后才接收响应，避免旧结果覆盖新页面。"],
+      ] },
+      { id: "gaps", title: "哪些内容还要补", summary: "部署差异、统计口径和业务写入", rules: [
+        ["环境差异", "既有记录中范工环境可读取分析接口，29999 未部署时返回 404；本轮未重新测试服务器。"],
+        ["服务端问题", "健康分析时段、风险窗口口径及定位距离异常待处理；不能把当前 AI 输出视为已校准结论。"],
+        ["尚未形成完整流程", "真实设备持续移动、分享操作、告警处置与推送、轨迹围栏和云配置。定位读取与指令见地图说明。"],
+      ] },
+    ],
+  },
+  location: {
+    title: "地图与立即定位技术说明", file: "device-location.html", pages: ["map", "location"],
+    reviewedAt: "2026-10-12", baseline: "86fa2f9",
+    source: "CloudDeviceMapPresentation.kt / MapEngine.kt / RemoteAppDeviceLocationCommandRepository.kt",
+    lead: "地图显示设备最后一次有效上报；立即定位只发指令，新的位置仍从 realtime 获取。",
+    scope: "首页聚合自有设备点，详情显示单台设备。当前不把最后位置当作持续实时追踪。",
+    sections: [
+      { id: "apis", title: "用哪些接口", summary: "读取位置和下发指令分开", apis: [
+        ["subjects", "发现当前使用者", "设备发现流程复用设备列表"],
+        [["personBindings", "petBindings"], "获取关联设备", "按 deviceId 合并后读取"],
+        ["realtime", "读取最后位置及时间", "首页和设备地图更新位置的来源"],
+        ["state", "显示在线状态", "在线状态与位置时间分别判断"],
+        ["function", "发送立即定位", "query：functionId=singleLocating；JSON body：{}"],
+      ], notes: ["立即定位入口在云设备详情地图中；首页不自动向全部设备发送指令。"] },
+      { id: "flow", title: "位置和指令怎么组合", summary: "读取绘点；点击定位后等待设备上报", steps: [
+        ["发现设备", "复用对象 → 绑定 → deviceId 的链路，确认单台详情的设备关系。"],
+        ["判断位置", "校验 latestLocation 坐标、定位状态及同次上报时间；未取得有效位置时显示空态。"],
+        ["绘制地图", "原始坐标按当前地图服务转换一次，标记、相机和覆盖物采用一致坐标系。"],
+        ["立即定位", "确认自有关系，POST 一次；受理后提示已发起请求，继续通过实时数据读取设备实际回传。"],
+      ], diagrams: [{ title: "位置读取与绘制流程", file: "location-flow.svg" }, { title: "立即定位与后续读取时序", file: "location-sequence.svg" }] },
+      { id: "fields", title: "位置字段怎么用", summary: "坐标、状态和时间要一起判断", fields: [
+        ["坐标", "latestLocation.lat / lng", "必须是有限 JSON 数值，纬度 −90～90、经度 −180～180；数值字符串不接受，不使用演示点补位。"],
+        ["定位状态", "latestLocation.locStatus、generalData.isGPS", "locStatus 不能为 x（不区分大小写），且 isGPS 必须为 true；不能把非 GPS 自动标成 WiFi 或 LBS。"],
+        ["上报时间", "latestLocation.dateTime 与 generalData.dateTime", "两者必须是有效且相同的毫秒时间；当前接受 12–13 位数值或数字字符串，范围为 2000～2100 年。"],
+        ["坐标系统", "latestLocation.coordinateSystem", "缺字段才默认 WGS84；明确 null 或未知值不绘点。接受 WGS84 / GCJ02（含连字符形式），按地图服务转换一次；默认仍待后端确认。"],
+        ["指令响应", "code=0、ok≠false、data 为非空字符串", "仅确认服务端受理；不代表设备已执行、定位成功或位置已更新。"],
+      ] },
+      { id: "refresh", title: "刷新和失败怎么处理", summary: "保持视野，不重发结果不明的指令", rules: [
+        ["刷新位置", "前台轮询已有设备，离页 / 后台停止；正常数据更新保持用户拖动或缩放后的视野。"],
+        ["主动回位", "只有明确的回到设备操作才主动调整视野；切换地图服务时重新按服务坐标规则绘制。"],
+        ["指令拒绝", "服务端明确离线或拒绝时给出对应反馈，不能用成功 Toast 掩盖失败。"],
+        ["指令结果不明", "超时、断网、响应不完整时不自动重发；按钮并发调用不排队，避免后续补发重复指令。"],
+        ["旧位置", "允许展示有明确时间的最后上报，不推算移动；鉴权拒绝和关系失效后不继续沿用受限数据。"],
+      ] },
+      { id: "gaps", title: "哪些内容还要补", summary: "坐标契约、执行结果、轨迹与围栏", rules: [
+        ["后端待确认", "正式坐标系、时间类型及单位、立即定位的设备执行结果与超时规则。"],
+        ["尚未验证完整", "真实硬件持续移动、轨迹、围栏和 Google 卫星图；原型轨迹与围栏不能作为已接入依据。"],
+      ] },
+    ],
+  },
+  account: {
+    title: "账号资料与头像技术说明", file: "account-profile.html", pages: ["account"],
+    reviewedAt: "2026-10-12", baseline: "86fa2f9",
+    source: "RemoteAccountRepository.kt / RemoteAccountProfileGateway.kt / AccountAvatarSource.kt",
+    lead: "本人资料只修改昵称、姓名和头像；保存时发送变化字段，完成独立回读后才更新页面。",
+    scope: "这里是登录账号本人，不是家人 / 宠物档案。邮箱和手机号仅展示，不能直接套用完整 UserDTO 写入。",
+    sections: [
+      { id: "apis", title: "用哪些接口", summary: "读资料、写资料、上传及读取头像", apis: [
+        ["profile", "获取本人资料", "进入页面、保存前及保存后读取"],
+        ["profileUpdate", "保存变化字段", "原 username + nickname / name / avatar 差量"],
+        ["upload", "上传图片", "multipart/form-data，part 名称 file"],
+        ["avatar", "展示返回头像", "动态返回 URL，使用不带 Token 的图片客户端"],
+      ], notes: ["上传的实际调用为 multipart；公开文档中的 application/json 声明仍有差异。头像地址按环境和允许的来源校验，不向任意图片地址附带登录 Token。"] },
+      { id: "flow", title: "保存和上传怎么走", summary: "读基线 → 编辑 / 上传 → 保存 → 回读", steps: [
+        ["加载资料", "GET /user/info，保存当前账号、环境、username 及字段基线。"],
+        ["编辑与预览", "昵称 / 姓名单项编辑；图片先本地预览，确认后才读取文件并上传。取消不发送保存请求。"],
+        ["提交变化", "保存前重读资料以发现冲突；头像先上传取得地址，再 PUT 原 username 和变化字段。"],
+        ["确认成功", "再次 GET /user/info，逐项核对本次变化；一致后更新资料页及“我的”展示。"],
+      ], diagrams: [{ title: "账号资料保存流程", file: "account-flow.svg" }, { title: "头像上传与资料回读时序", file: "account-sequence.svg" }] },
+      { id: "fields", title: "哪些字段可以改", summary: "三字段限写，保留原 username", fields: [
+        ["昵称", "nickname", "当前客户端最多 80 个字符；空串可清空，不能用页面显示的兜底姓名覆盖原值。"],
+        ["姓名", "name", "当前客户端最多 80 个字符；只提交本次变化，空串与 null 分别处理。"],
+        ["头像", "avatar", "保存服务器返回的合法地址；移除发送空串。照护对象接口对应字段则是 avatarUrl。"],
+        ["用户名", "username", "带上保存前回读的本人原值；这是写入所需字段，不提供改用户名入口。"],
+        ["只读信息", "email、phone 等", "显示已有信息，不提交手机号、邮箱、地区、联系人或完整 UserDTO。"],
+        ["图片限制", "PNG / JPEG，最多 5 MiB", "校验文件签名、MIME 和解码尺寸；单边最多 8192、总像素最多 3200 万，当前不自动压缩。"],
+      ] },
+      { id: "failure", title: "失败时怎么处理", summary: "上传成功不等于资料保存成功", rules: [
+        ["冲突", "待改字段或 username 与编辑基线不同，停止提交并要求刷新，避免覆盖其他入口的修改。"],
+        ["保存未确认", "写入后超时、取消或回读不一致时先刷新资料，再允许继续保存，不自动重放写入。"],
+        ["头像部分成功", "已经确认上传的地址可在同一上下文复用；上传本身未确认时不盲目重传同一图片。"],
+        ["切账号或环境", "请求前后核对身份，清理或隔离缓存；旧账号头像不能写入新账号。"],
+      ] },
+      { id: "gaps", title: "哪些内容还要补", summary: "可写白名单、异常链与文件回收", rules: [
+        ["接口问题", "后端仍需明确公共资料接口的 App 使用范围；缺 username、非空 phone 的错误及清空语义需修正 / 确认。"],
+        ["文件策略", "头像公开读取、地址有效期、替换后的旧图及上传后未引用文件的回收规则待确认。"],
+        ["验收边界", "本人头像的 JPEG、真实弱网和过期会话异常尚未完成真机验收；不能将客户端格式支持等同于端到端通过。"],
+      ] },
+    ],
+  },
+  common: {
+    title: "公共接口约定", file: "common.html", pages: [],
+    reviewedAt: "2026-10-12", baseline: "86fa2f9",
+    source: "TimeZoneHeaderInterceptor.kt / SystemTimeZoneProvider.kt / OAuthSessionManager / 各业务 Repository",
+    lead: "统一请求头、身份、ID 和错误处理；每个业务仍按自己的响应与写入契约校验。",
+    scope: "统一调用约定及当前 Android 兼容行为；不能代替后端正式契约或各环境的部署验收。",
+    sections: [
+      { id: "headers", title: "地址与请求头", summary: "按环境拼接，时区走公共网络层", rules: [
+        ["根地址", "路径相对所选环境，当前联调根路径包含 /admin；拼接一次，不能把 /app 或 /admin 重复加上。"],
+        ["业务认证", "业务请求使用当前会话的 Bearer Token；OAuth、注册等专用客户端按各自约定处理，不一刀切替换认证头。"],
+        ["时区", "统一发送 X-TimeZone，例如 Asia/Shanghai、America/New_York。每次请求读取系统 IANA 地区时区，不发送 UTC+8 或旧的 App-TimeZone。"],
+        ["当前回退", "Android 对 UTC、GMT、Etc/* 等非地区格式回退 Asia/Shanghai；这是当前服务端适配规则。"],
+        ["特殊客户端", "发码用 App-Client-Id，注册 / 密码接口用 X-Client-Id，不能全局改成同一个头。头像读取走匿名客户端，不向外部图片地址带 Token。"],
+      ] },
+      { id: "ids", title: "ID 怎么传", summary: "先区分资源，再保持数值无损", fields: [
+        ["设备", "deviceId", "当作设备标识字符串保留，不按数值变换。"],
+        ["对象", "type + 数字 ID", "PERSON:101 是客户端组合标识；接口路径中的 personId / petId 只取对应数字 ID。"],
+        ["关联", "bindingId", "绑定记录 ID 用于解绑，不能拿 deviceId 或对象 ID 替代。"],
+        ["数值精度", "服务端 Long / 数字字符串", "按接口 DTO 区分，用 Int64 或无损字符串处理；不要先转 Double，也不要把所有服务器字段一律改成字符串。"],
+      ] },
+      { id: "time", title: "时间怎么处理", summary: "毫秒、日期、统计窗口分别处理", rules: [
+        ["设备实时位置", "latestLocation.dateTime 当前接受 12–13 位毫秒数或数字字符串，展示按手机时区；不能默认为秒或任意 ISO 文本。"],
+        ["资料生日", "birthDate 是 YYYY-MM-DD 的日历日期，不是时间戳，不做时区偏移。"],
+        ["健康 / 告警", "分析请求 date 当前按 UTC 日期，小时桶和 timeMillis 按手机时区显示；业务时段划分仍存在服务端问题。"],
+        ["未知字段", "新增时间字段先确认类型、单位、时区和清空语义，不从 X-TimeZone 推定所有返回值都已转换为本地时间。"],
+      ] },
+      { id: "results", title: "结果怎么确认", summary: "HTTP 成功、业务成功、回读一致分开", rules: [
+        ["读取", "先判 HTTP，再检查业务 code / ok，最后按接口校验 data。空列表、null 与缺字段不能统一解释为失败或成功。"],
+        ["写入", "先确认业务响应，再按业务回读；超时 / 取消不等于服务器没执行，不自动重放创建、绑定或下发指令。"],
+        ["重试", "只读请求可按业务规则重试；明确无权限不保留受限旧数据。一个模块的 404 降级规则不能套用所有接口。"],
+        ["身份隔离", "业务应绑定请求的环境、账号及资源，收到响应时核对上下文；切账号、环境或设备后，丢弃不匹配的旧结果。"],
+      ] },
+      { id: "boundaries", title: "实现与验收怎么区分", summary: "有接口 ≠ 已接入 ≠ 业务已验证", rules: [
+        ["代码依据", "说明里的流程来自当前客户端实现；原型操作仍只改本地演示数据。"],
+        ["接口范围", "原 37 项快照来自 App Device / App Subject；新增 /app/evaigc 4 项按客户端声明单列，不伪装成旧快照已有。"],
+        ["验证范围", "已有报告的环境、账号、设备和异常分支分别标注。本轮整理文档不新增服务器验收结论。"],
+      ] },
+    ],
+  },
+});
+
+for (const [key, guide] of Object.entries(businessGuides)) {
+  guide.pages ??= [key];
+}

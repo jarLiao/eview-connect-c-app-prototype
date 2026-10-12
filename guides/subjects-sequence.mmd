@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant App as App
+    participant API as 后端
+    App->>API: GET 人员或宠物详情
+    API-->>App: 保存编辑基线
+    App->>App: 用户修改单项资料
+    App->>API: GET 同一对象详情
+    API-->>App: 当前资料
+    alt 待改字段已变化
+        App->>App: 停止保存 提示刷新
+    else 无冲突
+        App->>API: PATCH 顶层变化字段
+        API-->>App: 业务响应
+        App->>API: GET 详情 + GET /app/subjects
+        API-->>App: 保存后的详情与列表
+        App->>App: 对照变化字段和对象身份
+        Note over App: 回读一致才更新页面 不自动重发写入
+    end

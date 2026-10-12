@@ -1,0 +1,15 @@
+sequenceDiagram
+    participant App as App
+    participant API as 后端
+    App->>API: 读取对象详情 产品与既有绑定
+    API-->>App: 当前目标及关联
+    App->>App: 确认自有 ACTIVE 且未绑定其他对象
+    App->>API: POST /app/device/bind
+    Note right of App: bindType / bindToId / deviceId / productKey
+    API-->>App: 业务响应
+    App->>API: GET 对象 device-bindings
+    API-->>App: 对象侧关联
+    App->>API: GET /app/device/bindings<br/>条件：bindType、bindToId
+    API-->>App: 通用关联视图
+    App->>App: 比较记录 ID 目标 设备和产品
+    Note over App: 两处一致才确认成功 否则先回查

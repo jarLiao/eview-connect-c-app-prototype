@@ -14,7 +14,10 @@ const result = vm.runInContext(`(() => {
 })()`, context);
 const { evidence, apis, pages } = JSON.parse(result);
 const documentApp = Object.keys(evidence.operations).filter(key => key.includes(' /app/')).sort();
-const app = apis.filter(api => api.path?.startsWith('/app/'));
+const app = apis.filter(api => api.path?.startsWith('/app/') && api.evidence_kind !== 'client_supplement');
+const supplements = apis.filter(api => api.evidence_kind === 'client_supplement');
+assert.deepEqual(supplements.map(api => api.id).sort(), ['insightOverview', 'insightHealth', 'insightAlerts', 'insightAnalysis'].sort());
+assert(supplements.every(api => api.category === 'current' && !api.document && api.path.startsWith('/app/evaigc/') && api.baseline.android_commit === '86fa2f9'));
 assert.deepEqual(app.map(api => `${api.method} ${api.path}`).sort(), documentApp, '完整覆盖 App 文档的方法+路径，不能重复或漏项');
 assert.equal(app.length, 37);
 assert.equal(app.filter(api => api.category === 'current').length, 20);
@@ -54,6 +57,6 @@ function visit(value, definitions) {
   }
 }
 for (const api of apis.filter(api => api.document)) visit(api.document, api.document.schemas);
-console.log(JSON.stringify({ result: '通过', app_operations: app.length,
+console.log(JSON.stringify({ result: '通过', snapshot_app_operations: app.length, client_supplement_operations: supplements.length,
   categories: Object.fromEntries(['current', 'published', 'pending', 'retired', 'requirement'].map(key => [key, apis.filter(api => api.category === key).length])),
   checks: ['37 个公开 App 操作逐一匹配', '20/17 接入分类', '功能需要按 19/8/9/1 另行标注', '4 个旧请求标为已停用', '需求不预设路径', '公共依赖支持边界', '上传声明差异', '页面映射与引用完整性', '导出来源与无示例值'] }, null, 2));

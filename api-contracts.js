@@ -9,6 +9,13 @@ const apiBaseline = {
   base_url: "路径相对所选环境的 /admin/；AI 可被运行时环境覆盖",
 };
 
+const apiSupplementalBaseline = {
+  reviewed_at: "2026-10-12", android_commit: "86fa2f9",
+  scope: "新增 /app/evaigc 4 个只读接口，依据当前客户端声明；不属于 2026-10-10 的 37 项 OpenAPI 快照",
+  evidence: "DeviceInsightApiService.kt、RemoteDeviceInsightRepository.kt、CloudDeviceInsightViewModel.kt；2026-10-12-设备健康告警AI分析App接入验证.md",
+  verification: "既有记录：范工环境限定真机验证通过，29999 未部署时返回 404；本轮只核对代码和文档，未重新请求服务器。",
+};
+
 const apiCategories = {
   current: { label: "App 已在使用", hint: "App 代码已接上这些接口；不代表所有场景都测试通过。" },
   published: { label: "文档里有，App 还没用", hint: "后端接口文档里已经列出，App 还没有使用。" },
@@ -46,11 +53,11 @@ for (const [type, label] of [["person", "人员"], ["pet", "宠物"]]) {
   registerApi(`${type}Create`, "POST", base, `创建${label}档案`, "current", [...pages, "add-device"],
     `创建使用 type、displayName 和 profile；${type === "pet" ? "客户端另要求 species，不能仅按 OpenAPI required 判断。" : "人员和宠物响应结构分别解析。"}稳定 ID 与创建后回读独立处理。`, subjectSource,
     { request: "type、displayName、profile；按创建白名单组装，不复用 PATCH DTO", response: "ApiResponse：人员 PersonPayloadDto，宠物 SubjectDto" });
-  registerApi(`${type}Read`, "GET", detail, `${label}档案详情`, "current", pages,
+  registerApi(`${type}Read`, "GET", detail, `${label}档案详情`, "current", [...pages, "add-device", "edit-device"],
     "用于详情、编辑、头像和归档的前后回读。路由参数为数值 ID；客户端 PERSON:1 / PET:2 是带类型的稳定 ID。", subjectSource);
   registerApi(`${type}Update`, "PATCH", detail, `更新或归档${label}资料`, "current", pages,
     "名称、普通字段、头像、ARCHIVED 分别限字段提交；普通资料 PATCH 为顶层字段，不能套用创建时的 profile 包装。归档前检查设备关联和分享。", subjectSource,
-    { request: "按操作提交白名单差量；头像 avatar、归档 status 与普通编辑分别处理", response: "ApiResponse<Boolean>；保存后独立回读" });
+    { request: "按操作提交白名单差量；对象头像 avatarUrl、归档 status 与普通编辑分别处理", response: "ApiResponse<Boolean>；保存后独立回读" });
   registerApi(`${type}Bindings`, "GET", `${detail}/device-bindings`, `${label}关联设备`, "current", [...pages, "devices", "map", "overview", "add-device", "edit-device"],
     "设备发现、关联展示、绑定/解绑确认及归档前检查；不是设备所有权或分享权限的替代。", subjectSource);
   registerApi(`${type}Bind`, "POST", `${detail}/device-bindings`, `从${label}入口关联设备`, "published", [...pages, "add-device"],
@@ -91,6 +98,23 @@ for (const [id, method, path, title, category, pages, note] of deviceRows) {
 apiRegistry.bind.client_contract = { request: { bindType: "String", bindToId: "Long", deviceId: "String", productKey: "String" }, response: "ApiResponse<JsonElement>；独立回读确认" };
 apiRegistry.bindings.client_contract = { query: { bindType: "String", bindToId: "Long" }, response: "ApiResponse<List<AppDeviceBindingDto>>" };
 apiRegistry.deviceShares.source = "core/remote/share/AppDeviceShareReadApiService.kt、RemoteAppDeviceShareReadRepository.kt";
+
+for (const [id, suffix, title, pages, query, note] of [
+  ["insightOverview", "overview", "设备概览指标与 AI 摘要", ["overview"], { date: "UTC 日期 YYYY-MM-DD", includeSummary: "先 false，规则返回后 true" }, "概览先显示规则结果，再补 AI 摘要；不随 15 秒基础轮询重复请求。"],
+  ["insightHealth", "health", "设备健康趋势与 AI 分析", ["health"], { date: "UTC 日期 YYYY-MM-DD", period: "day / week / month", includeSummary: "先 false，再 true" }, "首次进入健康标签及切换周期读取；小时桶按手机时区显示，服务端时段与风险窗口问题仍待处理。"],
+  ["insightAlerts", "alerts", "设备近期告警列表", ["overview", "alerts"], {}, "当前只读告警列表，不代表消息未读数、推送和告警处置已接入。"],
+  ["insightAnalysis", "alerts/{alertId}/analysis", "设备告警 AI 解释", ["overview", "alerts"], { includeAi: "先 false，规则返回后 true" }, "打开单条告警时请求；AI 失败保留规则解释，不自动重试。"],
+]) {
+  registerApi(id, "GET", `/app/evaigc/devices/{deviceId}/${suffix}`, title, "current", pages,
+    `${note} 既有记录仅范工环境提供，29999 未部署时按 404 降级。`,
+    "core/remote/deviceinsight/DeviceInsightApiService.kt、RemoteDeviceInsightRepository.kt；feature/dashboard/ui/CloudDeviceInsightViewModel.kt",
+    { query, response: "ApiResponse；校验业务响应和账号 / 环境上下文；告警解释另核对 alertId" });
+  Object.assign(apiRegistry[id], {
+    evidence_kind: "client_supplement", baseline: apiSupplementalBaseline,
+    contract_status: "当前客户端已声明；不在原 37 项公开快照中",
+    backend_scope: "按环境确认 /app/evaigc 部署；只读接入不等于统计口径或全部业务验收完成",
+  });
+}
 
 function publicApi(id, method, path, title, pages, note, source, client) {
   registerApi(id, method, path, title, "current", pages, note, source, client);
@@ -139,7 +163,6 @@ for (const [id, title, pages, note] of [
   ["shareRules", "分享角色与数据范围", ["share", "subject"], "现行资源类型 DEVICE/PERSON/PET；V0.1 的 SUBJECT 不能直接沿用。Entity 角色 OWNER/MANAGER/VIEWER 与 CreateShareRequest 的 ALERT_RECEIVER 描述冲突；scopes、过期及撤销规则待定。"],
   ["tracks", "历史轨迹", ["location"], "旧 Location Service 声明不代表普通 Prod 云详情开放；需要正式轨迹查询、时间范围和分页契约。"],
   ["geofences", "围栏与地点搜索", ["geofence", "location"], "原型可演示；当前 Prod 入口与真实业务未完整开放，不再将旧 /c/v1 路径作为现行契约。"],
-  ["health", "健康趋势与分析", ["health", "ai"], "需确认指标、时间范围、统计与分析来源；设备 realtime 不自动等于健康业务接口。"],
   ["alerts", "告警、已读与处置", ["alerts", "messages", "ai"], "事件查询不自动涵盖消息列表、未读、已读或告警反馈，Prod 消息入口仍有门禁。"],
   ["deviceProfile", "设备资料和紧急联系人", ["edit-device"], "对象资料使用 PERSON/PET 路径；设备昵称、设备归属与紧急联系人需各自确认契约。"],
   ["configFlow", "配置执行、OTA 与结果确认", ["config"], "公开 property/function 与 App 配置执行是不同层；HTTP runtime 默认关闭，ACK、状态查询、读回与恢复需联调。"],

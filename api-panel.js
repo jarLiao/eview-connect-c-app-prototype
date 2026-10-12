@@ -15,6 +15,10 @@ function getApiPanelInfo() {
   let key;
   if (state.modal === "settings") {
     key = ({ profile: "account", map: "map-settings" })[state.settingsPanel] || state.settingsPanel || "account";
+  } else if (state.modal?.startsWith("subject-profile-")) {
+    key = mock.subjects.find(item => item.id === state.selectedSubjectId)?.type === "PET" ? "pet" : "person";
+  } else if (state.modal?.startsWith("profile-")) {
+    key = "account";
   } else if (["subjects", "subject-detail", "subject-form", "subject-archive"].includes(state.modal)) {
     key = state.modal === "subjects" ? "subjects" : "subject";
   } else if (state.modal) {
@@ -46,12 +50,13 @@ function renderApiPanel() {
         <button type="button" data-action="api-view-page" aria-pressed="${apiPanelView === "page"}">当前页面</button>
         <button type="button" data-action="api-view-all" aria-pressed="${apiPanelView === "all"}">全部接口</button>
       </div>
-      <div class="api-truth-note"><strong>App 用没用？后端是否同意使用？</strong><span>后端给 App 的两组接口共 37 项：App 已用 20 项，还有 17 项没用。账号、头像和 AI 的接口也在用，但需要后端确认能否继续使用。</span></div>
+      <div class="api-truth-note"><strong>App 用没用？后端是否同意使用？</strong><span>原 App Device / App Subject 快照共 37 项：已用 20 项，未用 17 项。另有 4 个健康 / 告警只读接口已接入，部署因环境而异。账号、头像和 AI 公共接口仍需后端确认使用范围。</span></div>
       <p class="api-need-explainer">另看“App 是否需要”：需要保留 / 后续补接 / 按功能选用 / 当前不用。这是按当前功能提出的建议，不表示接口已测试通过。</p>
       <details class="api-evidence-note"><summary>查看判断依据和测试情况</summary>
         <p>${escapeHtml(apiBaseline.backend_scope)}</p><p>${escapeHtml(apiBaseline.base_url)}</p>
         <p>接口文档读取日期：${escapeHtml(apiEvidence.captured_at)}。此处不会自动跟随服务器更新；网页操作仅为本地演示。</p>
         <p>${escapeHtml(apiBaseline.verification)}</p><p>${escapeHtml(apiBaseline.design)}</p>
+        <p>新增依据：${escapeHtml(apiSupplementalBaseline.scope)} · Android ${escapeHtml(apiSupplementalBaseline.android_commit)}。</p><p>${escapeHtml(apiSupplementalBaseline.verification)}</p>
         <p>核对记录：${escapeHtml(apiBaseline.evidence)}</p>
       </details>
       <div class="api-panel-actions">
@@ -102,7 +107,7 @@ function renderApiDetails(api) {
       ${api.client_contract ? renderApiJsonBlock("App 发送和读取的字段", api.client_contract) : ""}
       ${doc ? `${renderApiJsonBlock("接口文档里的请求字段", { parameters: doc.parameters, request_body: doc.request_body, schemas: apiSchemasFor(doc, [doc.parameters, doc.request_body]) })}
         ${renderApiJsonBlock("接口文档里的响应字段", { responses: doc.responses, schemas: apiSchemasFor(doc, doc.responses) })}` : ""}
-      <p class="api-verification-note">${escapeHtml(apiBaseline.verification)}</p>
+      <p class="api-verification-note">${escapeHtml((api.baseline || apiBaseline).verification)}</p>
     </div>
   </details>`;
 }
@@ -141,7 +146,7 @@ function apiPayload(api) {
 function currentApiPanelPayload() {
   const info = getApiPanelInfo();
   return {
-    schema_version: 2, generated_from: "Eview Connect C App Prototype", baseline: apiBaseline,
+    schema_version: 2, generated_from: "Eview Connect C App Prototype", baseline: apiBaseline, supplemental_baseline: apiSupplementalBaseline,
     page: { key: info.key, title: info.title, route: state.route, modal: state.modal, view: apiPanelView },
     groups: Object.fromEntries(Object.entries(apiCategories).map(([key, meta]) => [key, {
       label: meta.label, description: meta.hint, apis: info.items.filter(api => api.category === key).map(apiPayload),

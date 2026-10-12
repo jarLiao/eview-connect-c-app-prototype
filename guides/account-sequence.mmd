@@ -1,0 +1,17 @@
+sequenceDiagram
+    participant App as App
+    participant API as 后端
+    App->>API: GET /user/info
+    API-->>App: 资料与原 username
+    App->>App: 选择图片 本地预览并确认
+    App->>API: GET /user/info
+    API-->>App: 当前资料 检查头像冲突
+    App->>API: POST /sys-file/upload multipart file
+    API-->>App: 图片地址
+    App->>API: PUT /user/personal/edit
+    Note right of App: 原 username + 新 avatar
+    API-->>App: 业务响应
+    App->>API: GET /user/info
+    API-->>App: 独立回读资料
+    App->>App: 头像地址一致才更新页面
+    Note over App: 上传成功后<br/>还须保存并回读资料

@@ -10,9 +10,12 @@ function guideText(value) {
 function renderGuideSection(section, compact, imageSource) {
   let body = "";
   if (section.apis) {
-    body += `<ol class="guide-api-list">${section.apis.map(([id, purpose, count]) => {
-      const api = apiRegistry[id];
-      return `<li><strong>${guideText(purpose)}</strong><span class="guide-api-route"><b>${guideEscape(api.method)}</b><code>${guideEscape(api.path)}</code></span><small>${guideText(count)}</small></li>`;
+    body += `<ol class="guide-api-list">${section.apis.map(([ids, purpose, count]) => {
+      const routes = [ids].flat().map(id => {
+        const api = apiRegistry[id];
+        return `<span class="guide-api-route"><b>${guideEscape(api.method)}</b><code>${guideEscape(api.path || "服务端返回的头像 URL")}</code></span>`;
+      }).join("");
+      return `<li><strong>${guideText(purpose)}</strong>${routes}<small>${guideText(count)}</small></li>`;
     }).join("")}</ol>`;
   }
   if (section.steps) body += `<ol class="guide-steps">${section.steps.map(([title, text]) => `<li><strong>${guideText(title)}</strong><p>${guideText(text)}</p></li>`).join("")}</ol>`;
@@ -27,7 +30,7 @@ function renderGuideSection(section, compact, imageSource) {
   if (section.fields) {
     body += compact
       ? `<dl class="guide-fields">${section.fields.map(([label, field, rule]) => `<div><dt>${guideText(label)}</dt><dd><code>${guideEscape(field)}</code><p>${guideText(rule)}</p></dd></div>`).join("")}</dl>`
-      : `<div class="guide-table-scroll" tabindex="0" aria-label="卡片字段来源表，可横向滚动"><table><thead><tr><th>页面内容</th><th>字段来源</th><th>展示规则</th></tr></thead><tbody>${section.fields.map(row => `<tr>${row.map(cell => `<td>${guideText(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+      : `<div class="guide-table-scroll" tabindex="0" aria-label="字段说明表，可横向滚动"><table><thead><tr><th>字段 / 区域</th><th>来源 / 内容</th><th>处理规则</th></tr></thead><tbody>${section.fields.map(row => `<tr>${row.map(cell => `<td>${guideText(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
   }
   if (section.rules) body += `<ul class="guide-rules">${section.rules.map(([title, text]) => `<li><strong>${guideText(title)}</strong><p>${guideText(text)}</p></li>`).join("")}</ul>`;
   if (section.notes) body += `<div class="guide-notes">${section.notes.map(note => `<p>${guideText(note)}</p>`).join("")}</div>`;
@@ -36,7 +39,7 @@ function renderGuideSection(section, compact, imageSource) {
 
 function renderGuideContent(key, compact = true, imageSource = file => `./guides/${file}`) {
   const guide = businessGuides[key];
-  if (!guide) return `<div class="guide-card guide-empty"><span class="guide-kicker">${guideEscape(apiPageTitles[key] || "当前业务")}</span><h2>技术说明待补充</h2><p>这个业务还没有完成技术说明整理。可先查看页面说明和左侧接口清单。</p><p class="guide-muted">当前样板：设备列表。</p></div>`;
+  if (!guide) return `<div class="guide-card guide-empty"><span class="guide-kicker">${guideEscape(apiPageTitles[key] || "当前业务")}</span><h2>技术说明待补充</h2><p>这个业务还没有完成技术说明整理。可先查看页面说明和左侧接口清单，或从“全部说明”阅读已整理的业务。</p></div>`;
   const header = `<header class="guide-card guide-intro"><span class="guide-kicker">按 Android 实现整理 · ${guide.reviewedAt}</span><h${compact ? 2 : 1}>${guideEscape(guide.title)}</h${compact ? 2 : 1}><p class="guide-lead">${guideText(guide.lead)}</p><p class="guide-scope">${guideText(guide.scope)}</p>${compact ? `<div class="guide-actions"><a class="guide-button" href="./guides/${guide.file}" target="_blank" rel="noopener">单独打开 <span aria-hidden="true">↗</span></a><button class="guide-button" type="button" data-guide-download="${guideEscape(key)}">下载 HTML <span aria-hidden="true">↓</span></button></div>` : ""}</header>`;
   const sections = guide.sections.map((section, index) => {
     const body = renderGuideSection(section, compact, imageSource);
@@ -45,7 +48,12 @@ function renderGuideContent(key, compact = true, imageSource = file => `./guides
       ? `<details class="guide-section" data-guide-section="${section.id}"><summary><span>${title}</span><small>${guideEscape(section.summary)}</small></summary><div class="guide-section-body">${body}</div></details>`
       : `<section class="guide-section" id="${section.id}"><h2>${title}</h2><div class="guide-section-body">${body}</div></section>`;
   }).join("");
-  return `${header}${sections}<footer class="guide-footnote">实现基线：Android ${guide.baseline}<br>${guideEscape(guide.source)}<br>原型使用演示数据；本轮未新增后端业务验收。</footer>`;
+  const common = key === "common" || key === "devices" ? "" : '<p class="guide-shared-note">公共约定：业务请求带 Bearer Token 与 IANA 格式的 X-TimeZone；ID 保持无损，写入结果不明时先回查。认证、图片等专用客户端按各自规则处理。</p>';
+  return `${header}${sections}${common}<footer class="guide-footnote">实现基线：Android ${guide.baseline}<br>${guideEscape(guide.source)}<br>原型使用演示数据；本轮未新增后端业务验收。</footer>`;
+}
+
+function businessGuideForPage(page) {
+  return Object.keys(businessGuides).find(key => businessGuides[key].pages.includes(page)) || null;
 }
 
 let businessGuideMode = "page";
@@ -53,9 +61,12 @@ let businessGuideMode = "page";
 function renderBusinessGuidePanel(panel, key, pageHtml) {
   if (panel.dataset.guideContext !== key) panel.scrollTop = 0;
   panel.dataset.guideContext = key;
-  panel.innerHTML = `<div class="guide-tabs" role="tablist" aria-label="说明类型">${[["page", "页面说明"], ["technical", "技术说明"]].map(([mode, label]) => `<button id="guide-tab-${mode}" type="button" role="tab" data-guide-tab="${mode}" aria-controls="guide-panel-${mode}" aria-selected="${businessGuideMode === mode}" tabindex="${businessGuideMode === mode ? 0 : -1}">${label}</button>`).join("")}</div><div id="guide-panel-page" class="guide-page-panel" role="tabpanel" aria-labelledby="guide-tab-page" tabindex="0"${businessGuideMode !== "page" ? " hidden" : ""}>${pageHtml}</div><div id="guide-panel-technical" class="business-guide" role="tabpanel" aria-labelledby="guide-tab-technical" tabindex="0"${businessGuideMode !== "technical" ? " hidden" : ""}>${renderGuideContent(key)}</div>`;
+  const guideKey = businessGuideForPage(key);
+  panel.dataset.guideId = guideKey || "";
+  const library = `<nav class="guide-library-links" aria-label="技术说明目录"><a href="./guides/index.html" target="_blank" rel="noopener">全部说明 · ${Object.keys(businessGuides).length} 篇</a><a href="./guides/common.html" target="_blank" rel="noopener">公共约定 ↗</a></nav>`;
+  panel.innerHTML = `<div class="guide-tabs" role="tablist" aria-label="说明类型">${[["page", "页面说明"], ["technical", "技术说明"]].map(([mode, label]) => `<button id="guide-tab-${mode}" type="button" role="tab" data-guide-tab="${mode}" aria-controls="guide-panel-${mode}" aria-selected="${businessGuideMode === mode}" tabindex="${businessGuideMode === mode ? 0 : -1}">${label}</button>`).join("")}</div><div id="guide-panel-page" class="guide-page-panel" role="tabpanel" aria-labelledby="guide-tab-page" tabindex="0"${businessGuideMode !== "page" ? " hidden" : ""}>${pageHtml}</div><div id="guide-panel-technical" class="business-guide" role="tabpanel" aria-labelledby="guide-tab-technical" tabindex="0"${businessGuideMode !== "technical" ? " hidden" : ""}>${library}${renderGuideContent(guideKey || key)}</div>`;
   const mobileNav = document.getElementById("guide-mobile-nav");
-  const guide = businessGuides[key];
+  const guide = businessGuides[guideKey];
   if (mobileNav) {
     mobileNav.hidden = !guide;
     mobileNav.innerHTML = guide ? `<span>原型说明</span><a href="./guides/${guide.file}" target="_blank" rel="noopener">${guideEscape(guide.title)} ↗</a>` : "";

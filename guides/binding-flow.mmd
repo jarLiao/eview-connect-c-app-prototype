@@ -1,0 +1,11 @@
+flowchart TD
+    A[设备 ID 与产品<br/>本人名下使用者] --> B[检查目标及现有绑定]
+    B --> C{选择操作}
+    C -->|绑定| D[POST device/bind 一次]
+    C -->|解绑| E[DELETE bind/绑定记录 ID 一次]
+    D --> F[查询对象侧<br/>device-bindings]
+    E --> F
+    F --> G[查询通用 bindings<br/>带对象类型与 ID]
+    G --> H{两处结果一致且符合目标}
+    H -->|是| I[确认成功 刷新关系]
+    H -->|否| J[结果未确认 先回查不重发]

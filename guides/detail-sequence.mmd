@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant UI as 设备详情
+    participant API as 分析接口
+    UI->>API: GET overview includeSummary=false
+    API-->>UI: 规则指标与摘要
+    UI->>UI: 立即显示规则结果
+    UI->>API: GET overview includeSummary=true
+    Note over UI: AI 请求在后台进行<br/>状态和地图可继续显示
+    alt AI 成功
+        API-->>UI: 完整分析结果
+        UI->>UI: 替换同一设备的概览
+    else AI 失败
+        API-->>UI: 超时或错误
+        UI->>UI: 保留规则结果 不自动重试
+    end
+    Note over UI: 健康与告警解释同理<br/>基础轮询不触发 AI
