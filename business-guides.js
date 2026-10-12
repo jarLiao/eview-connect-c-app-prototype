@@ -291,6 +291,105 @@ Object.assign(businessGuides, {
       ] },
     ],
   },
+  login: {
+    title: "登录与账号安全技术说明", file: "login-security.html",
+    pages: ["login", "register", "reset-password", "verification", "register-credentials", "reset-credentials", "security", "logout"],
+    reviewedAt: "2026-10-12", baseline: "f5ffd2a",
+    source: "OAuthTokenApi.kt / OAuthSessionManager.kt / TokenRefreshInterceptor.kt / PublicAccountClient.kt / AuthFlowViewModel.kt",
+    lead: "登录先建立 OAuth 会话；注册和找回密码在最终提交时校验验证码，完成后返回登录页。",
+    scope: "覆盖密码登录、会话恢复、注册、找回 / 修改密码及退出。本人资料编辑另见账号资料说明。",
+    sections: [
+      { id: "apis", title: "用哪些接口", summary: "OAuth 会话 + 公共账号接口", apis: [
+        ["login", "登录或刷新 Token", "同一路径，切换 grant_type；响应直接是 Token 对象"],
+        ["checkToken", "显式校验当前会话", "按需调用；启动恢复不逐次请求此接口"],
+        ["profile", "登录后补齐本人资料", "资料暂时不可读不否定已建立的会话"],
+        ["emailCode", "发送注册 / 找回验证码", "registered=false 注册，true 找回；GET 会发送邮件"],
+        [["register", "reset", "password"], "注册、找回和修改密码", "分别使用对应请求体，不共用登录表单"],
+        ["logout", "退出当前登录", "请求远程退出，同时清理本地会话与当前对象选择"],
+      ], notes: [
+        "OAuth 登录 / 刷新使用配置生成的 Basic Authorization，以及 Enc-Flag=false、skipTenant=true、skipToken=true。业务 Bearer 头不能直接套用到取 Token 请求。",
+        "登录密码按当前 PasswordEncryptor 的 AES/CFB/NoPadding → Base64 处理；密钥 / IV 不写入文档。注册、找回、改密当前直接按各自 JSON DTO 传参，不能自行套用登录加密。",
+        "发码使用 App-Client-Id，注册 / 密码接口使用 X-Client-Id；所有客户端统一带 IANA 格式的 X-TimeZone。",
+      ] },
+      { id: "flow", title: "业务流程怎么走", summary: "建会话 / 恢复会话，与验证码流程分开", steps: [
+        ["密码登录", "校验输入，POST grant_type=password；校验 Token 响应，保存会话后读取 /user/info，再进入首页。"],
+        ["启动恢复", "等待本地会话读取完成。有 Token 且到期时间超过当前 60 秒时直接恢复；否则使用 refresh_token 续期。"],
+        ["注册 / 找回", "邮箱发码 → 输入 4 位码 → 填账号 / 新密码 → 最终 POST。验证码页只校验格式，没有独立验证码校验请求。"],
+        ["修改密码", "使用当前会话的 username、原密码和新密码；成功后走退出流程，清理登录导航并要求重新登录。"],
+        ["退出", "二次确认后请求 /token/logout；普通远程失败仍清理当前本地会话，旧退出回包不能清掉后来建立的新会话。"],
+      ], diagrams: [{ title: "启动与会话恢复流程", file: "auth-session-flow.svg" }, { title: "注册与找回密码时序", file: "auth-code-sequence.svg" }], notes: [
+        "注册 / 找回完成后返回登录页并预填账号，不自动当作已经登录。刷新 Token 缺新 refresh_token 时保留原值。",
+      ] },
+      { id: "fields", title: "参数怎么提交", summary: "query、表单和 JSON 各用各的", fields: [
+        ["OAuth 登录", "query：username、grant_type=password、scope；表单：password", "application/x-www-form-urlencoded；username 是登录账号，不用昵称替代。"],
+        ["OAuth 刷新", "query：grant_type=refresh_token、scope；表单：refresh_token", "刷新串放表单；access_token / expires_in 必须有效，expires_in 单位为秒，再换算 expiresAtMs。"],
+        ["注册", "username、password、email、tenantId、code、registerType、loginType", "当前 registerType=EMAIL、loginType=PWD；租户来自调用配置，不由输入表单任意指定。"],
+        ["找回 / 改密", "找回：email、code、newpassword1 等；改密：username、password、newpassword1", "找回路径 code 与 JSON code 一致；改密 username 取会话原值，不把邮箱当成已确认 username。"],
+        ["表单校验", "username、password、confirmPassword、acceptedAgreement", "注册用户名 4–20 位字母数字下划线；新密码至少 8 位且含大小写与数字；确认密码、协议勾选只用于本地校验。"],
+        ["发码节流", "4 位验证码，60 秒重发倒计时", "倒计时从发码成功开始；真实有效期、错误次数和频率限制仍由服务端确定。"],
+      ], notes: [
+        "公共命令接口按业务包装判定成功，data=null 不单独视为失败；OAuth Token 响应不能套用 ApiResponse 的解析器。",
+      ] },
+      { id: "failure", title: "失败时怎么处理", summary: "明确失效才清会话，写入不自动重放", rules: [
+        ["恢复失败", "刷新明确拒绝或没有 refresh_token 时清当前会话并回登录；临时网络 / 服务端失败保留会话，界面仍可进入，业务区域提示失败与重试。"],
+        ["读取遇到过期", "普通网络层只对 GET / HEAD 的 HTTP 401 或约定的 token expired 424 刷新；同一会话的并发刷新合并，成功后重发该读取一次。"],
+        ["写入遇到过期 / 超时", "POST / PUT / PATCH / DELETE 不套用自动刷新重放；结果不明时先核对，避免重复注册、修改或发送业务指令。"],
+        ["验证码错误", "最终提交提示验证码错误 / 过期时返回验证码步骤，保留账号表单；其他错误留在当前步骤，发送和提交期间禁用重复点击。"],
+        ["切账号 / 环境", "刷新保存与退出清理核对会话版本，过时回包不覆盖新登录。Token、密码、验证码及客户端密钥不进入导出或日志。"],
+      ] },
+      { id: "gaps", title: "哪些内容还要补", summary: "公共接口契约、第三方功能与异常验收", rules: [
+        ["后端待确认", "公共账号接口的 App 使用范围、OAuth / 加密参数、验证码有效期及限流错误码、多终端会话撤销规则。"],
+        ["尚未接入", "第三方登录 / 绑定、账号注销、登录设备管理；原型对应按钮不能作为正式能力依据。"],
+        ["验证边界", "注册 / 找回已有用户实测记录；本轮只对照代码整理，未发邮件或修改密码。过期、弱网、切账号等分支仍需按当前制品真机验收。"],
+      ] },
+    ],
+  },
+  chat: {
+    title: "AI 客服技术说明", file: "ai-chat.html", pages: ["chat"],
+    reviewedAt: "2026-10-12", baseline: "f5ffd2a",
+    source: "AiAssistantClient.kt / AiAssistantSseParser.kt / ChatRepository.kt / ChatViewModel.kt / ChatConversationSessionStore.kt",
+    lead: "先创建问题取得 messageId，再用 SSE 逐段接收回答；停止、失败和完成分别处理。",
+    scope: "说明通用客服会话。设备概览、健康和告警的 AI 分析已在设备详情说明中，使用另一组接口。",
+    sections: [
+      { id: "apis", title: "用哪些接口", summary: "选模型 → 创建消息 → 读取 SSE", apis: [
+        ["aiModels", "读取当前默认模型", "进入聊天预取；发送时按缓存情况再读取"],
+        ["chatCreate", "创建用户问题", "POST 返回 messageId 字符串，不是完整回答"],
+        ["chatStream", "读取该问题的回答流", "query：key=messageId；Accept: text/event-stream"],
+      ], notes: [
+        "请求使用当前环境地址、Bearer Token、TENANT-ID、lang 和 X-TimeZone；租户来自 AI 配置，lang 每次读取 App 当前语言。",
+        "模型列表按环境 / 租户 / 用户缓存 10 分钟。根据模式选择 Chat 或 Reason 类型，优先服务端 defaultModel，再选该类型首个模型。读取失败可用旧缓存 / 内置兜底；成功列表缺所需类型则明确提示不可用。",
+      ] },
+      { id: "flow", title: "一条消息怎么完成", summary: "占位 → POST → SSE → 更新当前气泡", steps: [
+        ["准备会话", "每种模式维护独立 conversationId、输入和消息；同一模式已有请求时禁止再次发送，创建用户消息和等待中的回答占位。"],
+        ["创建问题", "选择模型并提交 /chat/create；先判 HTTP 和业务响应，再把 data 解析为 Long messageId，用其字符串值作为流读取 key。"],
+        ["读取回答", "打开 SSE，将回答、推理、工具和来源映射为不同事件；只更新该模式、该回答占位，不重复创建气泡。"],
+        ["收尾", "完成转为已结束；网络失败保留已收内容并标失败。用户停止或离开页面取消流，保留内容并标 STOPPED。"],
+      ], diagrams: [{ title: "AI 消息处理流程", file: "chat-flow.svg" }, { title: "创建消息与流式回答时序", file: "chat-sequence.svg" }], notes: [
+        "切换模式只切换展示，旧模式请求可以继续；退出聊天或更换设备 / 告警入口时停止全部模式请求。",
+      ] },
+      { id: "fields", title: "字段和事件怎么用", summary: "会话 ID、消息 ID 和模式分开", fields: [
+        ["会话与消息", "conversationId；POST 返回 data → messageId → GET key", "conversationId 当前按模式生成 UUID 会话串；messageId 不是本地气泡 ID。数值 ID 保持无损，不经浮点数转换。"],
+        ["问题内容", "role=user、content、time、modelName", "content 去首尾空白；time 按手机时区生成 yyyy-MM-dd HH:mm:ss；modelName 来自模型选择结果。"],
+        ["模式与上下文", "datasetId、tenantId、extDetails、websearch、inner", "四模式 datasetId 为 0 / -3 / -7 / -8；extDetails 带用户 / 租户，MCP 另需 mcpId；当前 websearch=false、inner=false。"],
+        ["SSE 正文", "纯文本 / delta；content、answerText 等累计文本", "纯文本和 delta 追加；累计快照提取新增部分，重复内容不重复展示；推理 reasoningContent 单独显示。"],
+        ["工具与来源", "toolInfo / toolInfoList；extLinks", "工具按内容去重，来源按 URL 或标题去重；正文、推理、工具、来源不混为一种文本。"],
+        ["完成信号", "done / complete、[DONE]、finish / finished", "去掉结尾完成标记；当前正常关闭且已收到有效片段也作完成，空流失败。HTTP 200 建立连接不代表已收到回答。"],
+      ], notes: [
+        "当前请求体不发送 temperature、top_p、max_tokens 或 systemPrompt；不能把其他 AI SDK 的默认参数当成本接口字段。",
+      ] },
+      { id: "failure", title: "取消和重试怎么处理", summary: "保留部分内容，手动重试创建新请求", rules: [
+        ["发送 / 流失败", "空 messageId、非法 ID、业务失败及 SSE 错误均标失败；已有正文保留，并解除当前模式发送限制。"],
+        ["手动重试", "失败气泡可重试：在同一会话重新 POST 原问题，取得新 messageId；保留原用户气泡，替换失败的回答占位，不是从旧流断点继续。"],
+        ["主动停止", "先发布 STOPPED 状态，再取消 SSE；无内容显示已停止，有内容保留已收部分。停止本地连接不证明服务器已停止生成。"],
+        ["返回恢复", "同一账号 / 环境 / 入口可恢复进程内快照和输入；旧 STREAMING 改为 STOPPED，不自动恢复流。进程被杀后没有服务端历史恢复能力。"],
+      ] },
+      { id: "gaps", title: "哪些内容还要补", summary: "设备上下文、历史恢复和流协议验收", rules: [
+        ["设备上下文", "当前设备 / 告警入口用于本地会话隔离，未发送类型化设备、对象或告警字段；不能据此声称 AI 已读取该设备实时数据。"],
+        ["服务端契约", "消息历史、断点续传、停止生成、错误事件和正常关闭的统一规则，以及人工客服 / 工单入口仍需确认。"],
+        ["验证边界", "本轮只对照代码，不新增 AI 请求。四模式模型 / MCP 可用性、发送期间切账号或环境、真实弱网与长流需独立验收。"],
+      ] },
+    ],
+  },
   common: {
     title: "公共接口约定", file: "common.html", pages: [],
     reviewedAt: "2026-10-12", baseline: "86fa2f9",

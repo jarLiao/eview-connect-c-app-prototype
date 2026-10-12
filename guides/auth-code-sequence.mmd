@@ -1,0 +1,17 @@
+sequenceDiagram
+    participant App as App
+    participant API as 账号服务
+    App->>API: GET emailCode<br/>email + registered
+    API-->>App: 业务响应
+    App->>App: 发码成功<br/>60 秒后可重发
+    App->>App: 输入 4 位码<br/>只检查格式并进入账号表单
+    Note over App: 此步只检查输入格式<br/>未调用服务端校验
+    App->>API: POST register/user 或 forget/{code}<br/>最终提交携带验证码
+    alt 验证码错误或过期
+        API-->>App: 校验失败
+        App->>App: 返回验证码步骤<br/>保留账号表单
+    else 提交成功
+        API-->>App: 业务成功
+        App->>App: 返回登录页并预填账号
+        Note over App: 成功注册或改密<br/>还须重新登录
+    end

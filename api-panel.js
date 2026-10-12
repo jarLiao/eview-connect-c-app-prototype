@@ -103,6 +103,7 @@ function renderApiDetails(api) {
         <div><dt>后端怎么说</dt><dd>${escapeHtml(api.backend_scope)}</dd></div>
         <div><dt>接口文档</dt><dd>${api.category === "requirement" ? "只有功能需求，接口还没约定" : escapeHtml(doc ? `${doc.group} / ${doc.tags.join("、")} · ${doc.operation_id}` : api.contract_status)}</dd></div>
         ${api.source ? `<div><dt>代码位置</dt><dd>${escapeHtml(api.source)}</dd></div>` : ""}
+        ${api.baseline ? `<div><dt>复核基线</dt><dd>Android ${escapeHtml(api.baseline.android_commit)} · ${escapeHtml(api.baseline.reviewed_at)}</dd></div>` : ""}
       </dl>
       ${api.client_contract ? renderApiJsonBlock("App 发送和读取的字段", api.client_contract) : ""}
       ${doc ? `${renderApiJsonBlock("接口文档里的请求字段", { parameters: doc.parameters, request_body: doc.request_body, schemas: apiSchemasFor(doc, [doc.parameters, doc.request_body]) })}

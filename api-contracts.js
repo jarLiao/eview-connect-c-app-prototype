@@ -16,6 +16,13 @@ const apiSupplementalBaseline = {
   verification: "既有记录：范工环境限定真机验证通过，29999 未部署时返回 404；本轮只核对代码和文档，未重新请求服务器。",
 };
 
+const apiAuthChatBaseline = {
+  reviewed_at: "2026-10-12", android_commit: "f5ffd2a",
+  scope: "复核现有登录 / 公共账号 8 项和 AI 客服 3 项；不新增服务器接口",
+  evidence: "OAuthTokenApi.kt、OAuthSessionManager.kt、PublicAccountApi.kt、AuthFlowViewModel.kt；AiAssistantClient.kt、AiAssistantSseParser.kt、ChatViewModel.kt",
+  verification: "本轮只核对代码与原型文档，未发邮件、注册、修改密码或请求 AI；不新增服务器或真机业务验收结论。",
+};
+
 const apiCategories = {
   current: { label: "App 已在使用", hint: "App 代码已接上这些接口；不代表所有场景都测试通过。" },
   published: { label: "文档里有，App 还没用", hint: "后端接口文档里已经列出，App 还没有使用。" },
@@ -120,8 +127,8 @@ function publicApi(id, method, path, title, pages, note, source, client) {
   registerApi(id, method, path, title, "current", pages, note, source, client);
 }
 publicApi("login", "POST", "/oauth2/token", "登录 / 刷新 Token", ["login", "security", "logout"],
-  "password 与 refresh_token 两种 grant 已在认证链使用。字段来自客户端声明，当前公开文档未提供此路径。", "core/network/oauth/OAuthTokenApi.kt",
-  { encoding: "application/x-www-form-urlencoded", headers: ["Authorization（值不导出）", "Enc-Flag", "skipTenant", "skipToken"], query: ["username（登录）", "grant_type", "scope"], form: ["password（登录，加密后）或 refresh_token（刷新）"], response: "OAuthTokenResponseDto：access_token / refresh_token / token_type / expires_in 等" });
+  "password 与 refresh_token 两种 grant 已使用；取 Token 用 OAuth Basic 认证，不能套用业务 Bearer。字段来自客户端声明，公开文档未提供此路径。", "core/network/oauth/OAuthTokenApi.kt、OAuthSessionManager.kt",
+  { encoding: "application/x-www-form-urlencoded", headers: ["Authorization: Basic（值不导出）", "Enc-Flag: false", "skipTenant: true", "skipToken: true", "X-TimeZone"], query: ["username（仅登录）", "grant_type=password / refresh_token", "scope"], form: ["password（登录，AES/CFB/NoPadding + Base64）或 refresh_token（刷新）"], response: "直接解析 OAuthTokenResponseDto；expires_in 为正数秒，登录必须含 refresh_token，刷新缺新串时保留原值" });
 publicApi("checkToken", "GET", "/token/check_token", "校验会话", ["login", "security"], "公开文档未见；认证链已使用。", "core/network/oauth/OAuthTokenApi.kt", { query: ["token（值不导出）"], response: "ApiResponse<JsonElement>" });
 publicApi("logout", "DELETE", "/token/logout", "退出登录", ["logout", "security"], "当前 OAuth 退出入口；不能据此推定推送 token 注销也已完成。", "core/network/oauth/OAuthTokenApi.kt", { headers: ["Authorization（值不导出）"], response: "ResponseBody" });
 publicApi("emailCode", "GET", "/sysMessage/send/app/emailCode", "发送邮箱验证码", ["register", "reset-password", "verification"],
@@ -133,7 +140,7 @@ publicApi("reset", "POST", "/register/forget/{code}", "找回密码", ["reset-pa
   { headers: ["X-Client-Id"], path: ["code"], body: ["email", "newpassword1", "tenantId", "code", "registerType", "loginType"], response: "ApiResponse<JsonElement>" });
 publicApi("password", "POST", "/register/password", "修改密码", ["security"], "已有公共账号调用；不沿用原型旧 /c/v1 建议路径。", publicSource,
   { headers: ["X-Client-Id"], body: { username: "String", password: "当前密码", newpassword1: "新密码" }, response: "ApiResponse<JsonElement>" });
-publicApi("profile", "GET", "/user/info", "本人账号资料", ["account", "mine"], "账号资料与 PERSON/PET 档案是不同资源；公开响应包装与客户端解析需分别看待。", profileSource,
+publicApi("profile", "GET", "/user/info", "本人账号资料", ["account", "mine", "login"], "登录 / 恢复后补齐本人资料；账号与 PERSON/PET 档案不同。资料暂时不可读不否定已建立的 OAuth 会话。", profileSource,
   { response: "客户端 AccountProfileResponse<AccountProfileDto>；只映射 userId/username/nickname/name/avatar/phone/email/tenantId/tenantName" });
 publicApi("profileUpdate", "PUT", "/user/personal/edit", "保存本人资料", ["account"],
   "仅提交本人原 username 与有变化的 nickname/name/avatar；空串可用于清空。邮箱、手机号只展示。不能把 OpenAPI 的完整 UserDTO 当 App 可写字段清单。", profileSource,
@@ -146,9 +153,13 @@ publicApi("avatar", "GET", null, "读取返回的头像地址", ["account", "sub
   { url: "服务端返回的头像 URL，不是新增固定接口", authorization: "专用匿名客户端，不携带 Token；不跟随重定向" });
 apiRegistry.avatar.contract_status = "动态返回 URL；并非新增固定业务接口";
 publicApi("chatCreate", "POST", "/chat/create", "创建 AI 消息", ["chat"], "当前 AI 会话入口；根地址受配置/运行时环境影响。不能用 default 分组的 /ai/chat 直接替代。", "core/network/ai/AiAssistantApi.kt、AiAssistantClient.kt",
-  { headers: ["Authorization（值不导出）", "TENANT-ID", "lang"], body: ["conversationId", "role", "content", "time", "modelName", "datasetId", "tenantId", "extDetails", "websearch", "inner"], response: "ApiResponse<String>，返回流读取 key" });
-publicApi("chatStream", "GET", "/chat/msg/list", "读取 AI 消息流", ["chat"], "已接入真实流读取；与首页洞察、健康分析分别核对。", "core/network/ai/AiAssistantClient.kt", { query: ["key"], response: "流式响应，由客户端解析" });
-publicApi("aiModels", "GET", "/aiModel/list", "深度模式模型列表", ["chat"], "深度模式选择模型时读取；本次公开文档未见准确路径。", "core/network/ai/AiAssistantApi.kt", { headers: ["Authorization（值不导出）", "TENANT-ID", "lang"], response: "ApiResponse<List<AiAssistantModelDto>>" });
+  { headers: ["Authorization: Bearer（值不导出）", "TENANT-ID", "lang", "X-TimeZone"], body: ["conversationId", "role", "content", "time", "modelName", "datasetId", "tenantId", "extDetails", "websearch", "inner"], response: "ApiResponse<String>；data 解析为 Long messageId，再作 SSE 查询 key，不是完整回答" });
+publicApi("chatStream", "GET", "/chat/msg/list", "读取 AI 消息流", ["chat"], "已接入 SSE；完成、失败与用户停止分别处理，保留部分回答。与首页洞察、健康分析分别核对。", "core/network/ai/AiAssistantClient.kt、AiAssistantSseParser.kt、feature/chat/ui/ChatViewModel.kt", { headers: ["Authorization: Bearer（值不导出）", "TENANT-ID", "lang", "Accept: text/event-stream", "Cache-Control: no-cache", "X-TimeZone"], query: { key: "创建消息返回的 messageId" }, response: "SSE 纯文本 / JSON 兼容解析；回答与推理差量、工具、来源及完成信号" });
+publicApi("aiModels", "GET", "/aiModel/list", "AI 默认模型列表", ["chat"], "所有模式按 Chat / Reason 类型选择服务端默认模型；进入聊天预取，环境 / 租户 / 用户缓存 10 分钟，失败可沿用旧缓存或兜底。公开快照未提供准确路径。", "core/network/ai/AiAssistantApi.kt、AiAssistantClient.kt、AiAssistantModels.kt", { headers: ["Authorization: Bearer（值不导出）", "TENANT-ID", "lang", "X-TimeZone"], response: "ApiResponse<List<AiAssistantModelDto>>；name、modelType、defaultModel；成功列表缺所需类型时明确报错" });
+
+for (const id of ["login", "checkToken", "logout", "emailCode", "register", "reset", "password", "profile", "chatCreate", "chatStream", "aiModels"]) {
+  apiRegistry[id].baseline = apiAuthChatBaseline;
+}
 
 for (const [id, path, title, pages, source, display] of [
   ["oldInsights", "/c/v1/ai/insights", "首页洞察旧请求", ["devices", "map"], "RemoteAiRepository.homeInsights：直接返回空列表", "首页本来没有洞察展示位，界面无变化"],

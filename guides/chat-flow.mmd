@@ -1,0 +1,12 @@
+flowchart TD
+    A[选择模式与会话<br/>读取模型或缓存] --> B[添加用户消息与回答占位]
+    B --> C[POST chat/create]
+    C --> D{messageId 有效}
+    D -->|否| E[保留内容并标失败]
+    D -->|是| F[GET chat/msg/list<br/>key 为 messageId]
+    F --> G[解析 SSE<br/>更新对应回答占位]
+    G --> H{结束方式}
+    H -->|完成信号或有效正常关闭| I[标记完成]
+    H -->|连接错误或空流| E
+    H -->|停止或离页| J[取消本地流<br/>保留内容并标 STOPPED]
+    E --> K[用户手动重试<br/>同会话重新 POST 创建消息]
