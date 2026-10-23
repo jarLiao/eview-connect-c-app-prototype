@@ -3,15 +3,15 @@ sequenceDiagram
     participant Native as App Runtime
     participant API as 正式属性接口
     participant Device as 设备
-    UI->>Native: 按网络渠道读取当前页
+    UI->>Native: 选择网络方式 读取当前页
     Native->>API: GET property 指定参数组
     API->>Device: 查询设备
     Device-->>API: 完整原始组
     API-->>Native: 参数组
     Native-->>UI: 真实值与当前可写范围
-    UI->>Native: 保存允许变化及编辑基线
+    UI->>Native: 提交修改值及开始编辑时读取的参数
     Native->>API: 再 GET 完整组 检查冲突
-    API-->>Native: 新基线
+    API-->>Native: 保存前的设备当前参数
     Native->>API: POST 完整组 仅替换允许字段
     API->>Device: 下发设置
     Device-->>API: 设备响应
