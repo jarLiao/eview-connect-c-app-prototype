@@ -28,10 +28,12 @@ for (const [key, guide] of Object.entries(guides)) {
     assert(vm.runInContext(`Boolean(apiPageTitles[${JSON.stringify(page)}])`, context), `${page} 缺少页面定义`);
     claimedPages.add(page);
   }
+  for (const page of guide.apiPages || []) assert(vm.runInContext(`Boolean(apiPageTitles[${JSON.stringify(page)}])`, context), `${page} 缺少接口关联页面定义`);
+  for (const id of guide.related || []) assert(guides[id] && id !== key, `${key} 的相关说明 ${id} 无效`);
   const apiIds = [...new Set(guide.sections.flatMap(section => (section.apis || []).flatMap(row => [row[0]].flat())))];
   for (const id of apiIds) {
     const api = JSON.parse(vm.runInContext(`JSON.stringify(apiRegistry[${JSON.stringify(id)}] || null)`, context));
-    assert(api && guide.pages.some(page => api.pages.includes(page)), `${key} 说明中的 ${id} 必须属于该业务覆盖的页面`);
+    assert(api && (guide.apiPages || guide.pages).some(page => api.pages.includes(page)), `${key} 说明中的 ${id} 必须属于该业务覆盖的页面`);
   }
   context.guideImageSource = file => {
     assert(/^[a-z0-9-]+\.svg$/.test(file), '图表必须来自本地 guides 目录');

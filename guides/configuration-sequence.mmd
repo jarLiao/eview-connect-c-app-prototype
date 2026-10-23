@@ -1,0 +1,25 @@
+sequenceDiagram
+    participant UI as 同一配置表单
+    participant Native as App Runtime
+    participant API as 正式属性接口
+    participant Device as 设备
+    UI->>Native: 按网络渠道读取当前页
+    Native->>API: GET property 指定参数组
+    API->>Device: 查询设备
+    Device-->>API: 完整原始组
+    API-->>Native: 参数组
+    Native-->>UI: 真实值与当前可写范围
+    UI->>Native: 保存允许变化及编辑基线
+    Native->>API: 再 GET 完整组 检查冲突
+    API-->>Native: 新基线
+    Native->>API: POST 完整组 仅替换允许字段
+    API->>Device: 下发设置
+    Device-->>API: 设备响应
+    API-->>Native: 受理回显
+    Note over Native,API: POST 回显不作为独立读回
+    Native->>API: 独立 GET 同一完整组
+    API->>Device: 再查询
+    Device-->>API: 实际参数组
+    API-->>Native: 实际参数组
+    Native->>Native: 核对目标值与未改字段
+    Native-->>UI: 已确认或结果未确认

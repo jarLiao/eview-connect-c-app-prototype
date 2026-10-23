@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant A as 所有者 App
+    participant API as App 分享接口
+    participant B as 接收人 App
+    A->>API: GET grantee 解析接收人
+    API-->>A: 已注册用户或未注册账号
+    A->>API: POST 设备 shares
+    A->>API: GET granted 确认创建
+    B->>API: GET received
+    API-->>B: DEVICE 待处理邀请
+    B->>API: POST shareId accept
+    B->>API: GET received 确认已接受
+    B->>B: 检查身份 有效期与 scopes
+    B->>API: 读取允许的 state 或 realtime
+    API-->>B: 权限内设备数据
+    A->>API: DELETE 通用 shares 的 shareId
+    A->>API: GET granted 确认撤销
+    B->>API: 刷新 received 或共享数据
+    API-->>B: 授权已失效或读取被拒
+    B->>B: 清除受限数据

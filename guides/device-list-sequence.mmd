@@ -18,3 +18,11 @@ sequenceDiagram
         API-->>App: 实时上报数据
     end
     App->>App: 组合卡片并显示
+    App->>API: GET 收到的分享记录
+    API-->>App: 当前账号邀请与授权
+    App->>App: 仅保留有效已接受 DEVICE 授权
+    opt 共享设备具备对应 scopes
+        App->>API: 读取允许的 state 或 realtime
+        API-->>App: 授权内数据
+        App->>App: 再校验授权 合入设备列表
+    end

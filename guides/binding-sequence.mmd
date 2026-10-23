@@ -1,6 +1,12 @@
 sequenceDiagram
     participant App as App
+    participant BLE as 蓝牙设备
     participant API as 后端
+    opt 蓝牙接入
+        App->>BLE: 连接 读取固件 IMEI 与 MAC
+        BLE-->>App: 同一请求 SID 的身份回包
+        App->>App: 校验完整 IMEI 与预期设备
+    end
     App->>API: 读取对象详情 产品与既有绑定
     API-->>App: 当前目标及关联
     App->>App: 确认自有 ACTIVE 且未绑定其他对象
@@ -13,3 +19,6 @@ sequenceDiagram
     API-->>App: 通用关联视图
     App->>App: 比较记录 ID 目标 设备和产品
     Note over App: 两处一致才确认成功 否则先回查
+    opt BLE 绑定确认后
+        App->>App: 按账号与环境保存本地 BLE 关联
+    end

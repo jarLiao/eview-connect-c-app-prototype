@@ -16,17 +16,24 @@ const { evidence, apis, pages } = JSON.parse(result);
 const documentApp = Object.keys(evidence.operations).filter(key => key.includes(' /app/')).sort();
 const app = apis.filter(api => api.path?.startsWith('/app/') && api.evidence_kind !== 'client_supplement');
 const supplements = apis.filter(api => api.evidence_kind === 'client_supplement');
-assert.deepEqual(supplements.map(api => api.id).sort(), ['insightOverview', 'insightHealth', 'insightAlerts', 'insightAnalysis'].sort());
-assert(supplements.every(api => api.category === 'current' && !api.document && api.path.startsWith('/app/evaigc/') && api.baseline.android_commit === '86fa2f9'));
+const insights = supplements.filter(api => api.path.startsWith('/app/evaigc/'));
+const workflows = supplements.filter(api => !api.path.startsWith('/app/evaigc/'));
+assert.deepEqual(insights.map(api => api.id).sort(), ['insightOverview', 'insightHealth', 'insightAlerts', 'insightAnalysis'].sort());
+assert(insights.every(api => api.category === 'current' && !api.document && api.baseline.android_commit === '86fa2f9'));
+assert.deepEqual(workflows.map(api => api.id).sort(), ['shareGrantee', 'shareReceived', 'shareGranted', 'shareAccept', 'shareReject', 'shareRevoke', 'shareResend', 'shareUpdate'].sort());
+assert(workflows.every(api => api.category === 'current' && !api.document && api.baseline.android_commit === 'a8ae598' && api.baseline.reviewed_at === '2026-10-23'));
 assert.deepEqual(app.map(api => `${api.method} ${api.path}`).sort(), documentApp, '完整覆盖 App 文档的方法+路径，不能重复或漏项');
 assert.equal(app.length, 37);
-assert.equal(app.filter(api => api.category === 'current').length, 20);
-assert.equal(app.filter(api => api.category === 'published').length, 17);
+assert.equal(app.filter(api => api.category === 'current').length, 23);
+assert.equal(app.filter(api => api.category === 'published').length, 14);
 assert.equal(apis.find(api => api.id === 'function').category, 'current');
 assert(apis.find(api => api.id === 'function').note.includes('singleLocating'));
-assert.deepEqual(Object.fromEntries(['keep', 'next', 'optional', 'not_now'].map(code => [code, app.filter(api => api.app_need?.code === code).length])), { keep: 19, next: 8, optional: 9, not_now: 1 });
+assert(apis.find(api => api.id === 'function').note.includes('findMe'));
+assert.deepEqual(Object.fromEntries(['keep', 'next', 'optional', 'not_now'].map(code => [code, app.filter(api => api.app_need?.code === code).length])), { keep: 23, next: 2, optional: 9, not_now: 3 });
 assert(app.every(api => api.app_need.reason && api.app_need.basis));
-assert.equal(apis.find(api => api.id === 'deviceShareCreate').app_need.code, 'next');
+assert.equal(apis.find(api => api.id === 'deviceShareCreate').app_need.code, 'keep');
+for (const id of ['personShareCreate', 'petShareCreate']) assert.equal(apis.find(api => api.id === id).app_need.code, 'not_now');
+for (const id of ['propertyRead', 'propertyWrite']) assert.equal(apis.find(api => api.id === id).category, 'current');
 assert.equal(apis.find(api => api.id === 'switchProduct').app_need.code, 'not_now');
 assert.equal(apis.find(api => api.id === 'personBind').app_need.code, 'optional');
 assert(apis.filter(api => !api.path?.startsWith('/app/')).every(api => !api.app_need));
@@ -36,7 +43,7 @@ assert(!apis.some(api => api.category === 'pending'), '当前没有仍在调用�
 assert(!apis.some(api => api.path?.startsWith('/evmars/mock/')));
 assert(apis.filter(api => api.category === 'requirement').every(api => api.method === null && api.path === null));
 assert(apis.filter(api => api.category === 'current' && !api.path?.startsWith('/app/')).every(api => api.backend_scope.includes('待后端确认')));
-assert.equal(apis.find(api => api.id === 'deviceShareCreate').category, 'published');
+assert.equal(apis.find(api => api.id === 'deviceShareCreate').category, 'current');
 assert(apis.find(api => api.id === 'personShares').note.includes('归档'));
 assert(apis.find(api => api.id === 'upload').client_contract.encoding.includes('multipart'));
 assert(apis.find(api => api.id === 'upload').note.includes('application/json'));
@@ -59,4 +66,4 @@ function visit(value, definitions) {
 for (const api of apis.filter(api => api.document)) visit(api.document, api.document.schemas);
 console.log(JSON.stringify({ result: '通过', snapshot_app_operations: app.length, client_supplement_operations: supplements.length,
   categories: Object.fromEntries(['current', 'published', 'pending', 'retired', 'requirement'].map(key => [key, apis.filter(api => api.category === key).length])),
-  checks: ['37 个公开 App 操作逐一匹配', '20/17 接入分类', '功能需要按 19/8/9/1 另行标注', '4 个旧请求标为已停用', '需求不预设路径', '公共依赖支持边界', '上传声明差异', '页面映射与引用完整性', '导出来源与无示例值'] }, null, 2));
+  checks: ['37 个公开 App 操作逐一匹配', '23/14 接入分类', '功能需要按 23/2/9/3 另行标注', '4 个分析及 8 个分享声明分别保留来源', '人员宠物分享退出计划', '4 个旧请求标为已停用', '需求不预设路径', '公共依赖支持边界', '上传声明差异', '页面映射与引用完整性', '导出来源与无示例值'] }, null, 2));

@@ -49,7 +49,8 @@ function renderGuideContent(key, compact = true, imageSource = file => `./guides
       : `<section class="guide-section" id="${section.id}"><h2>${title}</h2><div class="guide-section-body">${body}</div></section>`;
   }).join("");
   const common = key === "common" || key === "devices" ? "" : '<p class="guide-shared-note">公共约定：业务请求带 Bearer Token 与 IANA 格式的 X-TimeZone；ID 保持无损，写入结果不明时先回查。认证、图片等专用客户端按各自规则处理。</p>';
-  return `${header}${sections}${common}<footer class="guide-footnote">实现基线：Android ${guide.baseline}<br>${guideEscape(guide.source)}<br>原型使用演示数据；本轮未新增后端业务验收。</footer>`;
+  const related = compact && guide.related?.length ? `<nav class="guide-library-links guide-related-links" aria-label="相关业务说明">${guide.related.map(id => `<div><a href="./guides/${businessGuides[id].file}" target="_blank" rel="noopener">${guideEscape(businessGuides[id].title)} ↗</a><button class="guide-button" type="button" data-guide-download="${guideEscape(id)}" aria-label="下载${guideEscape(businessGuides[id].title)}">下载 HTML</button></div>`).join("")}</nav>` : "";
+  return `${header}${sections}${related}${common}<footer class="guide-footnote">实现基线：Android ${guide.baseline}<br>${guideEscape(guide.source)}<br>原型使用演示数据；本轮未新增后端业务验收。</footer>`;
 }
 
 function businessGuideForPage(page) {
