@@ -1,0 +1,24 @@
+sequenceDiagram
+    participant U as 用户
+    participant App as App
+    participant API as 后端
+    U->>App: 打开日历或切换月份
+    App->>App: 暂停播放 检查会话内缓存
+    alt 无有效缓存
+        App->>API: 复核自有关系
+        loop 完整月份分页
+            App->>API: POST events?eventId=GeneralLocation
+            Note right of App: terms 为月初至下月月初 数值毫秒
+            API-->>App: records 和分页元数据
+        end
+        App->>API: 再次复核归属
+        App->>App: 校验并按本地日期归组 缓存60秒
+    end
+    App-->>U: 有记录日期标点 失败则保持未知
+    U->>App: 选择日期
+    App->>API: 按同一规则查询该日完整记录
+    API-->>App: 当日记录与分页结果
+    App->>App: 校验 排序 绘图和本地筛选
+    U->>App: 播放或拖动进度
+    App->>App: 本地更新游标 进度和选中记录
+    Note over App,API: 回放不下发设备命令 不上传插值位置

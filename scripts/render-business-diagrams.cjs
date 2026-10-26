@@ -10,9 +10,11 @@ const option = name => { const i = process.argv.indexOf(name); return i < 0 ? nu
 const cli = option('--cli');
 assert(cli && fs.existsSync(cli), '请用 --cli 指定已安装的 @mermaid-js/mermaid-cli/src/cli.js');
 const config = option('--puppeteer-config');
-const sources = fs.readdirSync(path.join(root, 'guides')).filter(file => file.endsWith('.mmd')).sort().map(file => ({
+const only = option('--only')?.split(',');
+const sources = fs.readdirSync(path.join(root, 'guides')).filter(file => file.endsWith('.mmd') && (!only || only.includes(file))).sort().map(file => ({
   file, text: fs.readFileSync(path.join(root, 'guides', file), 'utf8').replace(/\r\n/g, '\n'),
 }));
+assert(sources.length && (!only || only.every(file => sources.some(source => source.file === file))), '--only 必须使用存在的 .mmd 文件名');
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'evmars-guide-diagrams-'));
 const input = path.join(scratch, 'diagrams.md');
 const output = path.join(scratch, 'rendered.md');

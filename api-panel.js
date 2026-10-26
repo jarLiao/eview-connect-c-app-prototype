@@ -37,22 +37,23 @@ function getApiPanelInfo() {
     key = state.tab;
   }
   const items = Object.values(apiRegistry).filter(api => apiPanelView === "all" || api.pages.includes(key));
-  return { key, title: apiPanelView === "all" ? "全部接口与待确认需求" : key === "history" ? "历史轨迹 · 交互演示" : apiPageTitles[key] || "当前页面", items };
+  return { key, title: apiPanelView === "all" ? "全部接口与待确认需求" : apiPageTitles[key] || "当前页面", items };
 }
 
 function renderApiPanel() {
   if (!apiPanel) return;
   const info = getApiPanelInfo();
+  const pageBaseline = info.key === "history" ? apiHistoryBaseline : apiBaseline;
   apiPanel.innerHTML = `
     <section class="api-card api-card-primary">
       <div class="api-kicker">${icon("server")} 接口使用情况</div>
       <h2>${escapeHtml(info.title)}</h2>
-      <p>核对日期 ${apiBaseline.reviewed_at} · Android ${apiBaseline.android_commit.slice(0, 7)}</p>
+      <p>核对日期 ${pageBaseline.reviewed_at} · Android ${pageBaseline.android_commit.slice(0, 7)}</p>
       <div class="api-view-switch" role="group" aria-label="API 查看范围">
         <button type="button" data-action="api-view-page" aria-pressed="${apiPanelView === "page"}">当前页面</button>
         <button type="button" data-action="api-view-all" aria-pressed="${apiPanelView === "all"}">全部接口</button>
       </div>
-      <div class="api-truth-note"><strong>App 用没用？后端是否同意使用？</strong><span>原 App Device / App Subject 快照共 37 项：当前已用 23 项，未用 14 项。另有 4 个健康 / 告警和 8 个分享客户端声明单列。网络配置仅两字段可写，分享仅 DEVICE；账号、头像和 AI 公共接口仍需后端确认使用范围。</span></div>
+      <div class="api-truth-note"><strong>App 用没用？后端是否同意使用？</strong><span>原 App Device / App Subject 快照共 37 项：已用 23 项，未用 14 项。另有 4 个健康 / 告警、8 个分享和 1 个历史事件 POST 客户端声明单列。各项保留自己的核对日期和验证边界；账号、头像和 AI 公共接口仍需后端确认使用范围。</span></div>
       <p class="api-need-explainer">另看“App 是否需要”：需要保留 / 后续补接 / 按功能选用 / 当前不用。这是按当前功能提出的建议，不表示接口已测试通过。</p>
       <details class="api-evidence-note"><summary>查看判断依据和测试情况</summary>
         <p>${escapeHtml(apiBaseline.backend_scope)}</p><p>${escapeHtml(apiBaseline.base_url)}</p>
@@ -60,6 +61,7 @@ function renderApiPanel() {
         <p>${escapeHtml(apiBaseline.verification)}</p><p>${escapeHtml(apiBaseline.design)}</p>
         <p>新增依据：${escapeHtml(apiSupplementalBaseline.scope)} · Android ${escapeHtml(apiSupplementalBaseline.android_commit)}。</p><p>${escapeHtml(apiSupplementalBaseline.verification)}</p>
         <p>本轮复核：${escapeHtml(apiWorkflowBaseline.scope)} · Android ${escapeHtml(apiWorkflowBaseline.android_commit)}。</p><p>${escapeHtml(apiWorkflowBaseline.verification)}</p>
+        <p>历史轨迹：${escapeHtml(apiHistoryBaseline.scope)} · Android ${escapeHtml(apiHistoryBaseline.android_commit)}。</p><p>${escapeHtml(apiHistoryBaseline.verification)}</p>
         <p>核对记录：${escapeHtml(apiBaseline.evidence)}</p>
       </details>
       <div class="api-panel-actions">
@@ -76,7 +78,7 @@ function renderApiPanel() {
         <div class="api-list">${items.map(api => renderApiDetails(api)).join("")}</div>
       </section>`;
     }).join("")}
-    ${info.items.length ? "" : info.key === "history" ? `<section class="api-card history-contract"><h3>历史查询与交互演示的边界</h3><p>Android 5c6b7f1 已接入自有设备按日查询、完整分页与异常过滤。</p><pre>POST /app/device/{deviceId}/events?eventId=GeneralLocation</pre><p>时间条件使用 terms 中的 timestamp 数值毫秒；公共请求头沿用 X-TimeZone。</p><p>本页地图、播放和类型筛选只使用合成演示数据。历史坐标系与有效性待后台确认，不能把本页操作当作 App 回放验收。</p><p>原接口目录仍保留其原核对日期，本次未重新采集服务器定义。</p></section>` : '<section class="api-card api-empty">这个演示页面尚未建立专属接口映射，可切换“全部接口”查看现行目录。</section>'}
+    ${info.items.length ? "" : '<section class="api-card api-empty">这个演示页面尚未建立专属接口映射，可切换“全部接口”查看现行目录。</section>'}
   `;
 }
 
@@ -150,7 +152,7 @@ function apiPayload(api) {
 function currentApiPanelPayload() {
   const info = getApiPanelInfo();
   return {
-    schema_version: 2, generated_from: "Eview Connect C App Prototype", baseline: apiBaseline, supplemental_baseline: apiSupplementalBaseline, workflow_baseline: apiWorkflowBaseline,
+    schema_version: 2, generated_from: "Eview Connect C App Prototype", baseline: apiBaseline, supplemental_baseline: apiSupplementalBaseline, workflow_baseline: apiWorkflowBaseline, history_baseline: apiHistoryBaseline,
     page: { key: info.key, title: info.title, route: state.route, modal: state.modal, view: apiPanelView },
     groups: Object.fromEntries(Object.entries(apiCategories).map(([key, meta]) => [key, {
       label: meta.label, description: meta.hint, apis: info.items.filter(api => api.category === key).map(apiPayload),

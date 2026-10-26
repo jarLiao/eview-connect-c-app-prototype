@@ -17,11 +17,18 @@ const documentApp = Object.keys(evidence.operations).filter(key => key.includes(
 const app = apis.filter(api => api.path?.startsWith('/app/') && api.evidence_kind !== 'client_supplement');
 const supplements = apis.filter(api => api.evidence_kind === 'client_supplement');
 const insights = supplements.filter(api => api.path.startsWith('/app/evaigc/'));
-const workflows = supplements.filter(api => !api.path.startsWith('/app/evaigc/'));
+const history = supplements.filter(api => api.id === 'historyEvents');
+const workflows = supplements.filter(api => !api.path.startsWith('/app/evaigc/') && api.id !== 'historyEvents');
 assert.deepEqual(insights.map(api => api.id).sort(), ['insightOverview', 'insightHealth', 'insightAlerts', 'insightAnalysis'].sort());
 assert(insights.every(api => api.category === 'current' && !api.document && api.baseline.android_commit === '86fa2f9'));
 assert.deepEqual(workflows.map(api => api.id).sort(), ['shareGrantee', 'shareReceived', 'shareGranted', 'shareAccept', 'shareReject', 'shareRevoke', 'shareResend', 'shareUpdate'].sort());
 assert(workflows.every(api => api.category === 'current' && !api.document && api.baseline.android_commit === 'a8ae598' && api.baseline.reviewed_at === '2026-10-23'));
+assert.equal(history.length, 1);
+assert.equal(history[0].method, 'POST');
+assert.equal(history[0].path, '/app/device/{deviceId}/events');
+assert(history.every(api => api.category === 'current' && !api.document && api.baseline.android_commit === '5ab3127' && api.baseline.reviewed_at === '2026-10-26' && api.pages.includes('history')));
+assert(apis.find(api => api.id === 'events').note.includes('405'));
+assert(apis.find(api => api.id === 'tracks').note.includes('已接入'));
 assert.deepEqual(app.map(api => `${api.method} ${api.path}`).sort(), documentApp, '完整覆盖 App 文档的方法+路径，不能重复或漏项');
 assert.equal(app.length, 37);
 assert.equal(app.filter(api => api.category === 'current').length, 23);
@@ -29,7 +36,7 @@ assert.equal(app.filter(api => api.category === 'published').length, 14);
 assert.equal(apis.find(api => api.id === 'function').category, 'current');
 assert(apis.find(api => api.id === 'function').note.includes('singleLocating'));
 assert(apis.find(api => api.id === 'function').note.includes('findMe'));
-assert.deepEqual(Object.fromEntries(['keep', 'next', 'optional', 'not_now'].map(code => [code, app.filter(api => api.app_need?.code === code).length])), { keep: 23, next: 2, optional: 9, not_now: 3 });
+assert.deepEqual(Object.fromEntries(['keep', 'next', 'optional', 'not_now'].map(code => [code, app.filter(api => api.app_need?.code === code).length])), { keep: 23, next: 1, optional: 9, not_now: 4 });
 assert(app.every(api => api.app_need.reason && api.app_need.basis));
 assert.equal(apis.find(api => api.id === 'deviceShareCreate').app_need.code, 'keep');
 for (const id of ['personShareCreate', 'petShareCreate']) assert.equal(apis.find(api => api.id === id).app_need.code, 'not_now');
@@ -66,4 +73,4 @@ function visit(value, definitions) {
 for (const api of apis.filter(api => api.document)) visit(api.document, api.document.schemas);
 console.log(JSON.stringify({ result: '通过', snapshot_app_operations: app.length, client_supplement_operations: supplements.length,
   categories: Object.fromEntries(['current', 'published', 'pending', 'retired', 'requirement'].map(key => [key, apis.filter(api => api.category === key).length])),
-  checks: ['37 个公开 App 操作逐一匹配', '23/14 接入分类', '功能需要按 23/2/9/3 另行标注', '4 个分析及 8 个分享声明分别保留来源', '人员宠物分享退出计划', '4 个旧请求标为已停用', '需求不预设路径', '公共依赖支持边界', '上传声明差异', '页面映射与引用完整性', '导出来源与无示例值'] }, null, 2));
+  checks: ['37 个公开 App 操作逐一匹配', '23/14 接入分类', '功能需要按 23/1/9/4 另行标注', '4 个分析、8 个分享及 1 个历史声明分别保留来源', '历史 POST 与旧 GET 405 分开', '人员宠物分享退出计划', '4 个旧请求标为已停用', '需求不预设路径', '公共依赖支持边界', '上传声明差异', '页面映射与引用完整性', '导出来源与无示例值'] }, null, 2));
