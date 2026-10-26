@@ -588,6 +588,7 @@ function renderOauthBrandIcon(provider) {
 }
 
 function render() {
+  if (state.route !== "history") window.TrackHistory?.leave();
   app.dataset.theme = state.brandTheme;
   app.dataset.appearance = state.profileAppearance;
   if (!state.loggedIn) {
@@ -596,6 +597,8 @@ function render() {
     app.innerHTML = renderAccountProfile();
   } else if (state.route === "subject-profile") {
     app.innerHTML = renderSubjectProfile();
+  } else if (state.route === "history") {
+    app.innerHTML = TrackHistory.render(getDevice(), icon);
   } else if (state.route === "detail") {
     app.innerHTML = renderDetail();
   } else {
@@ -746,6 +749,12 @@ function toRequirementItems(info) {
 
 function getDemoPanelInfo() {
   if (!state.loggedIn) return authPanelInfo();
+  if (state.route === "history") return {
+    title: "历史轨迹", summary: "地图、播放进度和记录列表共用同一个选中位置；此页仅演示合成行程。",
+    tags: ["按日查询", "逐点回放", "三处联动"],
+    goals: ["点击地图点或记录，拖动进度条，三处保持同步。", "播放 / 暂停、1× / 2× / 4× 速度和底部列表展开可操作。", "今天有两段演示轨迹，昨天有一段；三天前为单点，其他日期为空态。"],
+    review: ["日期和筛选改变时暂停播放，清除旧选中位置。", "上报中断处分段，不跨缺口连线。", "原型地图与定位类型为合成演示，不证明真实坐标契约或 App 回放已验收。"],
+  };
   if (state.modal) return modalPanelInfo();
   if (["account-profile", "subject-profile"].includes(state.route)) {
     const account = state.route === "account-profile";
@@ -1954,31 +1963,19 @@ function renderMap(device) {
     <section class="section">
       <div class="map-action-grid">
         <button class="quick-action compact" type="button" data-action="toast-locate">${icon("crosshair")}实时定位</button>
-        <button class="quick-action compact" type="button" data-action="toast-track">${icon("route")}轨迹回放</button>
+        <button class="quick-action compact" type="button" data-action="open-history">${icon("route")}历史轨迹</button>
         <button class="quick-action compact" type="button" data-action="open-geofence">${icon("shield-plus")}新增围栏</button>
       </div>
     </section>
     <section class="section">
       <div class="section-header">
         <div>
-          <h2>轨迹回放</h2>
-          <p>支持按今天、昨天、自定义时间查询</p>
+          <h2>历史轨迹</h2>
+          <p>按日期查看路线和位置记录</p>
         </div>
-        <span class="pill">3 个关键点</span>
+        <button class="text-button" type="button" data-action="open-history">查看轨迹 ${icon("chevron-right")}</button>
       </div>
-      <div class="segmented-control" aria-label="轨迹时间筛选">
-        <button class="active" type="button">今天</button>
-        <button type="button">昨天</button>
-        <button type="button">自定义</button>
-      </div>
-      <div class="timeline">
-        ${mock.track.map((item) => `
-          <div class="timeline-item">
-            <div class="timeline-time">${item.time}</div>
-            <div><strong>${item.title}</strong><span>${item.desc}</span></div>
-          </div>
-        `).join("")}
-      </div>
+      <p class="muted">在独立页面选择日期，联动查看地图、播放进度与位置列表。</p>
     </section>
     <section class="section">
       <div class="section-header">
@@ -3988,6 +3985,7 @@ function bindOtpInputs() {
 }
 
 function bindEvents() {
+  if (state.route === "history") TrackHistory.mount({ redraw: render, icons: refreshIcons, back: () => { state.route = "detail"; state.detailTab = "map"; render(); } });
   bindSubjectEvents();
   bindSubjectProfileEvents();
   bindAccountProfileEvents();
@@ -4283,6 +4281,7 @@ function handleAction(action, element, event) {
     "identify-ble"() { identifyPrototypeDevice("ble", element); },
     "add-identify-back"() { state.addStep = "identify"; state.addError = ""; render(); },
     reset() {
+      window.TrackHistory?.reset();
       resetSubjectDemo();
       profileOperation++;
       Object.assign(mock.user, JSON.parse(initialAccountDemo));
@@ -4427,8 +4426,10 @@ function handleAction(action, element, event) {
     "toast-scan"() {
       showToast("扫码添加入口：后续对接 IMEI 校验和设备绑定接口");
     },
-    "toast-track"() {
-      showToast("已切换到轨迹回放，正式版按时间查询历史轨迹");
+    "open-history"() {
+      state.route = "history";
+      state.modal = null;
+      render();
     },
     "toast-map-layer"() {
       showToast("地图图层：正式版支持地图、卫星和围栏显示切换");
@@ -4651,10 +4652,11 @@ function refreshIcons() {
 }
 
 // 深链接仅打开合成演示，不建立账号会话或服务器连接。
-if (["#account-profile", "#mine", "#person-profile", "#pet-profile", "#devices"].includes(location.hash)) {
+if (["#account-profile", "#mine", "#person-profile", "#pet-profile", "#devices", "#history"].includes(location.hash)) {
   state.loggedIn = true;
   state.tab = location.hash === "#devices" ? "devices" : "mine";
   state.route = location.hash === "#account-profile" ? "account-profile" : "home";
+  if (location.hash === "#history") { state.route = "history"; state.tab = "devices"; }
   if (["#person-profile", "#pet-profile"].includes(location.hash)) {
     state.selectedSubjectId = location.hash === "#pet-profile" ? "subject-milo" : "subject-mom";
     state.subjectDetailReturn = "subjects";

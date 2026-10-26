@@ -23,6 +23,8 @@ function getApiPanelInfo() {
     key = state.modal === "subjects" ? "subjects" : "subject";
   } else if (state.modal) {
     key = ({ "logout-confirm": "logout", "config-category": "config" })[state.modal] || state.modal;
+  } else if (state.route === "history") {
+    key = "history";
   } else if (state.route === "account-profile") {
     key = "account";
   } else if (state.route === "subject-profile") {
@@ -35,7 +37,7 @@ function getApiPanelInfo() {
     key = state.tab;
   }
   const items = Object.values(apiRegistry).filter(api => apiPanelView === "all" || api.pages.includes(key));
-  return { key, title: apiPanelView === "all" ? "全部接口与待确认需求" : apiPageTitles[key] || "当前页面", items };
+  return { key, title: apiPanelView === "all" ? "全部接口与待确认需求" : key === "history" ? "历史轨迹 · 交互演示" : apiPageTitles[key] || "当前页面", items };
 }
 
 function renderApiPanel() {
@@ -74,7 +76,7 @@ function renderApiPanel() {
         <div class="api-list">${items.map(api => renderApiDetails(api)).join("")}</div>
       </section>`;
     }).join("")}
-    ${info.items.length ? "" : '<section class="api-card api-empty">这个演示页面尚未建立专属接口映射，可切换“全部接口”查看现行目录。</section>'}
+    ${info.items.length ? "" : info.key === "history" ? `<section class="api-card history-contract"><h3>历史查询与交互演示的边界</h3><p>Android 5c6b7f1 已接入自有设备按日查询、完整分页与异常过滤。</p><pre>POST /app/device/{deviceId}/events?eventId=GeneralLocation</pre><p>时间条件使用 terms 中的 timestamp 数值毫秒；公共请求头沿用 X-TimeZone。</p><p>本页地图、播放和类型筛选只使用合成演示数据。历史坐标系与有效性待后台确认，不能把本页操作当作 App 回放验收。</p><p>原接口目录仍保留其原核对日期，本次未重新采集服务器定义。</p></section>` : '<section class="api-card api-empty">这个演示页面尚未建立专属接口映射，可切换“全部接口”查看现行目录。</section>'}
   `;
 }
 

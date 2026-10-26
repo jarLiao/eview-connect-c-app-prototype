@@ -23,10 +23,30 @@ Eview Connect C 端设备管理 App 的静态交互原型，保留地图、设�
 - 可直接打开 `index.html#account-profile`，或 `index.html#mine` 查看入口。加 `?appearance=dark` / `?appearance=light` 可查看深浅色，默认跟随系统，例如 `index.html?appearance=dark#account-profile`。
 - 人物、邮箱与本地保存反馈均为合成演示；关闭或刷新页面会恢复初始数据，不代表正式接口验收。
 
-## 文件
+## 历史轨迹交互（2026-10-26）
+
+- 设备详情“地图 → 历史轨迹”打开独立页面，也可直接打开 `index.html#history`。
+- 地图点、播放进度和记录列表共用选中位置；支持播放 / 暂停、播完重播、1× / 2× / 4×、地图缩放及全览、列表展开与手柄拖动。
+- 今天有 16 条、两段合成位置记录；昨天有 8 条；三天前为单点，其他日期为空态。按当前日期生成演示日期，刷新后恢复初始状态。
+- 日期、时段及 GPS / WiFi / BLE 类型筛选可用；中断与过滤造成的缺口不强行连线。空态可调整日期或重置筛选，单点禁用播放。
+- 地图是离线区域示意，明确标识演示数据，不加载地图服务、不访问后端、不发送设备命令。正式 App 仍为历史查询，绘线 / 回放等待历史坐标及有效性契约。
+- `history-track.js` 管理演示状态和联动，`history-track.css` 沿用原型主题与浅深色；页面说明与接口侧栏分别展示交互和 Android 查询边界。
+
+可复用页面回归脚本为 `scripts/check-history-track-browser.cjs`，使用已安装的 Playwright 和 Edge；不自动安装依赖。默认截图及摘要保存在忽略目录 `.qa/history-track/`。
+
+```powershell
+# 能直接 require('playwright') 时不需要设置模块路径。
+$env:EVMARS_PLAYWRIGHT_MODULE = '<已安装的 playwright 模块路径>'
+node scripts/check-history-track-browser.cjs
+```
+
+另可通过 `EVMARS_TRACK_QA_OUTPUT` 指定截图和结果目录。检查包括联动、播放结束、筛选校验、单点与空态、返回重进、键盘、320/390px 及深色模式；日期与合成数据不等于服务器真实历史记录。
+
+## 文件清单
 
 - `index.html`
 - `styles.css`
+- `history-track.js`、`history-track.css`：独立历史轨迹页的合成地图、播放与列表联动。
 - `app.js`
 - `api-contracts.js`：逐项维护的 App 调用、公开未接入、待确认和原型需求映射。
 - `api-evidence.js`：2026-10-10 公开 OpenAPI 的选定操作/字段快照，不包含示例值或默认值。
