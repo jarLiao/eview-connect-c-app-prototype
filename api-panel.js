@@ -23,6 +23,8 @@ function getApiPanelInfo() {
     key = state.modal === "subjects" ? "subjects" : "subject";
   } else if (state.modal) {
     key = ({ "logout-confirm": "logout", "config-category": "config" })[state.modal] || state.modal;
+  } else if (state.route === "geofences") {
+    key = "geofence";
   } else if (state.route === "history") {
     key = "history";
   } else if (state.route === "account-profile") {

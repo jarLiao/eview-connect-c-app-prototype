@@ -276,12 +276,6 @@ const mock = {
     { time: "10:35", title: "到达社区中心", desc: "WiFi · 精度 34m" },
     { time: "14:26", title: "疑似跌倒事件", desc: "GPS · 精度 10m" },
   ],
-  geofences: [
-    { name: "Home Zone", shape: "圆形", trigger: "进出都提醒", status: "启用", radius: "300m", schedule: "全天" },
-    { name: "社区中心", shape: "多边形", trigger: "离开提醒", status: "启用", radius: "6 个顶点", schedule: "工作日 09:00–17:00" },
-    { name: "学校接送", shape: "圆形", trigger: "进入提醒", status: "启用", radius: "120m", schedule: "周一至周五 07:30 / 16:30" },
-    { name: "禁入区域 · 河边", shape: "多边形", trigger: "进入立即报警", status: "暂停", radius: "8 个顶点", schedule: "全天" },
-  ],
   healthRanges: {
     day: {
       label: "今日",
@@ -425,6 +419,7 @@ const state = {
   detailTab: "overview",
   selectedDeviceId: "dev-ev05-mom",
   modal: null,
+  geofenceReturn: null,
   mapFilter: "all",
   healthRange: "week",
   brandTheme: "care",
@@ -589,6 +584,7 @@ function renderOauthBrandIcon(provider) {
 
 function render() {
   if (state.route !== "history") window.TrackHistory?.leave();
+  if (state.route !== "geofences") window.GeofenceDemo?.leave();
   app.dataset.theme = state.brandTheme;
   app.dataset.appearance = state.profileAppearance;
   if (!state.loggedIn) {
@@ -597,6 +593,8 @@ function render() {
     app.innerHTML = renderAccountProfile();
   } else if (state.route === "subject-profile") {
     app.innerHTML = renderSubjectProfile();
+  } else if (state.route === "geofences") {
+    app.innerHTML = GeofenceDemo.render(getDevice(), icon);
   } else if (state.route === "history") {
     app.innerHTML = TrackHistory.render(getDevice(), icon);
   } else if (state.route === "detail") {
@@ -749,6 +747,7 @@ function toRequirementItems(info) {
 
 function getDemoPanelInfo() {
   if (!state.loggedIn) return authPanelInfo();
+  if (state.route === "geofences") return geofencePanelInfo();
   if (state.route === "history") return {
     title: "历史轨迹", summary: "地图、播放进度和记录列表共用同一个选中位置；此页仅演示合成行程。",
     tags: ["按日查询", "逐点回放", "三处联动"],
@@ -1250,28 +1249,12 @@ function editDevicePanelInfo() {
 
 function geofencePanelInfo() {
   return {
-    title: "安全围栏编辑",
-    summary: "围栏弹窗用于验证用户创建或编辑安全区域时，能否理解区域形状、范围和提醒条件。",
-    tags: ["圆形围栏", "多边形围栏", "进出提醒"],
-    goals: [
-      "确认地图编辑区域和表单字段的关系清楚。",
-      "确认用户知道围栏用于进出区域提醒。",
-      "确认保存后需要等待服务同步。",
-    ],
-    actions: [
-      "填写围栏名称。",
-      "选择圆形或多边形。",
-      "选择提醒条件并保存围栏。",
-    ],
-    review: [
-      "多边形围栏在移动端编辑复杂，可能第一版先做圆形。",
-      "围栏半径最小值、最大值和重复围栏规则需要定义。",
-      "围栏误报会直接影响用户信任。",
-    ],
-    backend: [
-      "围栏新增、编辑、删除、启停、触发记录。",
-      "坐标系转换和服务端围栏判断需要和地图方案联动。",
-    ],
+    title: "安全围栏：列表与地图",
+    summary: "一个紧凑列表和一套全屏地图。网络、蓝牙只切换连接方式，不建立两份围栏数据。",
+    tags: ["紧凑列表", "全屏地图", "网络 / 蓝牙共用"],
+    goals: ["点击不同围栏查看实际对应的形状、范围、方向和启用状态。", "圆形可拖动中心、输入半径，多边形可添加 / 拖动 / 删除顶点和撤销。", "取消保留原值，修改后切换渠道先确认放弃，并重新读取。"],
+    review: ["所有地图和数据均为离线合成演示，保存只修改当前页面内存，刷新恢复初始数据。", "原型展示未来的保存交互，不表示 App 网络写入已开放；App 1.0.227 仅完成指定设备围栏读取，保存和真实进出告警另验。", "当前协议没有名称、时间规则和进出双向提醒字段，所以本页按原槽位编号，提醒仅选进入或离开。"],
+    backend: ["当前读取 GET /app/device/{id}/property?property=geoAlert，原 index、坐标和未知字段需保持。", "写入契约确认后核对基线、设备 ACK 和独立回读；圆形 100–65535 米、多边形 3–10 点、最多 16 槽为当前 EV07B 代码范围。"],
   };
 }
 
@@ -1964,7 +1947,7 @@ function renderMap(device) {
       <div class="map-action-grid">
         <button class="quick-action compact" type="button" data-action="toast-locate">${icon("crosshair")}实时定位</button>
         <button class="quick-action compact" type="button" data-action="open-history">${icon("route")}历史轨迹</button>
-        <button class="quick-action compact" type="button" data-action="open-geofence">${icon("shield-plus")}新增围栏</button>
+        <button class="quick-action compact" type="button" data-action="open-geofence" data-new-fence="true">${icon("shield-plus")}新增围栏</button>
       </div>
     </section>
     <section class="section">
@@ -1978,27 +1961,8 @@ function renderMap(device) {
       <p class="muted">在独立页面选择日期，联动查看地图、播放进度与位置列表。</p>
     </section>
     <section class="section">
-      <div class="section-header">
-        <div>
-          <h2>安全围栏</h2>
-          <p>圆形 / 多边形，支持进出提醒</p>
-        </div>
-        <button class="text-button" type="button" data-action="open-geofence">新建</button>
-      </div>
-      <div class="card-list">
-        ${mock.geofences.map((fence) => `
-          <button class="list-card" type="button" data-action="open-geofence">
-            <div class="list-row">
-              <div>
-                <strong>${fence.name}</strong>
-                <span>${fence.shape} · ${fence.radius} · ${fence.trigger}</span>
-                <small>${fence.schedule}</small>
-              </div>
-              <span class="status-pill ${fence.status === "启用" ? "online" : "warning"}">${fence.status}</span>
-            </div>
-          </button>
-        `).join("")}
-      </div>
+      <div class="section-header"><div><h2>安全围栏</h2><p>查看范围和进入 / 离开提醒</p></div><button class="text-button" type="button" data-action="open-geofence">管理围栏</button></div>
+      ${GeofenceDemo.preview(device, icon)}
     </section>
   `;
 }
@@ -2945,7 +2909,6 @@ function renderModal() {
   if (state.modal === "share") return renderShareModal();
   if (state.modal === "add-device") return renderAddDeviceModal();
   if (state.modal === "edit-device") return renderEditDeviceModal();
-  if (state.modal === "geofence") return renderGeofenceModal();
   if (state.modal === "config-category") return renderConfigCategoryModal();
   if (state.modal === "settings") return renderSettingsModal();
   if (state.modal === "logout-confirm") return renderLogoutConfirmModal();
@@ -3144,42 +3107,6 @@ function renderEditDeviceModal() {
   `;
 }
 
-function renderGeofenceModal() {
-  return `
-    <div class="modal-backdrop" data-action="close-modal">
-      <section class="bottom-sheet" role="dialog" aria-modal="true" aria-label="安全围栏" data-sheet>
-        <div class="sheet-header">
-          <h2>安全围栏</h2>
-          <button class="small-icon-button" type="button" data-action="close-modal" aria-label="关闭">${icon("x")}</button>
-        </div>
-        <div class="mini-map-editor">
-          <div class="geofence draft"></div>
-          <div class="map-pin main">${icon("map-pin")}</div>
-          <span>拖动地图选择区域</span>
-        </div>
-        <div class="form-grid">
-          <div class="field">
-            <label for="fence-name">围栏名称</label>
-            <input id="fence-name" value="Home Zone" />
-          </div>
-          <div class="field">
-            <label for="fence-shape">围栏形状</label>
-            <select id="fence-shape"><option>圆形</option><option>多边形</option></select>
-          </div>
-          <div class="field">
-            <label for="fence-radius">半径 / 范围</label>
-            <input id="fence-radius" value="300m" />
-          </div>
-          <div class="field">
-            <label for="fence-trigger">提醒条件</label>
-            <select id="fence-trigger"><option>进出都提醒</option><option>离开提醒</option><option>进入提醒</option></select>
-          </div>
-        </div>
-        <button class="primary-button full-width" type="button" data-action="save-geofence">${icon("shield-check")}保存围栏</button>
-      </section>
-    </div>
-  `;
-}
 
 function renderConfigCategoryModal() {
   const category = mock.configCategories.find((item) => item.id === state.configCategory) || mock.configCategories[0];
@@ -3985,6 +3912,10 @@ function bindOtpInputs() {
 }
 
 function bindEvents() {
+  if (state.route === "geofences") GeofenceDemo.mount({ redraw: render, back: () => {
+    Object.assign(state, state.geofenceReturn || { route: "detail", detailTab: "map" });
+    state.modal = null; state.geofenceReturn = null; render();
+  } });
   if (state.route === "history") TrackHistory.mount({ redraw: render, icons: refreshIcons, back: () => { state.route = "detail"; state.detailTab = "map"; render(); } });
   bindSubjectEvents();
   bindSubjectProfileEvents();
@@ -4282,6 +4213,7 @@ function handleAction(action, element, event) {
     "add-identify-back"() { state.addStep = "identify"; state.addError = ""; render(); },
     reset() {
       window.TrackHistory?.reset();
+      window.GeofenceDemo?.reset();
       resetSubjectDemo();
       profileOperation++;
       Object.assign(mock.user, JSON.parse(initialAccountDemo));
@@ -4386,8 +4318,9 @@ function handleAction(action, element, event) {
       render();
     },
     "open-geofence"() {
-      state.modal = "geofence";
-      render();
+      state.geofenceReturn = { route: state.route, tab: state.tab, detailTab: state.detailTab };
+      GeofenceDemo.open(getDevice(), { index: element.dataset.geofenceIndex === undefined ? null : Number(element.dataset.geofenceIndex), newFence: element.dataset.newFence === "true" });
+      state.modal = null; state.route = "geofences"; render();
     },
     "open-settings"() {
       state.settingsPanel = element.dataset.settings || "profile";
@@ -4472,10 +4405,6 @@ function handleAction(action, element, event) {
     "unbind-device"() {
       state.modal = null;
       showToast("已提交解绑确认，正式版需要二次确认");
-    },
-    "save-geofence"() {
-      state.modal = null;
-      showToast("安全围栏已保存，等待服务端同步");
     },
     "save-config"() {
       state.modal = null;
@@ -4652,11 +4581,15 @@ function refreshIcons() {
 }
 
 // 深链接仅打开合成演示，不建立账号会话或服务器连接。
-if (["#account-profile", "#mine", "#person-profile", "#pet-profile", "#devices", "#history"].includes(location.hash)) {
+if (["#account-profile", "#mine", "#person-profile", "#pet-profile", "#devices", "#history", "#geofences"].includes(location.hash)) {
   state.loggedIn = true;
   state.tab = location.hash === "#devices" ? "devices" : "mine";
   state.route = location.hash === "#account-profile" ? "account-profile" : "home";
   if (location.hash === "#history") { state.route = "history"; state.tab = "devices"; }
+  if (location.hash === "#geofences") {
+    state.selectedDeviceId = "dev-ev07b-pendant"; state.route = "geofences"; state.tab = "devices";
+    state.geofenceReturn = { route: "detail", detailTab: "map" }; GeofenceDemo.open(getDevice());
+  }
   if (["#person-profile", "#pet-profile"].includes(location.hash)) {
     state.selectedSubjectId = location.hash === "#pet-profile" ? "subject-milo" : "subject-mom";
     state.subjectDetailReturn = "subjects";

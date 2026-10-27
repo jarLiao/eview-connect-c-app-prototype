@@ -106,7 +106,7 @@ const deviceRows = [
   ["unbindSelf", "POST", "/app/device/unbind-devices", "批量解绑本人设备", "published", ["edit-device"], "当前 App 使用绑定 ID 单条解绑，此批量入口尚未接入。"],
   ["switchProduct", "POST", "/app/device/bind/{id}/switch-product", "切换绑定产品", "published", ["edit-device", "config"], "公开文档声明，App 未接入。"],
   ["deviceShareCreate", "POST", "/app/device/{deviceId}/shares", "创建设备分享", "current", ["share"], "已接入设备分享管理：解析接收人后创建，随后回查发出记录；仅 DEVICE。LOCATION-only 有 10-19 双账号手机记录，其他权限与未注册后注册仍待验。"],
-  ["propertyRead", "GET", "/app/device/{deviceId}/property", "读取设备属性", "current", ["config"], "Prod 正式 App property runtime 已启用，query property 选择完整组；同一物模型页面按网络 / 蓝牙选择读取渠道。历史 /c/v1 占位网关仍不启用。"],
+  ["propertyRead", "GET", "/app/device/{deviceId}/property", "读取设备属性", "current", ["config", "geofence"], "Prod 正式 App property runtime 已启用，query property 选择完整组；同一物模型页面按网络 / 蓝牙选择读取渠道。历史 /c/v1 占位网关仍不启用。"],
   ["propertyWrite", "POST", "/app/device/{deviceId}/property", "写设备属性", "current", ["config"], "网络只允许 powerLowAlert.power 和 smsOption.prefix，重读基线、完整组保持、POST 一次并独立 GET 回查；上传组被参数拒绝而禁写，其余项只读或未开放。回显不是硬件 ACK。"],
   ["function", "POST", "/app/device/{deviceId}/function", "调用设备功能", "current", ["config", "location", "overview"], "已接入 singleLocating 立即定位与 findMe 查找，body 均为 {}。App 只确认受理；设备 ACK、声音和新 GPS 分开验收，结果不明不自动重发。"],
   ["events", "GET", "/app/device/{deviceId}/events", "设备事件（旧 GET 快照）", "published", ["messages", "alerts", "overview"], "保留 10-10 文档 GET 快照；10-23 实测该 GET 返回 405，当前历史查询改用单列的 POST。告警列表、推送与未读契约仍不能据此推定。"],
@@ -122,7 +122,8 @@ apiRegistry.deviceShares.source = "core/remote/share/AppDeviceShareReadApiServic
 apiRegistry.deviceShareCreate.source = "core/remote/share/AppShareCreationApiService.kt、RemoteAppShareCreationRepository.kt；feature/alert/ui/ShareManagementViewModel.kt";
 apiRegistry.deviceShareCreate.client_contract = { body: "granteeUserId 或 inviteAccount；role、scopes、可选 expiresAt", response: "业务响应后独立回查发出记录；PERSON/PET 本地拒绝" };
 apiRegistry.propertyRead.source = apiRegistry.propertyWrite.source = "core/remote/deviceconfig/RemoteAppDeviceCloudConfigRepository.kt；core/data/deviceconfig/AppCloudConfigContract.kt；feature/webview/DeviceConfigBridgeActions.kt";
-apiRegistry.propertyRead.client_contract = { query: { property: "powerLowAlert / timeInterval / workMode / heartBeat / number / smsOption / sosOption / phoneOption" }, response: "data 内按组名取得完整对象或数组；字段无效不补默认" };
+apiRegistry.propertyRead.client_contract = { query: { property: "powerLowAlert / timeInterval / workMode / heartBeat / number / smsOption / sosOption / phoneOption / geoAlert" }, response: "data 内按组名取得完整对象或数组；字段无效不补默认" };
+apiRegistry.propertyRead.note += " 10-27 增量：geoAlert 只读已接入 b278e72 / App 1.0.227，四围栏、网络与蓝牙共页、冷启动离线已验证；原型保存仅为内存演示。";
 apiRegistry.propertyWrite.client_contract = { body: "完整原始参数组，仅替换 powerLowAlert.power 或 smsOption.prefix", response: "POST 受理后独立 GET，核对目标值及同组未改字段" };
 apiRegistry.function.source = "core/remote/location/RemoteAppDeviceLocationCommandRepository.kt；core/remote/devicecommand/RemoteAppDeviceFindCommandRepository.kt；feature/device/cloud/CloudDeviceDetailViewModel.kt";
 apiRegistry.function.client_contract = { query: { functionId: "singleLocating / findMe" }, body: {}, response: "code=0、ok≠false、data 非空字符串；只算请求受理" };
@@ -219,7 +220,7 @@ for (const [id, path, title, pages, source, display] of [
 for (const [id, title, pages, note] of [
   ["shareRules", "设备分享剩余权限规则", ["share", "messages"], "主流程已接入且仅 DEVICE；其他 scopes / MANAGER、aigc、未注册后注册、到期和租户权限仍待确认，不再安排人员 / 宠物分享。"],
   ["tracks", "历史轨迹剩余字段与权限", ["history", "location"], "按日/月查询、日历与地图回放已接入 historyEvents，不缺整套轨迹接口。仍需正式坐标/有效性、定位类型及共享 TRACK 契约；真实硬件移动另验。"],
-  ["geofences", "围栏与地点搜索", ["geofence", "location"], "原型可演示；当前 Prod 入口与真实业务未完整开放，不再将旧 /c/v1 路径作为现行契约。"],
+  ["geofences", "围栏保存、告警与地点搜索", ["geofence", "location"], "10-27 已接入 geoAlert 正式 GET 及共用只读地图，指定设备四围栏核对通过。网络保存、真实进出告警及名称 / 时间规则仍需契约和验收；本原型模拟保存不代表 App 已开放写入。"],
   ["alerts", "告警、已读与处置", ["alerts", "messages", "ai"], "事件查询不自动涵盖消息列表、未读、已读或告警反馈，Prod 消息入口仍有门禁。"],
   ["deviceProfile", "设备资料和紧急联系人", ["edit-device"], "对象资料使用 PERSON/PET 路径；设备昵称正式读取与编辑仍待接入，展示统一按编号尾号回退。设备联系人和通话参数已有网络只读，不因此开放写入。"],
   ["configFlow", "配置执行、OTA 与结果确认", ["config"], "正式 property 已接入且两字段可写，其他项只读 / 未开放；上传组被 Parameter error 拒绝。其他字段、OTA、逐项 ACK / 回查 / 恢复与蜂窝直连仍需联调。"],
