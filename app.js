@@ -1049,12 +1049,12 @@ function detailPanelInfo() {
       goals: [
         "确认用户能区分实时位置、历史轨迹和围栏管理。",
         "确认轨迹时间筛选和关键点展示足够清楚。",
-        "确认新建围栏流程能表达圆形、多边形和提醒条件。",
+        "确认四个固定围栏能设置圆形、多边形和提醒条件，清除后保留原位置。",
       ],
       actions: [
         "点击实时定位触发单次定位。",
         "点击轨迹回放查看时间筛选。",
-        "点击新增围栏打开围栏编辑弹窗。",
+        "点击安全围栏进入四个固定位置，再进入共用全屏地图设置或编辑。",
       ],
       review: [
         "国内地图方案和海外地图方案需要保持体验一致。",
@@ -1062,7 +1062,7 @@ function detailPanelInfo() {
         "围栏触发规则要避免误报和重复推送。",
       ],
       backend: [
-        "实时位置、历史轨迹、围栏列表、新增 / 编辑 / 删除围栏。",
+        "实时位置、历史轨迹、围栏读取，以及按原编号设置 / 编辑 / 清除配置。",
         "国内坐标系、海外 Google Maps、无 GMS 设备定位能力要提前评估。",
       ],
     },
@@ -1250,11 +1250,11 @@ function editDevicePanelInfo() {
 function geofencePanelInfo() {
   return {
     title: "安全围栏：列表与地图",
-    summary: "一个紧凑列表和一套全屏地图。网络、蓝牙只切换连接方式，不建立两份围栏数据。",
+    summary: "固定围栏 1～4，共用一个紧凑列表和一套全屏地图。网络、蓝牙只切换连接方式。",
     tags: ["紧凑列表", "全屏地图", "网络 / 蓝牙共用"],
-    goals: ["点击不同围栏查看实际对应的形状、范围、方向和启用状态。", "圆形可拖动中心、输入半径，多边形可添加 / 拖动 / 删除顶点和撤销。", "取消保留原值，修改后切换渠道先确认放弃，并重新读取。"],
+    goals: ["四个位置和编号始终保留，不提供新建；未设置时点击去设置，已设置时查看和编辑。", "圆形可拖动中心、输入半径，多边形可添加 / 拖动 / 删除顶点和撤销。", "清除范围与提醒后恢复未设置，其他围栏保持；取消或切换渠道先确认草稿。"],
     review: ["所有地图和数据均为离线合成演示，保存只修改当前页面内存，刷新恢复初始数据。", "原型展示未来的保存交互，不表示 App 网络写入已开放；App 1.0.227 仅完成指定设备围栏读取，保存和真实进出告警另验。", "当前协议没有名称、时间规则和进出双向提醒字段，所以本页按原槽位编号，提醒仅选进入或离开。"],
-    backend: ["当前读取 GET /app/device/{id}/property?property=geoAlert，原 index、坐标和未知字段需保持。", "写入契约确认后核对基线、设备 ACK 和独立回读；圆形 100–65535 米、多边形 3–10 点、最多 16 槽为当前 EV07B 代码范围。"],
+    backend: ["当前读取 GET /app/device/{id}/property?property=geoAlert，原 index、坐标和未知字段需保持。", "本原型按产品决策固定四个位置，index 为 0～3；这不证明固件仅支持四个，也不改变 App 的协议范围。写入契约、ACK、独立回读和实际告警另验。"],
   };
 }
 
@@ -1947,7 +1947,7 @@ function renderMap(device) {
       <div class="map-action-grid">
         <button class="quick-action compact" type="button" data-action="toast-locate">${icon("crosshair")}实时定位</button>
         <button class="quick-action compact" type="button" data-action="open-history">${icon("route")}历史轨迹</button>
-        <button class="quick-action compact" type="button" data-action="open-geofence" data-new-fence="true">${icon("shield-plus")}新增围栏</button>
+        <button class="quick-action compact" type="button" data-action="open-geofence">${icon("shield-check")}安全围栏</button>
       </div>
     </section>
     <section class="section">
@@ -4319,7 +4319,7 @@ function handleAction(action, element, event) {
     },
     "open-geofence"() {
       state.geofenceReturn = { route: state.route, tab: state.tab, detailTab: state.detailTab };
-      GeofenceDemo.open(getDevice(), { index: element.dataset.geofenceIndex === undefined ? null : Number(element.dataset.geofenceIndex), newFence: element.dataset.newFence === "true" });
+      GeofenceDemo.open(getDevice(), { index: element.dataset.geofenceIndex === undefined ? null : Number(element.dataset.geofenceIndex) });
       state.modal = null; state.route = "geofences"; render();
     },
     "open-settings"() {

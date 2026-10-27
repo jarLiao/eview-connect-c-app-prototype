@@ -4,9 +4,9 @@ window.GeofenceDemo = (() => {
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const stores = new Map(), connections = new Set();
   const places = [{name:"海棠社区",x:190,y:325},{name:"社区中心",x:260,y:190},{name:"绿园",x:130,y:235},{name:"学校",x:90,y:390},{name:"设备位置",x:205,y:345}];
-  const maxSlots = 16, metersPerUnit = 8;
+  const slotCount = 4, metersPerUnit = 8;
   let device, root, host, icon, rows = null, channel = "cloud", phase = "idle", selected = null;
-  let draft = null, original = null, adding = false, pendingNew = false, active = false, operation = 0, timer;
+  let draft = null, original = null, active = false, operation = 0, timer;
   let notice = "", error = "", dialog = null, mode = "pan", history = [], selectedVertex = null, search = "", searchResult = null;
   let viewport = {x:200,y:300,span:320}, needFit = false, focusTarget = "";
   let pointers = new Map(), gesture = null, mapObserver = null;
@@ -20,18 +20,21 @@ window.GeofenceDemo = (() => {
     ];
   }
   function saved(id) { if (!stores.has(id)) stores.set(id,seeds()); return stores.get(id); }
+  const configured = f => !!f?.vertices.length;
+  const emptySlot = index => ({index,type:0,status:false,direction:0,radius:0,vertices:[]});
   const title = f => `围栏 ${f.index+1}`;
-  const detail = f => `${f.type === 0 ? `圆形 · 半径 ${f.radius} 米` : `多边形 · ${f.vertices.length} 个顶点`} · ${f.direction ? "进入" : "离开"}时提醒`;
+  const detail = f => configured(f) ? `${f.type === 0 ? `圆形 · 半径 ${f.radius} 米` : `多边形 · ${f.vertices.length} 个顶点`} · ${f.direction ? "进入" : "离开"}时提醒` : "设置范围和进入 / 离开提醒";
   const owned = () => device?.permission === "owner";
   const busy = () => ["sending","confirming","verifying"].includes(phase);
-  const dirty = () => draft && (adding || JSON.stringify(draft) !== JSON.stringify(original));
+  const dirty = () => draft && JSON.stringify(draft) !== JSON.stringify(original);
   const current = () => draft || rows?.find(f => f.index === selected);
   function stop() { operation++; clearTimeout(timer); pointers.clear(); gesture = null; }
   function leave() { mapObserver?.disconnect(); mapObserver = null; stop(); active = false; root = null; dialog = null; }
   function redraw() { if (active) host?.redraw(); }
   function open(nextDevice, options = {}) {
     stop(); device = nextDevice; channel = "cloud"; rows = null; phase = "idle"; active = true;
-    selected = options.index ?? null; pendingNew = !!options.newFence; draft = original = null; adding = false;
+    selected = Number.isInteger(options.index) && options.index >= 0 && options.index < slotCount ? options.index : null;
+    draft = original = null;
     dialog = null; notice = error = ""; search = ""; searchResult = null; needFit = true; mode = "pan";
   }
   function later(ms, fn) { const token = operation; timer = setTimeout(() => { if (active && token === operation) fn(); },ms); }
@@ -43,34 +46,30 @@ window.GeofenceDemo = (() => {
       rows = copy(saved(device.id)); phase = "ready";
       if (selected !== null && !rows.some(f => f.index === selected)) selected = null;
       needFit = true;
-      if (pendingNew) { pendingNew = false; create(); } else redraw();
+      if (selected !== null && !configured(current()) && owned()) edit(); else redraw();
     });
   }
   function connect() { stop(); phase = "connecting"; redraw(); later(650, () => { connections.add(device.id); read(); }); }
-  function clearEdit() { draft = original = null; adding = false; mode = "pan"; error = ""; history = []; selectedVertex = null; search = ""; searchResult = null; }
+  function clearEdit() { draft = original = null; mode = "pan"; error = ""; history = []; selectedVertex = null; search = ""; searchResult = null; }
   function switchChannel(next) { clearEdit(); channel = next; notice = ""; read(); }
   function channelRequest(next) {
     if (next === channel || busy()) return;
     if (dirty()) { dialog = {kind:"channel",next,returnFocus:`[data-gf-channel="${next}"]`}; redraw(); }
     else switchChannel(next);
   }
-  function create() {
-    if (!owned()) return;
-    if (phase !== "ready") { pendingNew = true; return; }
-    const index = Array.from({length:maxSlots},(_,i)=>i).find(i => !rows.some(f => f.index === i));
-    if (index === undefined) { notice = "已达到 16 个围栏，请先删除不再使用的围栏。"; redraw(); return; }
-    selected = index; adding = true; original = null;
-    draft = {index,type:0,status:true,direction:0,radius:500,vertices:[{x:205,y:345}]};
-    mode = "pan"; history = []; needFit = true; error = ""; notice = ""; redraw();
+  function edit() {
+    if (!owned() || phase !== "ready" || !current()) return;
+    original = copy(current());
+    draft = configured(original) ? copy(original) : {...emptySlot(original.index),status:true,radius:500,vertices:[{x:205,y:345}]};
+    history = []; mode = "pan"; error = ""; notice = ""; needFit = true; redraw();
   }
-  function edit() { if (!owned() || phase !== "ready") return; original = copy(current()); draft = copy(original); adding = false; history = []; mode = "pan"; error = ""; needFit = true; redraw(); }
   function back() {
     if (busy()) return;
     if (dirty()) { dialog = {kind:"back",returnFocus:'[data-gf-action="cancel"]'}; redraw(); return; }
     goBack();
   }
   function goBack() {
-    if (draft) { const isNew = adding; clearEdit(); if (isNew) selected = null; redraw(); }
+    if (draft) { const wasEmpty = !configured(original); clearEdit(); if (wasEmpty) selected = null; redraw(); }
     else if (selected !== null) { selected = null; search = ""; notice = ""; redraw(); }
     else { leave(); host.back(); }
   }
@@ -98,34 +97,39 @@ window.GeofenceDemo = (() => {
     }
     return "";
   }
-  function save(remove = false) {
-    if (busy() || !owned() || phase !== "ready" || (!remove && !draft)) return;
-    if (!remove) { error = validate(draft); if(error) { redraw(); focusTarget = draft.type ? "[data-gf-map]" : "[data-gf-radius]"; root?.querySelector(focusTarget)?.focus(); return; } }
-    if (remove && (!current() || !rows?.some(f=>f.index===current().index))) return;
-    const next = copy(remove ? current() : draft), id = device.id;
+  function save(clear = false) {
+    if (busy() || !owned() || phase !== "ready" || (!clear && !draft)) return;
+    if (!clear) { error = validate(draft); if(error) { redraw(); focusTarget = draft.type ? "[data-gf-map]" : "[data-gf-radius]"; root?.querySelector(focusTarget)?.focus(); return; } }
+    if (clear && (!configured(original || current()) || !rows?.some(f=>f.index===current().index))) return;
+    const next = clear ? emptySlot(current().index) : copy(draft), id = device.id;
     phase = "sending"; dialog = null; error = ""; redraw();
     later(330, () => { phase = "confirming"; redraw(); later(330, () => { phase = "verifying"; redraw(); later(360, () => {
-      const all = saved(id), rest = all.filter(f => f.index !== next.index);
-      if (!remove) rest.push(next);
-      stores.set(id,rest.sort((a,b)=>a.index-b.index)); rows = copy(saved(id)); phase = "ready";
-      clearEdit(); selected = remove ? null : next.index; needFit = true;
-      notice = remove ? "已删除围栏（演示）" : "已保存并核对（演示）"; redraw();
+      stores.set(id,saved(id).map(f => f.index === next.index ? next : f)); rows = copy(saved(id)); phase = "ready";
+      clearEdit(); selected = clear ? null : next.index; needFit = true;
+      notice = clear ? `${title(next)}已清除，位置保留（演示）` : "已保存并核对（演示）"; redraw();
     }); }); });
   }
   function controls() {
     return `<div class="gf-channel-row"><div class="gf-channel-status"><span class="gf-dot ${phase === "offline" || phase === "disconnected" ? "unavailable" : ""}"></span><span>${channel === "cloud" ? (device.status === "online" ? "设备在线" : "设备离线") : (connections.has(device.id) ? "蓝牙已连接" : "蓝牙未连接")}</span></div><div class="gf-channel" role="group" aria-label="连接方式">${[["cloud","网络"],["ble","蓝牙"]].map(([value,label])=>`<button type="button" data-gf-channel="${value}" aria-pressed="${channel===value}" ${busy()?"disabled":""}>${icon(value === "cloud" ? "cloud" : "bluetooth")}${label}</button>`).join("")}</div></div>`;
   }
-  function row(f, compact = false) {
-    return `<button type="button" class="gf-row" ${compact ? `data-action="open-geofence" data-geofence-index="${f.index}"` : `data-gf-open="${f.index}"`} aria-label="查看${title(f)}，${detail(f)}，${f.status ? "已启用" : "已停用"}"><span class="gf-row-shape ${f.status?"":"inactive"}">${icon(f.type ? "pentagon" : "circle-dashed")}</span><span class="gf-row-copy"><span class="gf-row-heading"><strong>${title(f)}</strong><span class="gf-status ${f.status?"":"inactive"}">${f.status ? "已启用" : "已停用"}</span></span><span class="gf-row-detail">${detail(f)}</span></span>${icon("chevron-right")}</button>`;
+  function row(f, compact = false, editable = owned()) {
+    const empty = !configured(f), status = empty ? "未设置" : f.status ? "已启用" : "已停用";
+    return `<button type="button" class="gf-row" ${compact ? `data-action="open-geofence" data-geofence-index="${f.index}"` : `data-gf-open="${f.index}"`} aria-label="${empty&&editable?"设置":"查看"}${title(f)}，${empty?"未设置":detail(f)+"，"+status}"><span class="gf-row-shape ${f.status?"":"inactive"}">${icon(f.type ? "pentagon" : "circle-dashed")}</span><span class="gf-row-copy"><span class="gf-row-heading"><strong>${title(f)}</strong><span class="gf-status ${f.status?"":"inactive"}">${status}</span></span><span class="gf-row-detail">${detail(f)}</span></span>${empty?`<span class="gf-row-setup">${editable?"去设置":"查看"}</span>`:""}${icon("chevron-right")}</button>`;
   }
-  function preview(nextDevice, drawIcon) { icon = drawIcon; return `<div class="gf-preview-list">${saved(nextDevice.id).slice(0,2).map(f=>row(f,true)).join("")}</div>`; }
+  function preview(nextDevice, drawIcon) { icon = drawIcon; return `<div class="gf-preview-list">${saved(nextDevice.id).slice(0,2).map(f=>row(f,true,nextDevice.permission==="owner")).join("")}</div>`; }
+  function listMarkup(loading) {
+    if (loading) return `<div class="gf-state" role="status"><span class="gf-spinner"></span><strong>${phase==="connecting"?"正在连接蓝牙":"正在读取围栏"}</strong><p>通过${channel==="cloud"?"网络":"蓝牙"}获取设备当前配置</p></div>`;
+    if (phase !== "ready") return `<div class="gf-state" role="status">${icon(channel === "ble" ? "bluetooth-off" : "cloud-off")}<strong>${phase==="disconnected"?"请先连接蓝牙":"围栏读取失败"}</strong><p>${phase==="disconnected"?"连接附近的设备后，读取当前围栏。":"设备离线，等待上线后重试，或切换蓝牙。"}</p><button type="button" class="gf-primary" data-gf-action="${phase==="disconnected"?"connect":"retry"}">${phase==="disconnected"?"连接蓝牙":"重新读取"}</button></div>`;
+    return `<div class="gf-list-caption"><span>已设置 ${rows.filter(configured).length} / ${slotCount}<span class="gf-caption-separator">·</span>${rows.filter(f=>configured(f)&&f.status).length} 个启用</span><button type="button" class="gf-icon-button" data-gf-action="retry" aria-label="重新读取围栏">${icon("refresh-cw")}</button></div><div class="gf-list" aria-label="四个固定围栏">${rows.map(f=>row(f)).join("")}</div><p class="gf-list-hint">停用保留范围；清除后可在原位置重新设置。</p>`;
+  }
   function render(nextDevice, drawIcon) {
     device = nextDevice; icon = drawIcon;
     const f = current(), mapPage = selected !== null && !!f && (phase === "ready" || busy());
     const loading = ["idle","loading","connecting"].includes(phase);
-    const heading = mapPage ? (adding ? "新建围栏" : title(f)) : "安全围栏";
-    return `<section class="gf-page ${mapPage ? "gf-map-page" : "gf-list-page"}" aria-label="安全围栏"><header class="gf-header"><div class="status-bar"><span>09:41</span><span>${icon("wifi")}${icon("battery-medium")}</span></div><div class="gf-header-line"><button type="button" class="gf-icon-button" data-gf-action="back" aria-label="${draft ? "取消编辑" : mapPage ? "返回围栏列表" : "返回设备"}" ${busy()?"disabled":""}>${icon("chevron-left")}</button><div class="gf-header-title"><h1>${heading}</h1><p>${esc(device.name)}</p></div>${mapPage ? (adding ? `<span class="gf-header-spacer"></span>` : `<button type="button" class="gf-text-button" data-gf-action="${draft?"more":"edit"}" ${busy()||!owned()?"disabled":""} aria-label="${draft?"围栏更多操作":"编辑围栏"}">${draft?icon("ellipsis"):"编辑"}</button>`) : `<button type="button" class="gf-text-button" data-gf-action="new" ${phase!=="ready" || !owned() || rows?.length>=maxSlots?"disabled":""}>${icon("plus")}新建</button>`}</div></header>${controls()}
-    ${mapPage ? mapPageMarkup(f) : `<div class="gf-list-body">${loading ? `<div class="gf-state" role="status"><span class="gf-spinner"></span><strong>${phase==="connecting"?"正在连接蓝牙":"正在读取围栏"}</strong><p>通过${channel==="cloud"?"网络":"蓝牙"}获取设备当前配置</p></div>` : phase !== "ready" ? `<div class="gf-state" role="status">${icon(channel === "ble" ? "bluetooth-off" : "cloud-off")}<strong>${phase==="disconnected"?"请先连接蓝牙":"围栏读取失败"}</strong><p>${phase==="disconnected"?"连接附近的设备后，读取当前围栏。":"设备离线，等待上线后重试，或切换蓝牙。"}</p><button type="button" class="gf-primary" data-gf-action="${phase==="disconnected"?"connect":"retry"}">${phase==="disconnected"?"连接蓝牙":"重新读取"}</button></div>` : `<div class="gf-list-caption"><span>已设置 ${rows.length} / ${maxSlots}<span class="gf-caption-separator">·</span>${rows.filter(f=>f.status).length} 个启用</span><button type="button" class="gf-icon-button" data-gf-action="retry" aria-label="重新读取围栏">${icon("refresh-cw")}</button></div>${rows.length ? `<div class="gf-list" aria-label="已设置的围栏">${rows.map(f=>row(f)).join("")}</div><p class="gf-list-hint">停用会保留范围，删除会移除这个围栏。</p>` : `<div class="gf-state">${icon("shield-plus")}<strong>还没有安全围栏</strong><p>设置安全区域，在进入或离开时提醒。</p><button type="button" class="gf-primary" data-gf-action="new" ${!owned()?"disabled":""}>新建围栏</button></div>`}`}${notice ? `<p class="gf-notice" role="status">${icon("check-circle-2")}${esc(notice)}</p>`:""}${!owned()?'<p class="gf-access-note">共享设备当前仅可查看围栏。</p>':""}</div><footer class="gf-demo-caption">合成数据 · 原型交互演示</footer>`}
+    const heading = mapPage ? title(f) : "安全围栏";
+    const editAction = mapPage && (!draft || configured(original)) ? `<button type="button" class="gf-text-button" data-gf-action="${draft?"clear":"edit"}" ${busy()||!owned()?"disabled":""} aria-label="${draft?"清除围栏配置":configured(f)?"编辑围栏":"设置围栏"}">${draft?icon("ellipsis"):configured(f)?"编辑":"去设置"}</button>` : '<span class="gf-header-spacer"></span>';
+    return `<section class="gf-page ${mapPage ? "gf-map-page" : "gf-list-page"}" aria-label="安全围栏"><header class="gf-header"><div class="status-bar"><span>09:41</span><span>${icon("wifi")}${icon("battery-medium")}</span></div><div class="gf-header-line"><button type="button" class="gf-icon-button" data-gf-action="back" aria-label="${draft ? "取消编辑" : mapPage ? "返回围栏列表" : "返回设备"}" ${busy()?"disabled":""}>${icon("chevron-left")}</button><div class="gf-header-title"><h1>${heading}</h1><p>${esc(device.name)}</p></div>${editAction}</div></header>${controls()}
+    ${mapPage ? mapPageMarkup(f) : `<div class="gf-list-body">${listMarkup(loading)}${notice ? `<p class="gf-notice" role="status">${icon("check-circle-2")}${esc(notice)}</p>`:""}${!owned()?'<p class="gf-access-note">共享设备当前仅可查看围栏。</p>':""}</div><footer class="gf-demo-caption">合成数据 · 原型交互演示</footer>`}
     ${dialog ? dialogMarkup() : ""}</section>`;
   }
   function mapPageMarkup(f) {
@@ -133,11 +137,11 @@ window.GeofenceDemo = (() => {
     return `<div class="gf-map-wrap">${editing ? `<form class="gf-search" data-gf-search-form><label>${icon("search")}<input type="search" data-gf-search aria-label="搜索地点" placeholder="搜索地点或地址" value="${esc(search)}" autocomplete="off" ${busy()?"disabled":""}></label><button type="submit" class="gf-text-button" ${busy()?"disabled":""}>搜索</button></form>` : ""}${searchResult ? `<div class="gf-search-result" role="status">${esc(searchResult)}</div>` : ""}<svg class="gf-map" data-gf-map role="application" aria-live="off" tabindex="0" aria-label="${editing?"围栏编辑地图":"围栏查看地图"}，可拖动与缩放，方向键移动地图" viewBox="0 0 400 500" preserveAspectRatio="xMidYMid meet">${baseMap()}<g data-gf-overlay></g></svg><div class="gf-map-tools">${[["zoom-in","plus","放大地图"],["zoom-out","minus","缩小地图"],["fit","scan","查看完整围栏"],["device","locate-fixed","回到设备位置"]].map(([action,glyph,label])=>`<button type="button" data-gf-action="${action}" aria-label="${label}">${icon(glyph)}</button>`).join("")}</div><span class="gf-map-caption">合成地图 · 仅示意范围</span>${editing ? `<p class="gf-map-instruction" data-gf-instruction>${instruction()}</p>` : ""}</div>
     <section class="gf-inspector" aria-label="${editing?"编辑围栏设置":"围栏设置"}" aria-busy="${busy()}">${editing ? `<fieldset class="gf-shapes" ${busy()?"disabled":""}><legend class="gf-sr-only">围栏形状</legend>${[[0,"circle-dashed","圆形"],[1,"pentagon","多边形"]].map(([type,glyph,label])=>`<button type="button" data-gf-shape="${type}" aria-pressed="${f.type===type}">${icon(glyph)}${label}</button>`).join("")}</fieldset>${f.type === 0 ? `<div class="gf-radius-heading"><label for="gf-radius">围栏半径</label><span><input id="gf-radius" data-gf-radius type="number" min="100" max="65535" step="1" inputmode="numeric" value="${f.radius}" ${busy()?"disabled":""}> 米</span></div><input class="gf-radius-slider" data-gf-radius-slider type="range" min="0" max="1000" step="1" value="${radiusToSlider(f.radius)}" aria-label="调整围栏半径" aria-valuetext="${f.radius}米" ${busy()?"disabled":""}><div class="gf-radius-presets">${[100,300,500,1000].map(n=>`<button type="button" data-gf-preset="${n}" aria-pressed="${f.radius===n}" ${busy()?"disabled":""}>${n} 米</button>`).join("")}</div>` : `<div class="gf-polygon-actions"><span data-gf-point-count>${f.vertices.length} / 10 个顶点</span><button type="button" class="gf-text-button" data-gf-action="add-point" aria-pressed="${mode==="add"}" ${busy()?"disabled":""}>${icon("plus")}添加</button><button type="button" class="gf-text-button" data-gf-action="undo" ${!history.length||busy()?"disabled":""}>${icon("undo-2")}撤销</button><button type="button" class="gf-icon-button" data-gf-action="remove-point" aria-label="删除选中的顶点" ${selectedVertex===null||busy()?"disabled":""}>${icon("trash-2")}</button></div>`}
     <div class="gf-setting-row"><label for="gf-direction">提醒条件</label><select id="gf-direction" data-gf-direction ${busy()?"disabled":""}><option value="0" ${f.direction===0?"selected":""}>离开时提醒</option><option value="1" ${f.direction===1?"selected":""}>进入时提醒</option></select></div><div class="gf-setting-row"><span id="gf-enabled-label">启用围栏</span><button type="button" role="switch" class="gf-switch" data-gf-action="toggle" aria-labelledby="gf-enabled-label" aria-checked="${f.status}" ${busy()?"disabled":""}><span></span></button></div>${error?`<p class="gf-error" role="alert">${icon("circle-alert")}${esc(error)}</p>`:""}<div class="gf-edit-footer">${busy()?`<p class="gf-saving" role="status"><span class="gf-spinner"></span>${{sending:"正在下发配置…",confirming:"等待设备确认…",verifying:"正在核对实际值…"}[phase]}</p>`:`<button type="button" class="gf-secondary" data-gf-action="cancel">取消</button><button type="button" class="gf-primary" data-gf-action="save" ${!dirty()?"disabled":""}>保存围栏</button>`}</div>`
-    : `${!owned()?'<p class="gf-access-note">当前分享权限仅可查看围栏。</p>':""}<div class="gf-detail-heading"><h2>${f.type ? "多边形范围" : `半径 ${f.radius} 米`}</h2><span class="gf-status ${f.status?"":"inactive"}">${f.status?"已启用":"已停用"}</span></div><p class="gf-detail-direction">${icon(f.direction?"log-in":"log-out")}${f.direction?"进入":"离开"}时提醒${f.type ? ` · ${f.vertices.length} 个顶点` : " · 圆形围栏"}</p><div class="gf-detail-actions">${busy()?`<p class="gf-saving" role="status"><span class="gf-spinner"></span>${{sending:"正在下发配置…",confirming:"等待设备确认…",verifying:"正在核对实际值…"}[phase]}</p>`:`<span>可拖动或缩放查看范围</span><button type="button" class="gf-text-button gf-danger" data-gf-action="delete" ${!owned()?"disabled":""}>删除围栏</button>`}</div>${notice?`<p class="gf-notice" role="status">${icon("check-circle-2")}${esc(notice)}</p>`:""}`}</section>`;
+    : `${!owned()?'<p class="gf-access-note">当前分享权限仅可查看围栏。</p>':""}<div class="gf-detail-heading"><h2>${!configured(f)?"尚未设置范围":f.type ? "多边形范围" : `半径 ${f.radius} 米`}</h2><span class="gf-status ${f.status?"":"inactive"}">${!configured(f)?"未设置":f.status?"已启用":"已停用"}</span></div>${configured(f)?`<p class="gf-detail-direction">${icon(f.direction?"log-in":"log-out")}${f.direction?"进入":"离开"}时提醒${f.type ? ` · ${f.vertices.length} 个顶点` : " · 圆形围栏"}</p><div class="gf-detail-actions">${busy()?`<p class="gf-saving" role="status"><span class="gf-spinner"></span>${{sending:"正在下发配置…",confirming:"等待设备确认…",verifying:"正在核对实际值…"}[phase]}</p>`:`<span>可拖动或缩放查看范围</span><button type="button" class="gf-text-button gf-danger" data-gf-action="clear" ${!owned()?"disabled":""}>清除配置</button>`}</div>`:'<p class="gf-detail-direction">设置后可在进入或离开时提醒。</p>'}${notice?`<p class="gf-notice" role="status">${icon("check-circle-2")}${esc(notice)}</p>`:""}`}</section>`;
   }
   function dialogMarkup() {
-    const text = dialog.kind === "delete" ? ["删除这个围栏？","删除后将不再监测这个区域，其他围栏保持不变。","删除围栏"] : dialog.kind === "channel" ? ["放弃修改并切换？",`将放弃未保存的修改，通过${dialog.next==="cloud"?"网络":"蓝牙"}重新读取设备围栏。`,"放弃并切换"] : dialog.kind === "more" ? ["围栏操作","删除后会移除设备中的这个围栏。","删除围栏"] : ["放弃本次修改？","尚未保存的范围和提醒设置将被丢弃。","放弃修改"];
-    return `<div class="gf-dialog-backdrop"><section class="gf-dialog" role="dialog" aria-modal="true" aria-labelledby="gf-dialog-title"><h2 id="gf-dialog-title">${text[0]}</h2><p>${text[1]}</p><div><button type="button" class="gf-secondary" data-gf-action="dialog-cancel">${["delete","more"].includes(dialog.kind)?"取消":"继续编辑"}</button><button type="button" class="gf-primary ${["delete","more"].includes(dialog.kind)?"gf-destructive":""}" data-gf-action="dialog-confirm">${text[2]}</button></div></section></div>`;
+    const text = dialog.kind === "clear" ? [`清除${title(current())}的配置？`,"将清除范围和提醒设置，并停止监测该区域。原位置保留，可重新设置；其他围栏保持不变。","清除配置"] : dialog.kind === "channel" ? ["放弃修改并切换？",`将放弃未保存的修改，通过${dialog.next==="cloud"?"网络":"蓝牙"}重新读取设备围栏。`,"放弃并切换"] : ["放弃本次修改？","尚未保存的范围和提醒设置将被丢弃。","放弃修改"];
+    return `<div class="gf-dialog-backdrop"><section class="gf-dialog" role="dialog" aria-modal="true" aria-labelledby="gf-dialog-title"><h2 id="gf-dialog-title">${text[0]}</h2><p>${text[1]}</p><div><button type="button" class="gf-secondary" data-gf-action="dialog-cancel">${dialog.kind==="clear"?"取消":"继续编辑"}</button><button type="button" class="gf-primary ${dialog.kind==="clear"?"gf-destructive":""}" data-gf-action="dialog-confirm">${text[2]}</button></div></section></div>`;
   }
   function baseMap() {
     return `<g class="gf-basemap" pointer-events="none"><rect class="gf-map-land" x="-100000" y="-100000" width="200000" height="200000"/><path class="gf-water" d="M325 -100 C230 80 370 160 290 290 S360 470 290 700 L420 700 Q400 450 350 300 T410 -100Z"/><path class="gf-park" d="M70 160L175 145 198 250 102 285 65 228Z"/><path class="gf-park" d="M215 375L293 380 288 469 207 453Z"/><g class="gf-blocks"><path d="M40 305h60v45H40z M112 308h36v24h-36z M170 290h36v30h-36z M210 278h24v35h-24z M217 151h40v25h-40z M225 195h48v34h-48z M57 365h55v40H57z M125 365h39v30h-39z M176 367h28v38h-28z"/></g><g class="gf-roads-edge"><path d="M-100 120L500 370 M-100 350L500 220 M180 -100L190 150 135 400 145 800 M-100 470L600 480 M-100 295L500 430 M50 -100L60 700 M-100 175L500 130"/></g><g class="gf-roads"><path d="M-100 120L500 370 M-100 350L500 220 M180 -100L190 150 135 400 145 800 M-100 470L600 480 M-100 295L500 430 M50 -100L60 700 M-100 175L500 130"/></g><g class="gf-map-labels"><text x="115" y="210">绿园</text><text x="220" y="185">社区中心</text><text x="150" y="350">海棠社区</text><text x="70" y="414">学校</text><text x="230" y="430">运动公园</text><text x="335" y="345" transform="rotate(-78 335 345)">海棠河</text></g><g class="gf-device-location"><circle cx="205" cy="345" r="5"/><circle cx="205" cy="345" r="2"/></g></g>`;
@@ -184,8 +188,7 @@ window.GeofenceDemo = (() => {
   function confirmDialog() {
     const d=dialog;dialog=null;
     if(d.kind==="channel") switchChannel(d.next);
-    else if(d.kind==="back") { const newItem=adding;clearEdit();if(newItem)selected=null;redraw(); }
-    else if(d.kind==="more") { dialog={kind:"delete"};redraw(); }
+    else if(d.kind==="back") { const wasEmpty=!configured(original);clearEdit();if(wasEmpty)selected=null;redraw(); }
     else save(true);
   }
   function mount(callbacks) {
@@ -194,17 +197,15 @@ window.GeofenceDemo = (() => {
       const b=event.target.closest("button");if(!b||b.disabled)return;
       if(busy()&&!["zoom-in","zoom-out","fit","device"].includes(b.dataset.gfAction))return;
       if(b.dataset.gfChannel){channelRequest(b.dataset.gfChannel);return;}
-      if(b.dataset.gfOpen!==undefined){selected=Number(b.dataset.gfOpen);clearEdit();needFit=true;notice="";redraw();return;}
+      if(b.dataset.gfOpen!==undefined){selected=Number(b.dataset.gfOpen);clearEdit();needFit=true;notice="";if(!configured(current())&&owned())edit();else redraw();return;}
       if(b.dataset.gfShape!==undefined){changeShape(Number(b.dataset.gfShape));return;}
       if(b.dataset.gfPreset){setRadius(b.dataset.gfPreset);root.querySelector("[data-gf-radius]").value=draft.radius;fit();return;}
       switch(b.dataset.gfAction){
         case "back":case "cancel":back();break;
-        case "new":create();break;
         case "retry":read();break;
         case "connect":connect();break;
         case "edit":edit();break;
-        case "more":dialog={kind:"more"};redraw();break;
-        case "delete":dialog={kind:"delete"};redraw();break;
+        case "clear":dialog={kind:"clear",returnFocus: draft?'[aria-label="清除围栏配置"]':'[data-gf-action="clear"]'};redraw();break;
         case "dialog-cancel":focusTarget=dialog.returnFocus||'[data-gf-action="edit"]';dialog=null;redraw();break;
         case "dialog-confirm":confirmDialog();break;
         case "toggle":draft.status=!draft.status;redraw();break;
