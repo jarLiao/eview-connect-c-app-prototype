@@ -7,8 +7,8 @@ sequenceDiagram
     alt 无有效缓存
         App->>API: 复核自有绑定或有效 TRACK 分享
         loop 完整月份分页
-            App->>API: POST events?eventId=GeneralLocation
             App->>API: 后续页重核授权与会话
+            App->>API: POST events?eventId=GeneralLocation
             Note right of App: terms 为月初至下月月初 数值毫秒
             API-->>App: records 和分页元数据
         end
