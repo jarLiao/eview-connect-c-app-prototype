@@ -1,5 +1,5 @@
 flowchart TD
-    A[所有者明确点击查找] --> B{关系与会话有效<br/>当前没有发送任务}
+    A[用户明确点击查找] --> B{自有或有效 COMMAND 授权<br/>会话有效且无发送任务}
     B -->|否| C[拒绝本次操作]
     B -->|是| D[POST function<br/>findMe 与空 JSON 一次]
     D --> E{业务回执有效}

@@ -4,6 +4,7 @@ sequenceDiagram
     participant API as 正式属性接口
     participant Device as 设备
     UI->>Native: 选择网络方式 读取当前页
+    Native->>Native: 自有或对应 CONFIG / GEOFENCE 授权
     Native->>API: GET property 指定参数组
     API->>Device: 查询设备
     Device-->>API: 完整原始组
@@ -12,7 +13,8 @@ sequenceDiagram
     UI->>Native: 提交修改值及开始编辑时读取的参数
     Native->>API: 再 GET 完整组 检查冲突
     API-->>Native: 保存前的设备当前参数
-    Native->>API: POST 完整组 仅替换允许字段
+    Native->>Native: 保存前再核对授权与会话
+    Native->>API: POST 完整组或变化围栏槽位
     API->>Device: 下发设置
     Device-->>API: 设备响应
     API-->>Native: 受理回显
@@ -23,3 +25,5 @@ sequenceDiagram
     API-->>Native: 实际参数组
     Native->>Native: 核对目标值与未改字段
     Native-->>UI: 已确认或结果未确认
+    Note over UI,Native: 围栏保留固定四位置 清除后仍保留原编号
+    Note over API,Device: 历史硬件验证经 HID 中继 不等于蜂窝直连

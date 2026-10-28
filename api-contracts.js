@@ -1,9 +1,9 @@
 // 人工核对层：公开文档不等于 App 已接入；更新时同时核对调用入口和运行门禁。
 const apiBaseline = {
-  reviewed_at: "2026-10-23",
-  android_commit: "a8ae598",
+  reviewed_at: "2026-10-28",
+  android_commit: "cfb1662",
   design: "2026-10-21 产品确认仅 DEVICE 设备分享；人员 / 宠物自有档案管理保留。V0.1 与 10-10 快照仅保留历史来源。",
-  evidence: "Evmars-Mock/document/current/项目当前状态.md；10-19 设备分享、10-20 BLE 绑定、10-21 App 查找、10-22 云端编辑、10-23 统一配置验证记录",
+  evidence: "Evmars-Mock/document/current/项目当前状态.md；10-19 设备分享、10-20 BLE 绑定、10-21 App 查找、10-22 云端编辑、10-23 统一配置、10-26 电话四开关、10-27 围栏保存、10-28 共享统一详情验证记录",
   verification: "本轮仅按代码与既有记录更新说明，不新增服务器或设备操作；各历史记录保持原日期。旧 37 项 OpenAPI 快照未重新采集，当前接入分类不等于全部业务已验收。",
   backend_scope: "后端同事说 App Device / App Subject 是给 App 使用的接口；账号、头像和 AI 的接口能否继续使用，以及服务器代码和版本，还需要后端确认。",
   base_url: "路径相对所选环境 API 根地址（可含 /api/admin 或 /admin）；AI 可被运行时环境覆盖",
@@ -24,17 +24,17 @@ const apiAuthChatBaseline = {
 };
 
 const apiWorkflowBaseline = {
-  reviewed_at: "2026-10-23", android_commit: "a8ae598",
-  scope: "新增设备邀请的 8 项客户端声明；现有 property 与 function 条目同步正式接入范围",
+  reviewed_at: "2026-10-28", android_commit: "cfb1662",
+  scope: "设备邀请 8 项声明、共享统一五标签与独立 scopes；property/function 同步最新读写和授权范围",
   evidence: "AppShareCreationApiService.kt、ShareInvitationApiService.kt、RemoteAppDeviceCloudConfigRepository.kt、RemoteAppDeviceFindCommandRepository.kt",
-  verification: "仅文档与代码核对；10-19 LOCATION-only、10-20 BLE、10-21 查找、10-22 两字段保存记录分别保留。其他权限、蜂窝直连、新位置和最新 BLE 读取缺口仍开放。",
+  verification: "仅文档与代码核对；既有 10-26 电话四开关八次、10-27 围栏四次 App 保存及 ACK/独立回读/恢复按原日期保留；10-28 共享入口、TRACK 与失权已验，真实共享写入、可信型号、蜂窝直连仍待验。用户反馈范工共享请求可通，81 未同步，本轮未重新请求服务器。",
 };
 
 const apiHistoryBaseline = {
-  reviewed_at: "2026-10-26", android_commit: "5ab3127",
-  scope: "历史事件 POST：按日查询、按月日期标记、坐标兼容与平滑回放；独立于 10-10 的 37 项旧快照",
+  reviewed_at: "2026-10-28", android_commit: "cfb1662",
+  scope: "历史事件 POST：日/月复用、坐标兼容与平滑回放、自有关系或共享 TRACK 授权及停留失权清空；独立于旧 37 项快照",
   evidence: "AppDeviceHistoryApi.kt、RemoteAppDeviceHistoryRepository.kt、HistoryTrackPolicy.kt、DeviceHistoryViewModel.kt、HistoryPlayback.kt；10-26 历史轨迹播放日历与模拟上报验证",
-  verification: "既有记录：799 项测试、1.0.219 双包保数据安装、B 包高德中文页面与 71 点 SDK ACK/API/App 模拟验证通过；本轮仅整理发布说明，不新增业务验收。真实硬件移动、定位类型及共享 TRACK 待验。",
+  verification: "既有记录：799 项测试、1.0.219 双包保数据安装、B 包高德中文页面与 71 点 SDK ACK/API/App 模拟验证通过；本轮仅整理发布说明，不新增业务验收。10-28 1.0.232 TRACK-only 共享读取既有71条并在停留页降权后清空通过；真实硬件移动、定位类型及共享真实写入另验。",
 };
 
 const apiCategories = {
@@ -99,16 +99,16 @@ const deviceRows = [
   ["unbind", "DELETE", "/app/device/bind/{id}", "解除设备绑定", "current", ["edit-device", "subject"], "id 是绑定记录 ID。解除关联、设备归属、共享失效的业务边界须分别确认。"],
   ["state", "GET", "/app/device/{deviceId}/state", "设备状态", "current", ["devices", "map", "overview"], "读取在线状态；读取失败标记未知，不能当作离线。电量、信号和位置来自 realtime。"],
   ["realtime", "GET", "/app/device/{deviceId}/realtime", "最新定位与遥测", "current", ["devices", "map", "overview", "location"], "设备列表、地图和云详情读取电量、信号、位置及上报时间；不等于历史轨迹或定位下发已接入。"],
-  ["deviceShares", "GET", "/app/device/{deviceId}/shares", "设备分享记录", "current", ["share", "overview", "edit-device"], "当前仅直接读取分享记录；不自动授予使用者档案访问权。"],
+  ["deviceShares", "GET", "/app/device/{deviceId}/shares", "设备分享记录", "current", ["share", "overview", "edit-device"], "仅直接 DEVICE，不开放使用者档案；10-28 接收者在 SHARE/MANAGER 下设备路径列表仍被拒，所有者正常。再分享可管理记录范围待确认。"],
   ["resolveProduct", "GET", "/app/device/{manufacturer}/{brand}/product", "按厂商与品牌识别产品", "published", ["add-device"], "文档已声明，当前 App 未使用此路径。"],
   ["targets", "GET", "/app/device/targets", "候选绑定目标", "published", ["add-device"], "App 目前从 /app/subjects 选择自有 ACTIVE 对象；此接口返回范围待核对。"],
   ["bindSelf", "POST", "/app/device/bind-self", "绑定到本人", "published", ["add-device"], "当前 App 走显式对象绑定，不能将此路径当作同义替换。"],
   ["unbindSelf", "POST", "/app/device/unbind-devices", "批量解绑本人设备", "published", ["edit-device"], "当前 App 使用绑定 ID 单条解绑，此批量入口尚未接入。"],
   ["switchProduct", "POST", "/app/device/bind/{id}/switch-product", "切换绑定产品", "published", ["edit-device", "config"], "公开文档声明，App 未接入。"],
-  ["deviceShareCreate", "POST", "/app/device/{deviceId}/shares", "创建设备分享", "current", ["share"], "已接入设备分享管理：解析接收人后创建，随后回查发出记录；仅 DEVICE。LOCATION-only 有 10-19 双账号手机记录，其他权限与未注册后注册仍待验。"],
+  ["deviceShareCreate", "POST", "/app/device/{deviceId}/shares", "创建设备分享", "current", ["share"], "已接入设备分享管理：解析接收人后创建，随后回查发出记录；仅 DEVICE。10-28 独立 scopes/MANAGER 入口、TRACK-only 读取及失权有手机记录；真实共享写入、到期和未注册后注册仍待验。"],
   ["propertyRead", "GET", "/app/device/{deviceId}/property", "读取设备属性", "current", ["config", "geofence"], "Prod 正式 App property runtime 已启用，query property 选择完整组；同一物模型页面按网络 / 蓝牙选择读取渠道。历史 /c/v1 占位网关仍不启用。"],
-  ["propertyWrite", "POST", "/app/device/{deviceId}/property", "写设备属性", "current", ["config"], "网络只允许 powerLowAlert.power 和 smsOption.prefix，重读基线、完整组保持、POST 一次并独立 GET 回查；上传组被参数拒绝而禁写，其余项只读或未开放。回显不是硬件 ACK。"],
-  ["function", "POST", "/app/device/{deviceId}/function", "调用设备功能", "current", ["config", "location", "overview"], "已接入 singleLocating 立即定位与 findMe 查找，body 均为 {}。App 只确认受理；设备 ACK、声音和新 GPS 分开验收，结果不明不自动重发。"],
+  ["propertyWrite", "POST", "/app/device/{deviceId}/property", "写设备属性", "current", ["config", "geofence"], "网络已开放低电量、短信前缀、SOS三项、振铃次数、四电话开关和geoAlert保存/清除；保存前复核授权与整组冲突，只改允许字段或围栏槽位，保留未知成员，单次POST后独立GET。上传组禁写，其余项只读；受理、ACK、实际读回分别核对。"],
+  ["function", "POST", "/app/device/{deviceId}/function", "调用设备功能", "current", ["config", "location", "overview"], "已接入 singleLocating 立即定位与 findMe 查找，body 均为 {}。自有设备或具备 COMMAND 的直接分享可请求；App 只确认受理，ACK、声音和新 GPS 分开验收，结果不明不自动重发。"],
   ["events", "GET", "/app/device/{deviceId}/events", "设备事件（旧 GET 快照）", "published", ["messages", "alerts", "overview"], "保留 10-10 文档 GET 快照；10-23 实测该 GET 返回 405，当前历史查询改用单列的 POST。告警列表、推送与未读契约仍不能据此推定。"],
   ["appLocation", "POST", "/app/device/{deviceId}/app-location", "上报 App 位置", "published", ["location", "map"], "文档已声明，当前未接入此路径。"],
   ["alarmState", "POST", "/app/device/{deviceId}/alarm-state", "上报告警状态", "published", ["alerts", "messages"], "文档已声明，当前未接入；与消息已读、告警处置不预设等价。Android 已写好请求代码（2026-10-10），页面尚未调用，仍按“还没用”统计。"],
@@ -123,24 +123,24 @@ apiRegistry.deviceShareCreate.source = "core/remote/share/AppShareCreationApiSer
 apiRegistry.deviceShareCreate.client_contract = { body: "granteeUserId 或 inviteAccount；role、scopes、可选 expiresAt", response: "业务响应后独立回查发出记录；PERSON/PET 本地拒绝" };
 apiRegistry.propertyRead.source = apiRegistry.propertyWrite.source = "core/remote/deviceconfig/RemoteAppDeviceCloudConfigRepository.kt；core/data/deviceconfig/AppCloudConfigContract.kt；feature/webview/DeviceConfigBridgeActions.kt";
 apiRegistry.propertyRead.client_contract = { query: { property: "powerLowAlert / timeInterval / workMode / heartBeat / number / smsOption / sosOption / phoneOption / geoAlert" }, response: "data 内按组名取得完整对象或数组；字段无效不补默认" };
-apiRegistry.propertyRead.note += " 10-27 增量：geoAlert 只读已接入 b278e72 / App 1.0.227，四围栏、网络与蓝牙共页、冷启动离线已验证；原型保存仅为内存演示。";
-apiRegistry.propertyWrite.client_contract = { body: "完整原始参数组，仅替换 powerLowAlert.power 或 smsOption.prefix", response: "POST 受理后独立 GET，核对目标值及同组未改字段" };
+apiRegistry.propertyRead.note += " 10-27 指定设备四围栏网络保存/清除及恢复有四次成功ACK和独立API/HID记录；10-28共享CONFIG/GEOFENCE入口分开，属性GET因离线未闭环。原型读写仍仅内存演示。";
+apiRegistry.propertyWrite.client_contract = { body: "完整原始参数组，只改当前已开放字段；geoAlert按变更槽位保存/清除并保留四位置，CONFIG/GEOFENCE分别校验", response: "POST 受理后独立 GET，核对目标值及同组未改字段" };
 apiRegistry.function.source = "core/remote/location/RemoteAppDeviceLocationCommandRepository.kt；core/remote/devicecommand/RemoteAppDeviceFindCommandRepository.kt；feature/device/cloud/CloudDeviceDetailViewModel.kt";
 apiRegistry.function.client_contract = { query: { functionId: "singleLocating / findMe" }, body: {}, response: "code=0、ok≠false、data 非空字符串；只算请求受理" };
 for (const id of ['state', 'realtime']) apiRegistry[id].pages.push('share');
 registerApi("historyEvents", "POST", "/app/device/{deviceId}/events", "历史位置事件（日查询 / 月日期标记）", "current", ["history", "location"],
-  "query eventId=GeneralLocation；按日取轨迹、按月取有记录日期，复用同一正式接口。terms 的 timestamp 条件使用 JSON 数值毫秒；顶层 startTime/endTime 会被忽略。自有设备完整分页后再展示。",
+  "query eventId=GeneralLocation；按日取轨迹、按月取有记录日期，复用同一正式接口。terms 的 timestamp 条件使用 JSON 数值毫秒；顶层 startTime/endTime 会被忽略。自有设备或有效TRACK共享完整分页后再展示；查询前后及后续页核对授权，停留页每15秒复核失权清空。",
   "core/remote/location/AppDeviceHistoryApi.kt、RemoteAppDeviceHistoryRepository.kt；feature/device/track/DeviceHistoryViewModel.kt",
   { query: { eventId: "GeneralLocation" }, body: { pageIndex: "从 0 开始", pageSize: "100", terms: "timestamp gte startMs / lt endExclusiveMs；值为 JSON 数值毫秒", sorts: "name=timestamp、order=asc" }, response: "ApiResponse：code=0、ok≠false；data 包含 records、total、pages、current、size，完整分页且身份/归属复核通过才返回" });
 Object.assign(apiRegistry.historyEvents, { evidence_kind: "client_supplement", baseline: apiHistoryBaseline,
   contract_status: "当前 POST 声明与认证联调记录；不改写 10-10 的 GET 快照",
-  backend_scope: "历史查询与模拟数据链已有记录；正式坐标/有效性/定位类型契约、共享 TRACK 和真实移动仍待确认/验收" });
+  backend_scope: "自有与TRACK-only共享查询已有记录；正式坐标/有效性/定位类型、真实移动与其他环境完整链仍待验" });
 Object.assign(apiRegistry.events, { baseline: apiHistoryBaseline, contract_status: "旧 GET 快照；当前历史位置使用 POST，GET 实测 405" });
 for (const id of ["subjects", "personBindings", "petBindings"]) apiRegistry[id].pages.push("history");
 const shareWorkflowSource = "core/remote/share/AppShareCreationApiService.kt、ShareInvitationApiService.kt、RemoteShareInvitationRepository.kt；feature/alert/ui/ShareManagementViewModel.kt、ShareInvitationInboxViewModel.kt";
 for (const [id, method, route, title, pages, note] of [
   ["shareGrantee", "GET", "/app/subjects/shares/grantee", "解析分享接收人", ["share"], "query account；registered 决定 granteeUserId / inviteAccount 分支，不虚构用户 ID。"],
-  ["shareReceived", "GET", "/app/subjects/shares/received", "收到的设备邀请", ["share", "messages", "devices"], "App 过滤为 DEVICE；未注册邀请保留 inviteAccount，不从档案授权发现设备。"],
+  ["shareReceived", "GET", "/app/subjects/shares/received", "收到的设备邀请", ["share", "messages", "devices"], "App 过滤为 DEVICE，按当前接收人/ACCEPTED/未到期合并scopes；未注册邀请保留inviteAccount。统一详情逐项授权，失权清空，不从档案授权发现设备。"],
   ["shareGranted", "GET", "/app/subjects/shares/granted", "发出的设备邀请", ["share", "messages"], "当前账号全部发出记录；按 deviceId 和发起人过滤，写入后用它独立回查。"],
   ["shareAccept", "POST", "/app/subjects/shares/{shareId}/accept", "接受设备邀请", ["share", "messages"], "目标接收人处理有效待处理邀请；命令后重读列表确认，不提前报告已接受。"],
   ["shareReject", "POST", "/app/subjects/shares/{shareId}/reject", "拒绝设备邀请", ["share", "messages"], "使用 shareId，超时不自动重发；本地禁止处理旧 PERSON/PET 目标。"],
@@ -151,7 +151,7 @@ for (const [id, method, route, title, pages, note] of [
   registerApi(id, method, route, title, "current", pages, note, shareWorkflowSource);
   Object.assign(apiRegistry[id], { evidence_kind: "client_supplement", baseline: apiWorkflowBaseline,
     contract_status: "当前客户端声明与既有联调记录；不在 10-10 原始快照中",
-    backend_scope: "仅 DEVICE；其他 scopes / MANAGER、租户、到期及未注册后注册等边界仍待确认" });
+    backend_scope: "仅DEVICE；独立scopes/MANAGER入口和撤销清空有10-28记录，在线写入、可信型号、再分享、租户、到期与未注册后注册仍待确认" });
 }
 
 for (const [id, suffix, title, pages, query, note] of [
@@ -218,12 +218,12 @@ for (const [id, path, title, pages, source, display] of [
   `2026-10-12 起 Prod 不再发出此请求，对应 Retrofit 声明已删除。停用前固定机冷启动/进入聊天实测返回 404，停用后完整路径 0 次。页面：${display}。正式接口或确认不提供，待后端答复；见 TRIAL-17。`, source);
 
 for (const [id, title, pages, note] of [
-  ["shareRules", "设备分享剩余权限规则", ["share", "messages"], "主流程已接入且仅 DEVICE；其他 scopes / MANAGER、aigc、未注册后注册、到期和租户权限仍待确认，不再安排人员 / 宠物分享。"],
-  ["tracks", "历史轨迹剩余字段与权限", ["history", "location"], "按日/月查询、日历与地图回放已接入 historyEvents，不缺整套轨迹接口。仍需正式坐标/有效性、定位类型及共享 TRACK 契约；真实硬件移动另验。"],
-  ["geofences", "围栏保存、告警与地点搜索", ["geofence", "location"], "10-27 已接入 geoAlert 正式 GET 及共用只读地图，指定设备四围栏核对通过。网络保存、真实进出告警及名称 / 时间规则仍需契约和验收；本原型模拟保存不代表 App 已开放写入。"],
+  ["shareRules", "设备分享剩余权限规则", ["share", "messages"], "仅 DEVICE，10-28 统一详情与独立 scopes/MANAGER 入口、TRACK及失权有记录。用户反馈范工共享请求可通，81待同步后复验；可信型号、共享写入、再分享、未注册后注册、到期和租户权限仍待验。不安排档案分享。"],
+  ["tracks", "历史轨迹剩余字段与权限", ["history", "location"], "按日/月查询、日历与地图回放已接入 historyEvents，不缺整套轨迹接口。TRACK-only共享读取与失权已验；仍需正式坐标/有效性、定位类型及真实硬件移动验收。"],
+  ["geofences", "围栏告警与剩余能力", ["geofence", "location"], "10-27 App 已接入 geoAlert GET/POST、四位置共用地图、网络保存/清除及独立回读；指定设备四次成功ACK与完整恢复通过。真实进出告警、BLE写入、手绘全流程及共享在线读写另验；名称/时间规则未开放，原型仍只操作合成数据。"],
   ["alerts", "告警、已读与处置", ["alerts", "messages", "ai"], "事件查询不自动涵盖消息列表、未读、已读或告警反馈，Prod 消息入口仍有门禁。"],
-  ["deviceProfile", "设备资料和紧急联系人", ["edit-device"], "对象资料使用 PERSON/PET 路径；设备昵称正式读取与编辑仍待接入，展示统一按编号尾号回退。设备联系人和通话参数已有网络只读，不因此开放写入。"],
-  ["configFlow", "配置执行、OTA 与结果确认", ["config"], "正式 property 已接入且两字段可写，其他项只读 / 未开放；上传组被 Parameter error 拒绝。其他字段、OTA、逐项 ACK / 回查 / 恢复与蜂窝直连仍需联调。"],
+  ["deviceProfile", "设备资料和紧急联系人", ["edit-device"], "对象资料使用 PERSON/PET 路径；设备昵称正式读取与编辑仍待接入，展示按编号尾号回退。号码仍只读；SOS三项和电话次数/四开关已按独立字段开放保存，不把整页视为可写。"],
+  ["configFlow", "配置执行、OTA 与结果确认", ["config"], "正式property已开放低电量、前缀、SOS三项、电话次数/四开关及围栏保存，均保留各自指定设备验收日期；上传组仍被参数拒绝。其余字段、OTA、共享在线保存、其他型号及蜂窝直连另验。"],
   ["oauth", "第三方登录与绑定", ["login", "security"], "原型交互需求；当前未确认第三方登录、账号绑定/解绑、登录设备和注销契约。"],
   ["notifications", "通知偏好与推送", ["notifications", "messages"], "旧推送 Service / UseCase 存在，但未确认主入口调用；通知偏好、token 生命周期和邀请推送需补齐。"],
   ["mapPreferences", "地区与地图服务偏好", ["map-settings"], "当前是本地偏好与 SDK 适配边界；是否需要服务器同步待产品/后端确认，不编造 HTTP 地址。"],
@@ -248,7 +248,7 @@ setApiNeed(["state", "realtime"], "keep", "设备列表、地图和详情需要�
 setApiNeed(["personShares", "petShares", "deviceShares"], "keep", "查看分享记录及归档前检查需要；对象分享读取目前只用于归档检查。");
 setApiNeed(["deviceShareCreate"], "keep", "产品仅保留设备分享，创建、收发和处理已接入；其他权限和异常场景仍待验。");
 setApiNeed(["personShareCreate", "petShareCreate"], "not_now", "产品明确不需要人员 / 宠物档案分享；App 本地拒绝，不作为后续补接项。");
-setApiNeed(["propertyRead", "propertyWrite"], "keep", "统一配置页面已使用正式属性接口；网络仅两字段可写，其余只读或禁用，完整组和独立读回保护保留。");
+setApiNeed(["propertyRead", "propertyWrite"], "keep", "统一配置页面已使用正式属性接口；网络已开放的低电量、前缀、SOS、电话和围栏按字段/槽位保护；上传等未开放项保持只读，完整组与独立读回保护保留。");
 setApiNeed(["function"], "keep", "查找 findMe 和立即定位 singleLocating 已接入；请求受理与设备 ACK、声音、新 GPS 分开验证。");
 setApiNeed(["events"], "not_now", "旧 GET 保留历史文档，当前测试返回 405；历史位置已走 POST，不再安排补接 GET。告警事件另确认类型和契约。");
 setApiNeed(["historyEvents"], "keep", "历史轨迹按日查询与日历按月标记均复用这个 POST；地图、播放和筛选使用其完整记录。");

@@ -11,10 +11,18 @@ sequenceDiagram
     B->>API: POST shareId accept
     B->>API: GET received 确认已接受
     B->>B: 检查身份 有效期与 scopes
-    B->>API: 读取允许的 state 或 realtime
-    API-->>B: 权限内设备数据
+    B->>B: 共用五标签 按每项 scope 控制
+    B->>API: 读取该 scope 允许的数据
+    API-->>B: 成功数据或业务拒绝
+    B->>API: 再核对 received 和会话
+    B->>B: 白名单投影 不透传未知扩展
+    opt 用户明确执行动作
+        B->>API: 重核 COMMAND 或 CONFIG 等权限
+        B->>API: 单次提交 实际结果独立核对
+    end
     A->>API: DELETE 通用 shares 的 shareId
     A->>API: GET granted 确认撤销
-    B->>API: 刷新 received 或共享数据
+    B->>API: 前台每15秒复核 received
     API-->>B: 授权已失效或读取被拒
-    B->>B: 清除受限数据
+    B->>B: 清除受限数据 停止旧任务和回放
+    Note over API,B: 范工共享请求可通为用户反馈 81待同步回归

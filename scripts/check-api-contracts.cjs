@@ -22,11 +22,11 @@ const workflows = supplements.filter(api => !api.path.startsWith('/app/evaigc/')
 assert.deepEqual(insights.map(api => api.id).sort(), ['insightOverview', 'insightHealth', 'insightAlerts', 'insightAnalysis'].sort());
 assert(insights.every(api => api.category === 'current' && !api.document && api.baseline.android_commit === '86fa2f9'));
 assert.deepEqual(workflows.map(api => api.id).sort(), ['shareGrantee', 'shareReceived', 'shareGranted', 'shareAccept', 'shareReject', 'shareRevoke', 'shareResend', 'shareUpdate'].sort());
-assert(workflows.every(api => api.category === 'current' && !api.document && api.baseline.android_commit === 'a8ae598' && api.baseline.reviewed_at === '2026-10-23'));
+assert(workflows.every(api => api.category === 'current' && !api.document && api.baseline.android_commit === 'cfb1662' && api.baseline.reviewed_at === '2026-10-28'));
 assert.equal(history.length, 1);
 assert.equal(history[0].method, 'POST');
 assert.equal(history[0].path, '/app/device/{deviceId}/events');
-assert(history.every(api => api.category === 'current' && !api.document && api.baseline.android_commit === '5ab3127' && api.baseline.reviewed_at === '2026-10-26' && api.pages.includes('history')));
+assert(history.every(api => api.category === 'current' && !api.document && api.baseline.android_commit === 'cfb1662' && api.baseline.reviewed_at === '2026-10-28' && api.pages.includes('history')));
 assert(apis.find(api => api.id === 'events').note.includes('405'));
 assert(apis.find(api => api.id === 'tracks').note.includes('已接入'));
 assert.deepEqual(app.map(api => `${api.method} ${api.path}`).sort(), documentApp, '完整覆盖 App 文档的方法+路径，不能重复或漏项');

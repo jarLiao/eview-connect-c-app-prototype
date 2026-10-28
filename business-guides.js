@@ -2,7 +2,7 @@
 const businessGuides = {
   devices: {
     title: "设备列表技术说明", file: "device-list.html", pages: ["devices"],
-    reviewedAt: "2026-10-23", baseline: "a8ae598",
+    reviewedAt: "2026-10-28", baseline: "cfb1662",
     source: "RemoteAppDeviceReadRepository.kt / HomeScreen.kt / DeviceListScreen.kt / CloudSubjectFilter.kt / SharedDeviceReader.kt",
     lead: "本人设备按人员 / 宠物绑定聚合；直接分享给我的设备单独校验授权，并入设备列表展示。",
     scope: "地图顶部按人选择其关联设备，设备列表包含自有设备与直接 DEVICE 分享。档案分享及其继承设备已移出范围。",
@@ -72,7 +72,7 @@ const businessGuides = {
       },
       { id: "gaps", title: "哪些内容还要补", summary: "长期观察、其他授权和提醒数据仍待补验",
         rules: [
-          ["共享设备列表","直接 DEVICE 的 LOCATION-only 在 10-19 有真实双账号记录；其他 scopes / MANAGER、到期及未注册后注册场景仍待验。"],
+          ["共享设备列表","直接 DEVICE 的 LOCATION-only 在 10-19 有真实双账号记录；10-28 独立 scopes / MANAGER 入口、TRACK-only 读取及失权清空已有记录；真实写入、到期及未注册后注册仍待验。"],
           ["设备展示资料","命名回退已统一；Prod 正式昵称来源、地址和用途仍待接入，产品缺失展示与长期刷新按各自验收边界处理。"],
           ["提醒数据","待处理数量、最近告警和处理状态尚未接入当前列表，需确认来源。"],
         ],
@@ -216,7 +216,7 @@ const businessGuides = {
   },
   overview: {
     title: "设备详情技术说明", file: "device-detail.html", pages: ["overview","health","alerts"],
-    reviewedAt: "2026-10-23", baseline: "a8ae598",
+    reviewedAt: "2026-10-28", baseline: "cfb1662",
     source: "feature:device/cloud/CloudDeviceDetailViewModel.kt / UnifiedCloudDeviceDetailScreen.kt / CloudDeviceInsightViewModel.kt / SharedDeviceReader.kt",
     lead: "设备基础状态与健康告警分开读取；基础信息先显示，规则结果返回后再补 AI 内容。",
     scope: "Mock 与 Prod 共用 feature:device 的云详情结构；自有与直接分享设备分别校验关系和权限。健康 / 告警读取取决于当前环境及授权。",
@@ -272,17 +272,17 @@ const businessGuides = {
         rules: [
           ["环境差异","10-21 在 81 有中英文概览及健康周期切换记录；健康样本和实际告警缺失时，不能确认统计准确性或真实告警解释。"],
           ["服务端问题","健康分析时段、风险窗口口径及定位距离异常待处理；不能把当前 AI 输出视为已校准结论。"],
-          ["尚未形成完整流程","真实持续移动、告警处置与推送、轨迹和围栏仍未闭环。设备分享、统一配置、查找已有独立说明，分别按各自限定证据判断。"],
+          ["尚未形成完整流程","真实持续移动、告警处置与推送仍待验。10-28 共享五标签与 TRACK 读取已接入，10-27 网络围栏保存/清除有指定设备证据，真实进出告警另验。设备分享、统一配置、查找已有独立说明，分别按各自限定证据判断。"],
         ],
       },
     ],
   },
   location: {
     title: "地图与立即定位技术说明", file: "device-location.html", pages: ["map","location"],
-    reviewedAt: "2026-10-23", baseline: "a8ae598",
+    reviewedAt: "2026-10-28", baseline: "cfb1662",
     source: "HomeScreen.kt / CloudSubjectFilter.kt / CloudDeviceMapProjection.kt / RemoteAppDeviceLocationCommandRepository.kt",
     lead: "地图显示设备最后一次有效上报；立即定位只发指令，新的位置仍从 realtime 获取。",
-    scope: "首页地图顶部按人选择自有关联设备；详情展示单台最后有效位置。直接共享设备按 LOCATION 权限进入只读查看，不承诺持续追踪。",
+    scope: "首页地图顶部按人选择自有关联设备；详情展示单台最后有效位置。直接共享设备共用五标签详情，按 LOCATION 查看位置、按 COMMAND 请求定位；持续硬件追踪另验。",
     related: ["history"],
     sections: [
       { id: "apis", title: "用哪些接口", summary: "读取位置和下发指令分开",
@@ -337,63 +337,199 @@ const businessGuides = {
     ],
   },
   history: {
-    title: "历史轨迹技术说明", file: "history-track.html", pages: ["history"],
-    reviewedAt: "2026-10-26", baseline: "5ab3127",
-    source: "AppDeviceHistoryApi.kt / RemoteAppDeviceHistoryRepository.kt / HistoryTrackPolicy.kt / DeviceHistoryViewModel.kt / HistoryPlayback.kt / HistoryCalendarDialog.kt / HistoryPlaybackRenderer.kt",
-    lead: "轨迹与日历复用同一个事件查询接口；地图、进度和记录列表共用回放状态。",
-    scope: "当前 App 开放自有设备。原型继续使用合成地图和演示类型筛选，不请求服务器；App 的定位类型筛选与共享 TRACK 权限尚未开放。",
-    related: ["location", "devices"],
-    sections: [
-      { id: "apis", title: "用哪些接口", summary: "一个事件 POST 查询，复用自有关系核对",
-        apis: [
-          ["historyEvents", "按日取轨迹、按月取日期标记", "query：eventId=GeneralLocation；两种用途只改变时间范围"],
-          ["subjects", "发现当前自有对象", "查询前后复核设备归属，复用设备发现流程"],
-          [["personBindings", "petBindings"], "检查对象与设备绑定", "沿用当前所有者的绑定，不改绑或创建样本"],
-        ],
-        fields: [
-          ["请求体", "pageIndex=0、pageSize=100", "terms 使用 timestamp gte startMs / lt endExclusiveMs，value 为 JSON 数值毫秒；sorts 使用 name=timestamp、order=asc。"],
-          ["日期范围", "手机 IANA 时区", "日查询为当天零点至次日零点；月查询为月初零点至下月月初。沿用公共 X-TimeZone 与 lang。"],
-          ["响应", "records / total / pages / current / size", "检验 HTTP 与 code / ok、分页元数据及 ID；完整分页并复核身份/归属后才返回。最多 100 页、60 秒有界查询。"],
-        ],
-        notes: ["顶层 startTime/endTime 会被忽略；旧 GET 在 10-23 实测 405，不能照旧快照调用。历史位置不拼 realtime 当前点，也不发送定位指令。"],
-      },
-      { id: "records", title: "记录怎么校验和绘图", summary: "原始记录保留，显示层按来源策略转换",
-        fields: [
-          ["id", "稳定记录 ID", "保持无损；重复、变更、缺页等使整次查询失败，不展示半条轨迹。"],
-          ["timestamp / dateTime", "事件时间 / 设备定位时间", "分别解析有效的 12–13 位毫秒值；按定位时间排序，均须属于所查本地日期。"],
-          ["lat / lng", "原始坐标", "必须是有限 JSON 数值，拒绝越界、零坐标对和显式 locStatus=x。"],
-          ["coordinateSystem", "指定历史来源的兼容政策", "仅缺字段时默认 WGS84；显式 WGS84/GCJ02 优先，null 或未知不绘点。地图层只转换一次。"],
-        ],
-        notes: ["沿用 Smart Locator / Katchu 的来源政策：国内高德/Google 普通道路图使用 GCJ-02，境外原值；MapLibre 使用 WGS84。GPS 有效性仍为 UNKNOWN，兼容显示不冒充服务端正式确认；不从 data、statusCode 或当前实时状态猜定位类型。"],
-      },
-      { id: "playback", title: "地图、播放和列表怎么联动", summary: "静态路线加单游标，动画不重建整张地图",
-        rules: [
-          ["共用状态", "记录 ID、当前索引和播放进度同属 ViewModel；点地图记录、点列表或拖进度后同步选中位置。"],
-          ["回放节奏", "至少两条且均可绘点才播放。1× 按有效记录时间压缩至 20–60 秒，2×/4× 在此基础上加速；点间平滑移动，暂停保留位置，到末条停止，再播从头开始。"],
-          ["地图视野", "首次或播放时展示路线全览；播放过程不逐点追镜头。静态记录点抽样减量，移动游标与已播放线单独更新；全览按钮可回位。"],
-          ["断点与暂停", "原记录不相邻、超过 30 分钟、时间逆序、速度跳点超过 100m/s 或坐标系变化均断线。改日、筛选、打开日历、离页或后台暂停；插值不写回服务器。"],
-        ],
-        diagrams: [{ title: "查询与展示流程", file: "history-track-flow.svg" }],
-      },
-      { id: "calendar", title: "日历与失败状态怎么处理", summary: "整月查询成功才判断有无数据",
-        rules: [
-          ["日期标记", "完整月记录按手机时区归组，可显示记录的日期下方标点；无记录的过去日期仍可选，未来日期不可选。"],
-          ["缓存", "按当前设备/会话、月份和时区隔离，60 秒、最多 6 个月；刷新或改日清缓存。取消、切月或身份变化丢弃迟到结果。"],
-          ["查询失败", "日期标记保持未知并允许手动选日；不能把未加载、网络失败、分页异常或超限当成无记录。日轨迹失败提供重试，空日清除旧图。"],
-          ["单点与筛选", "单点可查看但不能播放；时段在当天完整记录中本地筛选，包含起止分钟。定位类型筛选等待正式字段映射。"],
-        ],
-        notes: ["当前没有新增日期统计端点；大月数据量建议后端提供按日聚合，不能以当前小样本查询代替容量验收。"],
-        diagrams: [{ title: "日历与日查询时序", file: "history-track-sequence.svg" }],
-      },
-      { id: "validation", title: "哪些已验证，哪些还要补", summary: "既有 App 验证与本页合成演示分开",
-        rules: [
-          ["10-26 既有验证", "799 项相关测试、Prod/Mock/B 构建、1.0.219 双包保数据安装；B 包高德中文的回放、暂停/拖动/倍速、日历标记与空日通过。"],
-          ["模拟链路", "指定测试设备新增 71 个 SDK 合成点，协议 ACK、独立 API 与 App 显示匹配；结束离线，原绑定保持，数据留存。不证明真实硬件移动。"],
-          ["仍待确认/验收", "服务端正式坐标与有效性、定位类型、共享 TRACK、真实持续上报及移动精度；其他机型、英文/深色及 Google/MapLibre 新增原生绘图按各自范围验收。"],
-        ],
-        notes: ["本轮只更新原型技术说明与发布，未重新执行 Android 构建、设备操作或上述业务验证。"],
-      },
+    "title": "历史轨迹技术说明",
+    "file": "history-track.html",
+    "pages": [
+      "history"
     ],
+    "reviewedAt": "2026-10-28",
+    "baseline": "cfb1662",
+    "source": "AppDeviceHistoryApi.kt / RemoteAppDeviceHistoryRepository.kt / HistoryTrackPolicy.kt / DeviceHistoryViewModel.kt / HistoryPlayback.kt / HistoryCalendarDialog.kt / HistoryPlaybackRenderer.kt / RemoteDeviceAccess.kt / SharedDeviceReader.kt",
+    "lead": "自有设备或已获 TRACK 授权的共享设备复用同一历史页；日历、轨迹、进度和记录列表共用查询与回放状态。",
+    "scope": "仅直接 DEVICE 分享；TRACK 独立于 LOCATION。原型继续使用合成轨迹与类型筛选演示，不请求服务器；正式 App 的定位类型映射与真实移动精度仍待确认。",
+    "related": [
+      "sharing",
+      "location",
+      "devices"
+    ],
+    "sections": [
+      {
+        "id": "apis",
+        "title": "用哪些接口",
+        "summary": "同一事件 POST，查询前后核对所有权或 TRACK 授权",
+        "apis": [
+          [
+            "historyEvents",
+            "按日取轨迹、按月取日期标记",
+            "query：eventId=GeneralLocation；两种用途只改变时间范围"
+          ],
+          [
+            "subjects",
+            "发现当前自有对象",
+            "用于确认自有设备；不向共享接收者开放所有者档案"
+          ],
+          [
+            [
+              "personBindings",
+              "petBindings"
+            ],
+            "检查对象与设备绑定",
+            "自有设备核对绑定；共享设备改按有效 TRACK 授权核对，不创建绑定"
+          ],
+          [
+            "shareReceived",
+            "核对当前接收人的直接设备授权",
+            "非自有设备仅接受 ACCEPTED、未撤销且未到期的 DEVICE 分享；需要 TRACK"
+          ]
+        ],
+        "fields": [
+          [
+            "请求体",
+            "pageIndex=0、pageSize=100",
+            "terms 使用 timestamp gte startMs / lt endExclusiveMs，value 为 JSON 数值毫秒；sorts 使用 name=timestamp、order=asc。"
+          ],
+          [
+            "日期范围",
+            "手机 IANA 时区",
+            "日查询为当天零点至次日零点；月查询为月初零点至下月月初。沿用公共 X-TimeZone 与 lang。"
+          ],
+          [
+            "响应",
+            "records / total / pages / current / size",
+            "检验 HTTP、code / ok、分页元数据及 ID；完整分页并复核身份和访问权限后才返回。每页继续复核上下文，后续分页再次核对授权；最多 100 页、60 秒有界查询。"
+          ]
+        ],
+        "notes": [
+          "顶层 startTime/endTime 会被忽略；旧 GET 在 10-23 实测 405，不能照旧快照调用。历史位置不拼 realtime 当前点，也不发送定位指令。"
+        ]
+      },
+      {
+        "id": "records",
+        "title": "记录怎么校验和绘图",
+        "summary": "原始记录保留，显示层按来源策略转换",
+        "fields": [
+          [
+            "id",
+            "稳定记录 ID",
+            "保持无损；重复、变更、缺页等使整次查询失败，不展示半条轨迹。"
+          ],
+          [
+            "timestamp / dateTime",
+            "事件时间 / 设备定位时间",
+            "分别解析有效的 12–13 位毫秒值；按定位时间排序，均须属于所查本地日期。"
+          ],
+          [
+            "lat / lng",
+            "原始坐标",
+            "必须是有限 JSON 数值，拒绝越界、零坐标对和显式 locStatus=x。"
+          ],
+          [
+            "coordinateSystem",
+            "指定历史来源的兼容政策",
+            "仅缺字段时默认 WGS84；显式 WGS84/GCJ02 优先，null 或未知不绘点。地图层只转换一次。"
+          ]
+        ],
+        "notes": [
+          "沿用 Smart Locator / Katchu 的来源政策：国内高德/Google 普通道路图使用 GCJ-02，境外原值；MapLibre 使用 WGS84。GPS 有效性仍为 UNKNOWN，兼容显示不冒充服务端正式确认；不从 data、statusCode 或当前实时状态猜定位类型。"
+        ]
+      },
+      {
+        "id": "playback",
+        "title": "地图、播放和列表怎么联动",
+        "summary": "静态路线加单游标，动画不重建整张地图",
+        "rules": [
+          [
+            "共用状态",
+            "记录 ID、当前索引和播放进度同属 ViewModel；点地图记录、点列表或拖进度后同步选中位置。"
+          ],
+          [
+            "回放节奏",
+            "至少两条且均可绘点才播放。1× 按有效记录时间压缩至 20–60 秒，2×/4× 在此基础上加速；点间平滑移动，暂停保留位置，到末条停止，再播从头开始。"
+          ],
+          [
+            "地图视野",
+            "首次或播放时展示路线全览；播放过程不逐点追镜头。静态记录点抽样减量，移动游标与已播放线单独更新；全览按钮可回位。"
+          ],
+          [
+            "断点与暂停",
+            "原记录不相邻、超过 30 分钟、时间逆序、速度跳点超过 100m/s 或坐标系变化均断线。改日、筛选、打开日历、离页或后台暂停；插值不写回服务器。"
+          ]
+        ],
+        "diagrams": [
+          {
+            "title": "查询与展示流程",
+            "file": "history-track-flow.svg"
+          }
+        ]
+      },
+      {
+        "id": "calendar",
+        "title": "日历与失败状态怎么处理",
+        "summary": "整月查询成功才判断有无数据",
+        "rules": [
+          [
+            "日期标记",
+            "完整月记录按手机时区归组，可显示记录的日期下方标点；无记录的过去日期仍可选，未来日期不可选。"
+          ],
+          [
+            "缓存",
+            "按当前设备/会话、月份和时区隔离，60 秒、最多 6 个月；刷新或改日清缓存。取消、切月或身份变化丢弃迟到结果。"
+          ],
+          [
+            "查询失败",
+            "日期标记保持未知并允许手动选日；不能把未加载、网络失败、分页异常或超限当成无记录。日轨迹失败提供重试，空日清除旧图。"
+          ],
+          [
+            "单点与筛选",
+            "单点可查看但不能播放；时段在当天完整记录中本地筛选，包含起止分钟。定位类型筛选等待正式字段映射。"
+          ],
+          [
+            "停留期间失权",
+            "历史页前台每 15 秒复核会话与 TRACK 访问权；撤销、到期或移除 TRACK 后取消查询，清空记录、路线、选中、播放及日历缓存，关闭日历和筛选弹层。权限检查失败也清除旧数据，不能继续播放缓存轨迹。"
+          ]
+        ],
+        "notes": [
+          "当前没有新增日期统计端点；大月数据量建议后端提供按日聚合，不能以当前小样本查询代替容量验收。"
+        ],
+        "diagrams": [
+          {
+            "title": "日历与日查询时序",
+            "file": "history-track-sequence.svg"
+          }
+        ]
+      },
+      {
+        "id": "validation",
+        "title": "哪些已验证，哪些还要补",
+        "summary": "保留 10-26 模拟验证，补充 10-28 双账号 TRACK 读取与降权",
+        "rules": [
+          [
+            "10-26 既有验证",
+            "799 项相关测试、Prod/Mock/B 构建、1.0.219 双包保数据安装；B 包高德中文的回放、暂停/拖动/倍速、日历标记与空日通过。"
+          ],
+          [
+            "模拟链路",
+            "指定测试设备新增 71 个 SDK 合成点，协议 ACK、独立 API 与 App 显示匹配；结束离线，原绑定保持，数据留存。不证明真实硬件移动。"
+          ],
+          [
+            "10-28 共享验证",
+            "1.0.232 主包在 81:480 仅获 TRACK 时查询 10-26 的既有 71 条模拟记录，日历和回放入口通过；停留历史页移除 TRACK 后显示无权查看、0 条并清空路线与播放。临时分享已撤销，原分享及绑定保持。"
+          ],
+          [
+            "仍待确认/验收",
+            "服务端正式坐标与有效性、定位类型、共享真实移动轨迹、持续硬件上报及精度；其他机型、英文/深色及 Google/MapLibre 新增原生绘图按各自范围验收。到期与账号隔离的本地测试不代替完整真实异常链。"
+          ]
+        ],
+        "notes": [
+          "本轮只更新原型技术说明与发布，未重新执行 Android 构建、设备操作或上述业务验证。"
+        ]
+      }
+    ],
+    "apiPages": [
+      "history",
+      "share",
+      "location"
+    ]
   },
   account: {
     title: "账号资料与头像技术说明", file: "account-profile.html", pages: ["account"],
@@ -589,134 +725,471 @@ const businessGuides = {
     ],
   },
   configuration: {
-    title: "网络与蓝牙统一设备配置技术说明", file: "device-configuration.html", pages: ["config","geofence"],
-    reviewedAt: "2026-10-23", baseline: "a8ae598",
-    source: "AppCloudConfigContract.kt / RemoteAppCloudConfigRuntime.kt / RemoteAppDeviceCloudConfigRepository.kt / DeviceConfigBridgeActions.kt",
-    lead: "网络和蓝牙共用同一套配置页面。先读取设备参数，再修改保存；切换连接方式后，重新读取设备数据。",
-    scope: "当前复用原 EV07B 物模型的 28 项菜单，各项能否读写取决于所选连接方式。网络仅开放低电量阈值和短信前缀保存；其他字段只读或禁用。",
-    related: ["bindings","finding"],
-    sections: [
-      { id: "apis", title: "用哪些接口", summary: "网络走正式 property；蓝牙走本地协议",
-        apis: [
-          ["product","核对设备产品","自有关系确认后选择支持的物模型包"],
-          ["propertyRead","读取设备完整参数组","GET query：property=powerLowAlert 等组名"],
-          ["propertyWrite","保存允许修改的完整组","POST JSON：组名包裹完整原始组，仅替换允许字段"],
-        ],
-        notes: [
-          "BLE 复用原 GATT / 协议映射和风险确认；没有独立的“蓝牙 HTTP 保存接口”。",
-          "Prod 使用正式 App property runtime，不启用历史 /c/v1 占位云网关。页面按账号、环境、设备和所选连接方式隔离数据。",
-        ],
-      },
-      { id: "flow", title: "业务流程怎么走", summary: "选网络或蓝牙 → 读参数 → 修改保存 → 再读确认",
-        steps: [
-          ["选择方式并读取","确认是自己的设备且型号支持配置，打开同一配置页面，选择“网络”或“蓝牙”，读取设备当前参数。没有读到的值保持空白，不用默认值代替。"],
-          ["修改并保存","只修改当前连接方式允许的字段。网络保存前再次读取整组参数，与开始编辑时读到的值比较；有变化就停止并提示重新编辑，没有变化才保留其他字段、发送一次保存请求。蓝牙继续执行原有整组校验和风险确认。"],
-          ["重新读取确认结果","保存后另发一次读取，核对修改值和其余参数是否符合预期。提交接口的回显、设备 ACK 与实际参数回读分别确认；超时或核对不一致时先重新读取，不自动重复保存。"],
-          ["切换网络或蓝牙","有未保存修改时，先让用户选择继续编辑，或放弃修改并切换。确认切换后取消旧读取，清空旧值、未保存修改及原风险确认，再通过新方式读取；旧方式晚到的结果不覆盖新值。"],
-        ],
-        diagrams: [
-          {"title":"设备配置与连接方式切换流程","file":"configuration-flow.svg"},
-          {"title":"网络保存与独立回查时序","file":"configuration-sequence.svg"},
-        ],
-        notes: [
-          "这里的“修改前读取值”是开始编辑时从设备读到的参数，用于检查保存前是否发生变化。文末的 Android 提交号则标识本说明对应的代码版本。",
-        ],
-      },
-      { id: "fields", title: "哪些字段可以操作", summary: "网络两字段可写，其余按范围只读",
-        fields: [
-          ["低电量","powerLowAlert.power","网络只修改阈值，不自动开启提醒；status 与未改字段保持，SDK 派生 flag 按阈值差量核对。"],
-          ["短信前缀","smsOption.prefix","网络只改 prefix；保留短信开关、密码及其他原始成员，不把联系人页整体视为可写。"],
-          ["定位上报","timeInterval、workMode、heartBeat","当前网络只读；上传组保存被 Parameter error 拒绝，页面与 Native 均阻止上传间隔编辑。"],
-          ["联系人和通话","number、sosOption、phoneOption、smsOption","网络读取已接入，联系人位置和空项保留；号码、SOS、通话及短信开关不开放保存。"],
-          ["地理围栏（10-27 增量）","geoAlert","b278e72 / App 1.0.227 已接入官方 GET：按原 index 展示四围栏，网络只读及地图查看；网络保存和真实进出告警未验。原型按产品决策固定围栏 1～4，取消新建，清除后保留位置和编号；全屏编辑、启停与保存仅改变当前页面内存，不代表已修改 App 或确认固件数量上限。"],
-          ["其他物模型项","原菜单属性、页面和 BLE 映射","网络没有映射的字段原位禁用；蓝牙支持情况按产品 / 固件、连接和执行守卫判断。"],
-        ],
-      },
-      { id: "failure", title: "失败和迟到结果怎么处理", summary: "先隔离上下文，再确认结果",
-        rules: [
-          ["切换后旧结果返回","旧连接方式的读取、状态查询和缓存不能覆盖当前值；App 只接受仍属于当前连接方式和当前读取任务的结果。"],
-          ["离线或不可读","显示明确离线 / 不支持，不用旧连接方式的数值或默认值伪装新读值；未成功读取设备参数、保存中或不可读时禁用保存。"],
-          ["数据变化或结果不明","保存前重读发现参数变化就停止；取消、超时、返回数据缺失或保存后核对不一致时要求重新读取，不自动重复保存。"],
-          ["权限和业务拒绝","Parameter error 按参数拒绝展示，不误报为用户无权限；身份或环境改变后拒绝旧操作。"],
-        ],
-      },
-      { id: "gaps", title: "已验证与待补内容", summary: "两字段旧保存证据与本轮读取分开",
-        rules: [
-          ["已有网络保存","10-22 指定 EV07BA 的低电量 30→29→30、短信前缀原值→测试值→原值，有 App、真实 ACK、独立 API / HID 和恢复记录。"],
-          ["统一页面验证","10-23 同一 28 项菜单及网络低电量、工作模式、联系人组合读取通过，参数和绑定保持；该轮未保存参数。"],
-          ["BLE 当前边界","10-20 有身份与低电量 / Server 保存恢复记录；10-23 新旧入口同设备对照均报 BLE_GATT_UNAVAILABLE，不把旧缓存计为本轮读取通过。"],
-          ["围栏原型增量（10-27）","固定四个位置，未设置点去设置，已设置点查看 / 编辑；清除范围和提醒后恢复未设置，其他编号不变。紧凑列表和全屏地图共用网络 / 蓝牙渠道及同一份数据；圆形中心 / 半径、多边形选点 / 拖点 / 撤销、取消和切换草稿确认可演示。仅进入 / 离开二选一，没有向服务器或设备发送保存。"],
-          ["仍待完成","上传组服务端拒绝、其他字段逐项读写 / ACK / 恢复、其他型号固件和稳定性、真实蜂窝直连。HID 中继只证明该中继链路。"],
-        ],
-      },
+    "title": "网络与蓝牙统一设备配置技术说明",
+    "file": "device-configuration.html",
+    "pages": [
+      "config",
+      "geofence"
     ],
+    "reviewedAt": "2026-10-28",
+    "baseline": "cfb1662",
+    "source": "AppCloudConfigContract.kt / RemoteAppCloudConfigRuntime.kt / RemoteAppDeviceCloudConfigRepository.kt / CloudPhoneOptionsRules.kt / CloudGeofenceEditor.kt / CloudDeviceConfigViewModel.kt / DeviceConfigBridgeActions.kt",
+    "lead": "网络与蓝牙共用原物模型菜单、表单和围栏地图；按型号、连接方式、当前授权及已验收字段决定可读可写范围。",
+    "scope": "完整型号配置需要可信产品标识；当前网络编辑器支持 ev07b。共享 CONFIG 与 GEOFENCE 分别校验，缺可信型号时仅提供基础低电量流程和独立围栏只读摘要，不借用所有者 BLE 身份。原型保存仍为内存演示。",
+    "related": [
+      "sharing",
+      "finding",
+      "history"
+    ],
+    "sections": [
+      {
+        "id": "apis",
+        "title": "用哪些接口",
+        "summary": "网络走正式 property；蓝牙走本地协议",
+        "apis": [
+          [
+            "product",
+            "核对设备产品",
+            "自有关系确认后选择支持的物模型包"
+          ],
+          [
+            "propertyRead",
+            "读取设备完整参数组",
+            "GET query：property=powerLowAlert 等组名"
+          ],
+          [
+            "propertyWrite",
+            "保存允许修改的完整组",
+            "POST JSON：组名包裹完整原始组，仅替换允许字段"
+          ],
+          [
+            "shareReceived",
+            "共享设备按独立 scope 复核",
+            "参数组使用 CONFIG，geoAlert 使用 GEOFENCE；两者不互相放行"
+          ]
+        ],
+        "notes": [
+          "BLE 复用原 GATT / 协议映射和风险确认；没有独立的“蓝牙 HTTP 保存接口”。",
+          "Prod 使用正式 App property runtime，不启用历史 /c/v1 占位云网关。页面按账号、环境、设备和所选连接方式隔离数据。"
+        ]
+      },
+      {
+        "id": "flow",
+        "title": "业务流程怎么走",
+        "summary": "选网络或蓝牙 → 读参数 → 修改保存 → 再读确认",
+        "steps": [
+          [
+            "选择方式并读取",
+            "确认自有关系，或共享设备具备对应 CONFIG / GEOFENCE 授权，并确认可信型号与当前可用连接方式。完整配置共用同一菜单、表单与地图；共享设备缺型号时仅进入基础配置或围栏只读摘要。读取不到的值保持未读取，不填默认值。"
+          ],
+          [
+            "修改并保存",
+            "只修改当前连接方式已开放的字段。网络保存前重读完整参数组并核对冲突，保留未改和未知成员；再次检查会话及授权后单次发送。电话派生 flag 只改变编辑字段对应位；短信白名单页面业务值与协议 raw 值相反。蓝牙继续执行原有整组校验和风险确认。"
+          ],
+          [
+            "重新读取确认结果",
+            "保存后另发一次读取，核对修改值和其余参数是否符合预期。提交接口的回显、设备 ACK 与实际参数回读分别确认；超时或核对不一致时先重新读取，不自动重复保存。"
+          ],
+          [
+            "切换网络或蓝牙",
+            "有未保存修改时，先让用户选择继续编辑，或放弃修改并切换。确认切换后取消旧读取，清空旧值、未保存修改及原风险确认，再通过新方式读取；旧方式晚到的结果不覆盖新值。"
+          ]
+        ],
+        "diagrams": [
+          {
+            "title": "设备配置与连接方式切换流程",
+            "file": "configuration-flow.svg"
+          },
+          {
+            "title": "网络保存与独立回查时序",
+            "file": "configuration-sequence.svg"
+          }
+        ],
+        "notes": [
+          "这里的“修改前读取值”是开始编辑时从设备读到的参数，用于检查保存前是否发生变化。文末的 Android 提交号则标识本说明对应的代码版本。"
+        ]
+      },
+      {
+        "id": "fields",
+        "title": "哪些字段可以操作",
+        "summary": "明确已开放字段、只读项和固定四个围栏",
+        "fields": [
+          [
+            "低电量阈值",
+            "powerLowAlert.power",
+            "仅改阈值，status 及未改成员保持；SDK 派生 flag 按差量核对。"
+          ],
+          [
+            "短信回复前缀",
+            "smsOption.prefix",
+            "只改 prefix；短信开关、密码及未知成员原样保留。"
+          ],
+          [
+            "SOS 三项",
+            "sosOption.holdTime / ringsTime / loops",
+            "已开放三项参数保存；holdTime 为允许通话时长，ringsTime 为响铃时长，loops 为循环次数。参数保存验收不等于实际拨号或 SOS 事件验收。"
+          ],
+          [
+            "振铃次数",
+            "phoneOption.autoAnswerSeconds",
+            "界面按次数展示，范围 0～10；字段名不直接当作秒数解释。"
+          ],
+          [
+            "电话四开关",
+            "autoAnswer / callInWhiteList / enableButtonHangup / smsWhiteList",
+            "已开放自动接听、来电白名单、按键挂断、短信白名单。smsWhiteList 页面业务值为 !raw；保留未编辑位、完整组和未知字段，其他电话字段仍只读。"
+          ],
+          [
+            "定位上报与联系人",
+            "timeInterval / workMode / heartBeat / number",
+            "上传间隔保存仍被 Parameter error 拒绝，页面与 Native 均禁写；模式、心跳、号码和其余未开放短信项保持只读。"
+          ],
+          [
+            "固定四个围栏",
+            "geoAlert，index=0～3",
+            "网络/蓝牙共用四位置列表和全屏圆形/多边形地图；未设置可重新设置，清除保留原 index 和四行，不新增第五个位置。网络已接入保存/清除与独立回读；集合编码按改动槽位下发，未改围栏保持。共享需要 GEOFENCE，缺型号时只读摘要。"
+          ],
+          [
+            "其他物模型项",
+            "原菜单、字段能力和 BLE 映射",
+            "没有映射或未经逐字段验证的网络写入保持禁用；蓝牙按产品、固件、连接及原风险守卫判断，不能从一个型号外推。"
+          ]
+        ]
+      },
+      {
+        "id": "failure",
+        "title": "失败和迟到结果怎么处理",
+        "summary": "先隔离上下文，再确认结果",
+        "rules": [
+          [
+            "切换后旧结果返回",
+            "旧连接方式的读取、状态查询和缓存不能覆盖当前值；App 只接受仍属于当前连接方式和当前读取任务的结果。"
+          ],
+          [
+            "离线或不可读",
+            "显示明确离线 / 不支持，不用旧连接方式的数值或默认值伪装新读值；未成功读取设备参数、保存中或不可读时禁用保存。"
+          ],
+          [
+            "数据变化或结果不明",
+            "保存前重读发现参数变化就停止；取消、超时、返回数据缺失或保存后核对不一致时要求重新读取，不自动重复保存。"
+          ],
+          [
+            "权限和业务拒绝",
+            "Parameter error 按参数拒绝展示，不误报为用户无权限；身份或环境改变后拒绝旧操作。"
+          ],
+          [
+            "围栏清除与恢复",
+            "圆形中心/半径、多边形顶点及清除均保留其他位置和参数；保存后独立 GET 回填派生 flag 和实际值，再编辑以新读值为准。离线/超时不能显示为未设置；不自动重发。"
+          ],
+          [
+            "写后失权或无法核对",
+            "Repository 保持结果可能已应用的语义，不把失权当作确定未写入；不自动重发。当前账号无权查看时清除受限展示，待重新授权后再独立读取。"
+          ]
+        ]
+      },
+      {
+        "id": "gaps",
+        "title": "已验证与待补内容",
+        "summary": "按日期保留指定设备保存与恢复证据，不外推共享写入和硬件效果",
+        "rules": [
+          [
+            "10-22 低电量与前缀",
+            "指定 EV07BA 的阈值与短信前缀往返修改，有 App、设备 ACK、独立 API/HID 和恢复记录。"
+          ],
+          [
+            "10-23 与 10-26 电话/SOS",
+            "SOS 三项六次、振铃次数两次、四电话开关八次 App 保存，分别有成功 ACK、逐次独立 API/HID、完整原组及绑定保持。四开关页面短信业务值按 !raw 核对；未拨号、发送短信或触发 SOS。"
+          ],
+          [
+            "10-27 围栏保存",
+            "1.0.231 双包：围栏1半径 10000→10001→10000 米，清除并精确恢复已停用围栏4；4 次 App 写入/成功 ACK、逐次独立 API/HID、四围栏全部原始字节及七组/绑定保持。恢复多边形用了 Debug 备份草稿，不作为用户手绘全流程验收。"
+          ],
+          [
+            "BLE 与原型边界",
+            "10-20 身份、低电量/Server 保存恢复保留；10-27 BLE 四位置读取与拖点/撤销/本地清除草稿通过，未向设备保存围栏。早期首次读回超时、10-23 BLE_GATT_UNAVAILABLE 的稳定性问题继续待复测。原型全部读取和保存为合成演示。"
+          ],
+          [
+            "10-28 共享只读核对",
+            "1.0.232 CONFIG/GEOFENCE 入口及独立权限通过；A/B 属性 GET 均因设备离线被拒，不能据此证明共享读取已放行。共享响应无可信型号，完整编辑器未开放；未执行共享配置保存。"
+          ],
+          [
+            "仍待完成",
+            "上传组参数拒绝、共享在线读写和可信型号来源、BLE 围栏写入、真实进出告警、手绘全流程、实际接听/号码过滤、其他字段/型号/固件及蜂窝直连。既有云端硬件验收经过 HID 中继，未证明蜂窝直连。"
+          ]
+        ]
+      }
+    ],
+    "apiPages": [
+      "config",
+      "geofence",
+      "share"
+    ]
   },
   sharing: {
-    title: "设备分享技术说明", file: "device-sharing.html", pages: ["share","messages"],
-    reviewedAt: "2026-10-23", baseline: "a8ae598",
-    source: "ShareManagementViewModel.kt / AppShareCreationApiService.kt / ShareInvitationApiService.kt / SharedDeviceReader.kt",
-    lead: "所有者创建设备邀请，接收人接受后按有效权限读取；修改、重发、撤销均回查状态，撤销或到期后清除受限数据。",
-    scope: "仅支持 DEVICE 设备分享。不提供人员或宠物档案分享，也不从档案授权继承设备；历史 PERSON/PET 邀请被过滤，服务器旧授权不自动删除。",
-    related: ["devices"],
-    sections: [
-      { id: "apis", title: "用哪些接口", summary: "解析与创建 + 收发处理 + 设备权限读取",
-        apis: [
-          ["shareGrantee","解析接收人账号","GET query：account；结果区分已注册与未注册"],
-          ["deviceShareCreate","创建设备邀请","POST 路径传 deviceId，body 传接收人、角色、权限和有效期"],
-          [["shareReceived","shareGranted"],"读取当前账号收到 / 发出的邀请","服务端一次返回列表，App 按 DEVICE、资源与当前参与者过滤"],
-          [["shareAccept","shareReject"],"接受或拒绝邀请","按 shareId 提交一次，再回查列表中的记录"],
-          [["shareUpdate","shareResend","shareRevoke"],"修改、重发和撤销","DEVICE 修改 / 重发走设备路径；撤销走通用 subjects/shares 路径"],
-          [["state","realtime"],"按授权查看共享设备","只读取允许的 PROFILE / LOCATION 数据；不开放自有设备命令"],
-        ],
-        notes: [
-          "路径出现 /app/subjects/shares 不表示允许分享人员档案；业务资源仍为 DEVICE。",
-          "不使用管理端 ShareGrant CRUD 拼装邀请流程；接受、拒绝、重发和撤销都使用正式 App 命令。",
-        ],
-      },
-      { id: "flow", title: "业务流程怎么走", summary: "所有者创建 → 接收人处理 → 授权读取 → 失权清除",
-        steps: [
-          ["创建","所有者进入设备分享管理，解析接收人。已注册传 granteeUserId，未注册传 inviteAccount；选择角色、scopes 和有效期，提交一次并回查发出记录。"],
-          ["接收处理","消息页只展示 DEVICE 邀请，只有目标接收人可处理有效待处理记录；接受 / 拒绝后以重新读取的状态确认。"],
-          ["共享查看","设备列表展示直接分享设备，按当前接收人、ACCEPTED、未撤销和未到期筛选；同一设备合并有效 scopes，不将设备授权扩展为档案访问权。"],
-          ["修改与结束","所有者修改、重发或撤销后重新读记录；接收人刷新、恢复或重新进入时重新校验，失权后清除受限数据。"],
-        ],
-        diagrams: [
-          {"title":"设备分享状态与读取流程","file":"sharing-flow.svg"},
-          {"title":"双账号创建接受与撤销时序","file":"sharing-sequence.svg"},
-        ],
-      },
-      { id: "fields", title: "参数和状态怎么区分", summary: "deviceId、shareId、角色和 scopes 分别使用",
-        fields: [
-          ["设备和邀请","deviceId / shareId","deviceId 指资源；shareId 指邀请 / 授权记录，二者不互换。"],
-          ["接收人","granteeUserId / inviteAccount","已注册与未注册分支互斥，不能把邮箱或手机号当作用户 ID。"],
-          ["权限","role / scopes","界面角色与数据 scopes 分开校验；只读共享页面按实际有效授权决定可见区域，不据角色标签推定所有命令可用。"],
-          ["有效期","expiresAt / clearExpiresAt","创建可省略有效期；修改清除有效期显式传 clearExpiresAt，不能用省略或 null 冒充清除。"],
-          ["状态","PENDING / ACCEPTED / REJECTED / REVOKED / EXPIRED","以重新读取的记录和当前时间共同判断；保留未注册邀请，不伪造接收人 ID。"],
-        ],
-      },
-      { id: "failure", title: "异常和失权怎么处理", summary: "不提前报成功，不跨账号复用数据",
-        rules: [
-          ["未确认命令","连接失败、超时或回查状态不符时保持未确认，不自动重发邀请或接受 / 撤销命令。"],
-          ["旧档案目标","PERSON/PET 创建、修改、重发在本地拒绝；旧邀请不显示，旧共享档案导航只返回。"],
-          ["权限消失","每次共享读取前后确认有效授权；权限拒绝、撤销、到期或账号 / 环境变化后清除旧受限结果。"],
-          ["展示缺字段","缺接收人名称或设备名称时按既定回退展示，不使用本地演示人物补齐服务端数据。"],
-        ],
-      },
-      { id: "gaps", title: "已验证与待补内容", summary: "LOCATION-only 闭环保留，其他范围另验",
-        rules: [
-          ["已有真机记录","10-19 81 环境 DEVICE LOCATION-only 创建、接受、读取、撤销失权有双账号手机记录；10-20 所有者手机重发、修改 / 清除有效期、撤销通过，接收方未复验。"],
-          ["范围调整","10-21 移除档案分享入口与继承设备发现，旧目标零请求和混合回包过滤有本地测试；该轮未新增服务器分享命令。"],
-          ["仍待验收","其他 scopes / MANAGER、有效期修改及到期、未注册后注册接收、完整异常链、租户 / 普通用户权限和邀请展示字段。"],
-          ["推送另算","收件箱可读取不代表推送到达；FCM/HMS、后台到达、点击落点与告警处理仍待接入。"],
-        ],
-      },
+    "title": "设备分享技术说明",
+    "file": "device-sharing.html",
+    "pages": [
+      "share",
+      "messages"
     ],
+    "reviewedAt": "2026-10-28",
+    "baseline": "cfb1662",
+    "source": "SharedDeviceReader.kt / RemoteDeviceAccess.kt / SharedDevicesScreen.kt / UnifiedCloudDeviceDetailScreen.kt / RemoteShareInvitationRepository.kt / DeviceHistoryRoute.kt",
+    "lead": "直接 DEVICE 分享共用自有设备的五标签详情，按每项授权控制可见数据和可执行动作；分享角色不变成设备所有者。",
+    "scope": "只提供设备分享，不提供人员/宠物档案分享。当前接收人、已接受、未撤销、未到期的授权按设备合并；概览、地图、健康、告警、配置保留同一界面，解绑和使用者档案编辑仍仅属于所有者。",
+    "related": [
+      "history",
+      "configuration",
+      "overview",
+      "finding"
+    ],
+    "sections": [
+      {
+        "id": "apis",
+        "title": "用哪些接口",
+        "summary": "解析与创建 + 收发处理 + 设备权限读取",
+        "apis": [
+          [
+            "shareGrantee",
+            "解析接收人账号",
+            "GET query：account；结果区分已注册与未注册"
+          ],
+          [
+            "deviceShareCreate",
+            "创建设备邀请",
+            "POST 路径传 deviceId，body 传接收人、角色、权限和有效期"
+          ],
+          [
+            [
+              "shareReceived",
+              "shareGranted"
+            ],
+            "读取当前账号收到 / 发出的邀请",
+            "服务端一次返回列表，App 按 DEVICE、资源与当前参与者过滤"
+          ],
+          [
+            [
+              "shareAccept",
+              "shareReject"
+            ],
+            "接受或拒绝邀请",
+            "按 shareId 提交一次，再回查列表中的记录"
+          ],
+          [
+            [
+              "shareUpdate",
+              "shareResend",
+              "shareRevoke"
+            ],
+            "修改、重发和撤销",
+            "DEVICE 修改 / 重发走设备路径；撤销走通用 subjects/shares 路径"
+          ],
+          [
+            [
+              "state",
+              "realtime"
+            ],
+            "按授权查看共享设备",
+            "LOCATION 读状态与位置；PROFILE-only 只读可访问状态，不请求本环境拒绝的 realtime"
+          ],
+          [
+            "historyEvents",
+            "TRACK 授权的日/月历史查询",
+            "不要求同时具备 LOCATION"
+          ],
+          [
+            [
+              "insightHealth",
+              "insightAlerts",
+              "insightOverview",
+              "insightAnalysis"
+            ],
+            "健康、告警与综合读取",
+            "分别校验 HEALTH / ALERT；综合概览需要两者，告警解释随 ALERT"
+          ],
+          [
+            [
+              "propertyRead",
+              "propertyWrite"
+            ],
+            "配置和围栏",
+            "CONFIG 与 GEOFENCE 独立；完整型号编辑还需可信型号"
+          ],
+          [
+            "function",
+            "立即定位和查找",
+            "COMMAND 授权，定位请求与位置读取分别判断"
+          ]
+        ],
+        "notes": [
+          "路径出现 /app/subjects/shares 不表示允许分享人员档案；业务资源仍为 DEVICE。",
+          "不使用管理端 ShareGrant CRUD 拼装邀请流程；接受、拒绝、重发和撤销都使用正式 App 命令。"
+        ]
+      },
+      {
+        "id": "flow",
+        "title": "业务流程怎么走",
+        "summary": "所有者创建 → 接收人处理 → 授权读取 → 失权清除",
+        "steps": [
+          [
+            "创建",
+            "所有者进入设备分享管理，解析接收人。已注册传 granteeUserId，未注册传 inviteAccount；选择角色、scopes 和有效期，提交一次并回查发出记录。"
+          ],
+          [
+            "接收处理",
+            "消息页只展示 DEVICE 邀请，只有目标接收人可处理有效待处理记录；接受 / 拒绝后以重新读取的状态确认。"
+          ],
+          [
+            "共享查看",
+            "设备列表展示直接分享设备；接收人进入与自有设备共用的卡片、操作区、五标签和底部导航。按当前有效 scopes 显示授权数据和按钮，不创建自有绑定或开放所有者档案。"
+          ],
+          [
+            "修改与结束",
+            "修改、重发、撤销后独立回读。共享详情前台每 15 秒刷新授权，历史页独立复核 TRACK；撤销、到期、降权或切账号/环境时清空受限数据、停止旧任务与回放。不自动补发命令。"
+          ]
+        ],
+        "diagrams": [
+          {
+            "title": "设备分享状态与读取流程",
+            "file": "sharing-flow.svg"
+          },
+          {
+            "title": "双账号创建接受与撤销时序",
+            "file": "sharing-sequence.svg"
+          }
+        ]
+      },
+      {
+        "id": "fields",
+        "title": "参数和状态怎么区分",
+        "summary": "每项 scope 独立，不把共享权限升级成所有权",
+        "fields": [
+          [
+            "资源与接收人",
+            "deviceId / shareId；granteeUserId / inviteAccount",
+            "资源与授权记录不可互换；已注册传用户 ID，未注册保留账号，不虚构接收人身份。"
+          ],
+          [
+            "位置与基础信息",
+            "LOCATION / PROFILE",
+            "LOCATION 允许当前位置和时间；PROFILE 允许状态和获准来源中的基础遥测白名单。当前 81 PROFILE-only 的 realtime 被拒，客户端只请求 state，不能将其误判为从未上报。"
+          ],
+          [
+            "轨迹",
+            "TRACK",
+            "独立查询历史与日历，不依赖 LOCATION；失权清空历史、地图、播放和日历缓存。"
+          ],
+          [
+            "健康与告警",
+            "HEALTH / ALERT",
+            "健康与告警分别请求；综合概览混合两项数据，当前需要两者。已授权但被服务端拒绝时如实提示，不要求接收者重新绑定。"
+          ],
+          [
+            "配置与围栏",
+            "CONFIG / GEOFENCE",
+            "分别放行参数组和 geoAlert，不互相推导；缺可信型号不开放完整型号编辑器，也不借用所有者 BLE 关联。"
+          ],
+          [
+            "设备命令",
+            "COMMAND",
+            "允许请求查找/立即定位，不自动取得 LOCATION、TRACK 或 CONFIG；请求前再核对有效授权，超时不自动重发。"
+          ],
+          [
+            "设备分享",
+            "SHARE",
+            "开放分享入口并在实际命令前重核授权；再分享能管理哪些记录、上游撤销后的处理仍待业务确认，不直接公开所有接收人记录。"
+          ],
+          [
+            "角色与其他范围",
+            "MANAGER / PUSH / 未知 scope",
+            "MANAGER 按现有 App 规则展开全部已知设备 scopes，仍不能解绑或修改使用者档案；PUSH 和未知 scope 不推导额外读取或写入能力。"
+          ],
+          [
+            "有效期与状态",
+            "expiresAt / clearExpiresAt；PENDING / ACCEPTED / REJECTED / REVOKED / EXPIRED",
+            "修改清除有效期显式传 clearExpiresAt；状态回读与当前时间共同决定授权是否有效。"
+          ]
+        ]
+      },
+      {
+        "id": "failure",
+        "title": "异常和失权怎么处理",
+        "summary": "不提前报成功，不跨账号复用数据",
+        "rules": [
+          [
+            "未确认命令",
+            "连接失败、超时或回查状态不符时保持未确认，不自动重发邀请或接受 / 撤销命令。"
+          ],
+          [
+            "旧档案目标",
+            "PERSON/PET 创建、修改、重发在本地拒绝；旧邀请不显示，旧共享档案导航只返回。"
+          ],
+          [
+            "权限消失",
+            "每次共享读取前后确认有效授权；权限拒绝、撤销、到期或账号 / 环境变化后清除旧受限结果。"
+          ],
+          [
+            "展示缺字段",
+            "缺接收人名称或设备名称时按既定回退展示，不使用本地演示人物补齐服务端数据。"
+          ],
+          [
+            "混合 realtime 响应",
+            "只交付当前授权的基础遥测/位置白名单；移除 alarmCode、alarmTime、健康扩展和未知 expands。没有授权的数据不透传给页面。"
+          ],
+          [
+            "原始数据与动作分开",
+            "读取前后检查当前会话、环境和有效分享；写入/命令前再检查对应权限。权限变化取消旧健康/告警任务，重新授权时当前健康标签可自动读取。"
+          ]
+        ]
+      },
+      {
+        "id": "gaps",
+        "title": "已验证与待补内容",
+        "summary": "客户端与 81 的双账号记录、范工环境用户反馈分别标注",
+        "rules": [
+          [
+            "既有分享流程",
+            "10-19 DEVICE LOCATION-only 创建、接受、读取和撤销失权有双账号手机记录；10-20 所有者管理有效期/重发的证据保留原范围。"
+          ],
+          [
+            "10-28 统一详情",
+            "Android cfb1662 / 1.0.232 双包保数据安装与哈希核对；699 项 JVM、11 项隔离 UI 通过。真实单条分享完成 LOCATION/PROFILE、各操作入口、MANAGER、TRACK-only 71 条既有模拟记录和失权清空；临时分享已撤销，原分享及绑定保持。未发送真实设备命令或保存共享配置。"
+          ],
+          [
+            "服务器版本差异",
+            "10-28 在 81:480，健康/告警/概览即使全 scopes 或 MANAGER 仍被要求绑定，所有者对照正常。用户随后反馈范工服务器共享请求可通，81 尚未同步；按环境版本差异处理，等待同步后复验。本轮文档更新没有重新请求范工或部署 81。"
+          ],
+          [
+            "型号与在线属性",
+            "共享响应缺可信产品/型号，realtime.expands 为空；CONFIG/GEOFENCE 属性读取因离线未闭环。范工请求可通不自动确认型号已补齐、全部 scope 或共享保存已通过。"
+          ],
+          [
+            "仍待验收",
+            "81 同步后的共享读取、可信型号来源、共享在线配置/围栏读写、再分享规则、真实命令执行、到期、未注册后注册、租户/普通用户隔离及邀请展示字段。到期和会话隔离的本地测试单独保留。"
+          ],
+          [
+            "推送另算",
+            "收件箱可读取和设备详情告警查询不代表后台通知到达；FCM/HMS、后台到达、点击落点及消息告警处置仍待接入。"
+          ]
+        ]
+      }
+    ],
+    "apiPages": [
+      "share",
+      "messages",
+      "overview",
+      "health",
+      "alerts",
+      "history",
+      "config",
+      "geofence"
+    ]
   },
   finding: {
     title: "云端查找设备技术说明", file: "device-find.html", pages: [],
-    reviewedAt: "2026-10-23", baseline: "a8ae598",
+    reviewedAt: "2026-10-28", baseline: "cfb1662",
     source: "CloudDeviceDetailViewModel.kt / RemoteAppDeviceFindCommandRepository.kt / AppDeviceFindCommandApi.kt",
-    lead: "自有设备详情点击“查找”，App 只发送一次 findMe；服务器受理、硬件 ACK 和现场声音分开确认。",
+    lead: "自有设备或具备 COMMAND 的共享设备详情点击“查找”，App 只发送一次 findMe；服务器受理、硬件 ACK 和现场声音分开确认。",
     scope: "查找用于让设备响铃或提示，不获取新 GPS。原型按钮仅显示演示提示，本专题从设备详情说明及说明目录独立打开。",
     apiPages: ["overview"],
     related: ["location","configuration"],
@@ -726,13 +1199,13 @@ const businessGuides = {
           ["function","向自有设备发送查找命令","POST /function?functionId=findMe，JSON body：{}"],
         ],
         notes: [
-          "App 先确认当前账号自有关系与设备 ID；页面和 Repository 同时禁止并发重复发送。请求使用当前环境和会话快照。",
+          "App 先确认当前账号自有关系或有效 DEVICE 的 COMMAND 授权及设备 ID；页面和 Repository 同时禁止并发重复发送。请求使用当前环境和会话快照。",
           "立即定位使用同一路径的 singleLocating，但属于另一个业务；本次查找不替代定位更新。",
         ],
       },
       { id: "flow", title: "业务流程怎么走", summary: "明确点击 → 发一次 → 显示受理 → 独立确认效果",
         steps: [
-          ["点击与预检","所有者在详情点击查找，检查当前设备关系、页面忙碌状态和账号 / 环境，发送中禁用重复操作。"],
+          ["点击与预检","所有者或具备 COMMAND 的接收人在详情点击查找，检查有效权限、页面忙碌状态和账号 / 环境，发送中禁用重复操作。"],
           ["下发请求","以 functionId=findMe 和 {} 发送一次 POST；设备、会话或环境变化后拒绝旧响应。"],
           ["页面反馈","HTTP 与业务返回有效、data 为非空文本时提示请求已发送，请留意设备提示音；不直接显示响铃成功。"],
           ["效果核对","联调时另查设备真实 ACK，并由现场人员确认声音。重新进入、刷新或冷启动不自动重发命令。"],
@@ -744,7 +1217,7 @@ const businessGuides = {
       },
       { id: "fields", title: "字段和结果怎么看", summary: "受理回执、设备 ACK、声音是三项证据",
         fields: [
-          ["资源","deviceId","仅当前账号确认的自有设备，不从共享只读页面触发。"],
+          ["资源","deviceId","当前账号自有设备，或具备 COMMAND 的有效直接 DEVICE 分享；不因 LOCATION 授权发送命令。"],
           ["指令","functionId=findMe；body={}","不附带坐标，不复用参数配置 payload，也不更改设备配置。"],
           ["回执","code=0、ok≠false、data 非空字符串","仅确认正式接口已受理；设备 ACK 和真实声音需另行核对。"],
           ["位置","realtime 的 latestLocation","查找本身不产生新位置结论；GPS 更新属于地图与立即定位专题。"],
@@ -753,7 +1226,7 @@ const businessGuides = {
       { id: "failure", title: "离线和超时怎么处理", summary: "明确拒绝与结果不明分开",
         rules: [
           ["离线","根据中英文业务消息识别 Device is offline / 设备离线，提示设备离线，不误报普通网络失败。"],
-          ["拒绝与失权","无自有关系、鉴权拒绝或业务拒绝不报告发送成功；当前会话变化则丢弃旧反馈。"],
+          ["拒绝与失权","无自有关系且无有效 COMMAND 授权、鉴权拒绝或业务拒绝不报告发送成功；当前会话变化则丢弃旧反馈。"],
           ["结果不明","超时、断网、响应不完整或缺必要字段保持未确认；不自动重试，先确认设备是否已响铃再手动决定。"],
           ["重进与冷启动","显示读取状态，不回放历史查找命令；发送互斥不把重复点击排队到稍后补发。"],
         ],

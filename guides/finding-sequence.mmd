@@ -1,9 +1,9 @@
 sequenceDiagram
-    participant UI as 自有设备详情
+    participant UI as 共用设备详情
     participant API as 正式功能接口
     participant Device as 设备
     participant Human as 现场人员
-    UI->>UI: 确认自有关系 加发送互斥
+    UI->>UI: 确认自有或 COMMAND 分享 加发送互斥
     UI->>API: POST functionId=findMe body={}
     API->>Device: 异步查找下行
     API-->>UI: 请求受理文本
