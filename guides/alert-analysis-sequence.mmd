@@ -1,0 +1,27 @@
+sequenceDiagram
+    participant UI as 告警弹层
+    participant VM as 分析状态
+    participant Repo as 权限与会话校验
+    participant API as evaigc 分析接口
+    UI->>VM: 打开 deviceId 与 alertId
+    VM->>Repo: 读取规则 includeAi=false
+    Repo->>Repo: 校验账号 环境与 ALERT 授权
+    Repo->>API: GET alerts/{alertId}/analysis?includeAi=false
+    API-->>Repo: 规则结果
+    Repo->>Repo: 再核对权限 会话与响应 alertId
+    Repo-->>VM: 当前告警规则
+    VM-->>UI: 先显示规则内容
+    VM->>Repo: 读取 AI includeAi=true
+    Repo->>API: GET 同一路径 includeAi=true
+    alt AI 成功且上下文一致
+        API-->>Repo: AI 分析
+        Repo->>Repo: 再核对权限与会话
+        Repo-->>VM: 当前结果
+        VM-->>UI: 替换当前告警分析
+    else AI 读取失败
+        API-->>Repo: 超时或失败
+        Repo-->>VM: 读取失败
+        VM-->>UI: 保留规则 不自动重试
+    end
+    Note over UI,VM: 关闭或切告警取消任务<br/>切语言重读 迟到响应不覆盖当前内容
+    Note over UI,API: 全程只读 不设置已读或处置状态<br/>基础状态轮询不请求 AI

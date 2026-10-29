@@ -157,8 +157,8 @@ for (const [id, method, route, title, pages, note] of [
 for (const [id, suffix, title, pages, query, note] of [
   ["insightOverview", "overview", "设备概览指标与 AI 摘要", ["overview"], { date: "UTC 日期 YYYY-MM-DD", includeSummary: "先 false，规则返回后 true" }, "概览先显示规则结果，再补 AI 摘要；不随 15 秒基础轮询重复请求。"],
   ["insightHealth", "health", "设备健康趋势与 AI 分析", ["health"], { date: "UTC 日期 YYYY-MM-DD", period: "day / week / month", includeSummary: "先 false，再 true" }, "首次进入健康标签及切换周期读取；小时桶按手机时区显示，服务端时段与风险窗口问题仍待处理。"],
-  ["insightAlerts", "alerts", "设备近期告警列表", ["overview", "alerts"], {}, "当前只读告警列表，不代表消息未读数、推送和告警处置已接入。"],
-  ["insightAnalysis", "alerts/{alertId}/analysis", "设备告警 AI 解释", ["overview", "alerts"], { includeAi: "先 false，规则返回后 true" }, "打开单条告警时请求；AI 失败保留规则解释，不自动重试。"],
+  ["insightAlerts", "alerts", "设备近期告警列表", ["overview", "alerts", "ai"], {}, "当前只读告警列表，不代表消息未读数、推送和告警处置已接入。"],
+  ["insightAnalysis", "alerts/{alertId}/analysis", "设备告警 AI 解释", ["overview", "alerts", "ai"], { includeAi: "先 false，规则返回后 true" }, "打开单条告警时请求；AI 失败保留规则解释，不自动重试。"],
 ]) {
   registerApi(id, "GET", `/app/evaigc/devices/{deviceId}/${suffix}`, title, "current", pages,
     `${note} 10-21 在 81 有中英文读取记录；原 29999 未部署时的 404 记录保留，不外推环境均可用。`,
