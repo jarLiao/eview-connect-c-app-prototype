@@ -1,10 +1,10 @@
 // 人工核对层：公开文档不等于 App 已接入；更新时同时核对调用入口和运行门禁。
 const apiBaseline = {
-  reviewed_at: "2026-10-28",
-  android_commit: "cfb1662",
+  reviewed_at: "2026-10-29",
+  android_commit: "7e56f58",
   design: "2026-10-21 产品确认仅 DEVICE 设备分享；人员 / 宠物自有档案管理保留。V0.1 与 10-10 快照仅保留历史来源。",
-  evidence: "Evmars-Mock/document/current/项目当前状态.md；10-19 设备分享、10-20 BLE 绑定、10-21 App 查找、10-22 云端编辑、10-23 统一配置、10-26 电话四开关、10-27 围栏保存、10-28 共享统一详情验证记录",
-  verification: "本轮仅按代码与既有记录更新说明，不新增服务器或设备操作；各历史记录保持原日期。旧 37 项 OpenAPI 快照未重新采集，当前接入分类不等于全部业务已验收。",
+  evidence: "已提交Android 7e56f58；AppCloudConfigContract、CloudParameterRules/CloudCollectionRules/CloudNetworkRules、AppFeatureAvailability、MineRoute、AppWebContentConfig及各专题调用链；10-28/29三批配置与工程动作记录",
+  verification: "本轮逐篇静态核对14篇既有说明，补消息与设置专题；未提交的App界面调整未纳入稳定基线。未新增业务API、AI或设备操作；原37项OpenAPI快照与各历史声明来源基线保持，当前接入分类不等于业务已验收。",
   backend_scope: "后端同事说 App Device / App Subject 是给 App 使用的接口；账号、头像和 AI 的接口能否继续使用，以及服务器代码和版本，还需要后端确认。",
   base_url: "路径相对所选环境 API 根地址（可含 /api/admin 或 /admin）；AI 可被运行时环境覆盖",
 };
@@ -107,8 +107,8 @@ const deviceRows = [
   ["switchProduct", "POST", "/app/device/bind/{id}/switch-product", "切换绑定产品", "published", ["edit-device", "config"], "公开文档声明，App 未接入。"],
   ["deviceShareCreate", "POST", "/app/device/{deviceId}/shares", "创建设备分享", "current", ["share"], "已接入设备分享管理：解析接收人后创建，随后回查发出记录；仅 DEVICE。10-28 独立 scopes/MANAGER 入口、TRACK-only 读取及失权有手机记录；真实共享写入、到期和未注册后注册仍待验。"],
   ["propertyRead", "GET", "/app/device/{deviceId}/property", "读取设备属性", "current", ["config", "geofence"], "Prod 正式 App property runtime 已启用，query property 选择完整组；同一物模型页面按网络 / 蓝牙选择读取渠道。历史 /c/v1 占位网关仍不启用。"],
-  ["propertyWrite", "POST", "/app/device/{deviceId}/property", "写设备属性", "current", ["config", "geofence"], "网络已开放低电量、短信前缀、SOS三项、振铃次数、四电话开关和geoAlert保存/清除；保存前复核授权与整组冲突，只改允许字段或围栏槽位，保留未知成员，单次POST后独立GET。上传组禁写，其余项只读；受理、ACK、实际读回分别核对。"],
-  ["function", "POST", "/app/device/{deviceId}/function", "调用设备功能", "current", ["config", "location", "overview"], "已接入 singleLocating 立即定位与 findMe 查找，body 均为 {}。自有设备或具备 COMMAND 的直接分享可请求；App 只确认受理，ACK、声音和新 GPS 分开验收，结果不明不自动重发。"],
+  ["propertyWrite", "POST", "/app/device/{deviceId}/property", "写设备属性", "current", ["config", "geofence"], "已接入低电量、电源策略、短信前缀/开关、联系人、SOS/电话、14菜单普通参数、WiFi/Beacon/BLE/AGPS/闹钟、APN/服务器/时区及geoAlert。按白名单与槽位增量，串行预读冲突检查、保护未知成员、单次POST后独立GET；多组失败保留部分成功/待确认，不重放已完成组。上传组禁写、工作模式/心跳只读；参数保存不等于真实告警/呼叫或共享写入验收。"],
+  ["function", "POST", "/app/device/{deviceId}/function", "调用设备功能", "current", ["config", "location", "overview"], "已接入 singleLocating、findMe、reboot、shutdown，body为{}；按自有关系或COMMAND授权、当前型号/渠道能力及动作专用确认判断。关机另需现场恢复确认，取消不下发。只显示后台受理，ACK、重连、声音和新GPS分开验收；恢复出厂禁用，OTA本期排除，不自动重发。"],
   ["events", "GET", "/app/device/{deviceId}/events", "设备事件（旧 GET 快照）", "published", ["messages", "alerts", "overview"], "保留 10-10 文档 GET 快照；10-23 实测该 GET 返回 405，当前历史查询改用单列的 POST。告警列表、推送与未读契约仍不能据此推定。"],
   ["appLocation", "POST", "/app/device/{deviceId}/app-location", "上报 App 位置", "published", ["location", "map"], "文档已声明，当前未接入此路径。"],
   ["alarmState", "POST", "/app/device/{deviceId}/alarm-state", "上报告警状态", "published", ["alerts", "messages"], "文档已声明，当前未接入；与消息已读、告警处置不预设等价。Android 已写好请求代码（2026-10-10），页面尚未调用，仍按“还没用”统计。"],
@@ -222,13 +222,13 @@ for (const [id, title, pages, note] of [
   ["tracks", "历史轨迹剩余字段与权限", ["history", "location"], "按日/月查询、日历与地图回放已接入 historyEvents，不缺整套轨迹接口。TRACK-only共享读取与失权已验；仍需正式坐标/有效性、定位类型及真实硬件移动验收。"],
   ["geofences", "围栏告警与剩余能力", ["geofence", "location"], "10-27 App 已接入 geoAlert GET/POST、四位置共用地图、网络保存/清除及独立回读；指定设备四次成功ACK与完整恢复通过。真实进出告警、BLE写入、手绘全流程及共享在线读写另验；名称/时间规则未开放，原型仍只操作合成数据。"],
   ["alerts", "告警、已读与处置", ["alerts", "messages", "ai"], "事件查询不自动涵盖消息列表、未读、已读或告警反馈，Prod 消息入口仍有门禁。"],
-  ["deviceProfile", "设备资料和紧急联系人", ["edit-device"], "对象资料使用 PERSON/PET 路径；设备昵称正式读取与编辑仍待接入，展示按编号尾号回退。号码仍只读；SOS三项和电话次数/四开关已按独立字段开放保存，不把整页视为可写。"],
-  ["configFlow", "配置执行、OTA 与结果确认", ["config"], "正式property已开放低电量、前缀、SOS三项、电话次数/四开关及围栏保存，均保留各自指定设备验收日期；上传组仍被参数拒绝。其余字段、OTA、共享在线保存、其他型号及蜂窝直连另验。"],
+  ["deviceProfile", "设备资料和联系人剩余边界", ["edit-device"], "设备昵称正式来源仍待接入，按编号尾号回退；联系人号码保存/清空已接入并有10-28空槽往返记录。启用/SMS/来电翻转和实际号码过滤待真机验证；对象资料仍用PERSON/PET路径。"],
+  ["configFlow", "配置执行与剩余结果确认", ["config"], "原22菜单按14/5/3批接入，113字段读取、工程寻机/重启/关机按10-29各自证据说明；上传组仍参数拒绝，工作模式/心跳只读，恢复出厂禁用，OTA本期排除。其余字段组合、共享在线保存、其他型号和蜂窝直连另验。"],
   ["oauth", "第三方登录与绑定", ["login", "security"], "原型交互需求；当前未确认第三方登录、账号绑定/解绑、登录设备和注销契约。"],
-  ["notifications", "通知偏好与推送", ["notifications", "messages"], "旧推送 Service / UseCase 存在，但未确认主入口调用；通知偏好、token 生命周期和邀请推送需补齐。"],
+  ["notifications", "通知偏好与推送", ["notifications", "messages"], "原生POST_NOTIFICATIONS申请、系统通知设置跳转和返回状态重读已实现；FCM/HMS注册、Token生命周期、后台到达及告警已读/处置仍未闭环。Service/UseCase声明不代表生产入口已调用。"],
   ["mapPreferences", "地区与地图服务偏好", ["map-settings"], "当前是本地偏好与 SDK 适配边界；是否需要服务器同步待产品/后端确认，不编造 HTTP 地址。"],
   ["service", "套餐、支付和发票", ["service"], "原型需求；没有本轮确认的 App 订阅、支付和发票接口。"],
-  ["help", "帮助、协议与版本", ["h5", "about", "login"], "现有配置 URL / 本地资产与知识库旧实现分别存在；协议版本、H5 会话和 App 版本检查契约待确认。"],
+  ["help", "帮助、协议与版本", ["h5", "about", "login"], "Prod外部H5须显式配置合法HTTPS根地址并通过来源白名单；未配置则收起可选入口，协议保留不可用说明。内置设备配置不依赖帮助站点；协议版本、真实H5会话及版本检查仍待契约与验收。"],
   ["feedback", "意见反馈与人工服务", ["feedback", "chat"], "AI 聊天不能代替反馈工单；需求先保留，不预设路径和 DTO。"],
 ]) registerApi(id, null, null, title, "requirement", pages, note);
 
@@ -248,8 +248,8 @@ setApiNeed(["state", "realtime"], "keep", "设备列表、地图和详情需要�
 setApiNeed(["personShares", "petShares", "deviceShares"], "keep", "查看分享记录及归档前检查需要；对象分享读取目前只用于归档检查。");
 setApiNeed(["deviceShareCreate"], "keep", "产品仅保留设备分享，创建、收发和处理已接入；其他权限和异常场景仍待验。");
 setApiNeed(["personShareCreate", "petShareCreate"], "not_now", "产品明确不需要人员 / 宠物档案分享；App 本地拒绝，不作为后续补接项。");
-setApiNeed(["propertyRead", "propertyWrite"], "keep", "统一配置页面已使用正式属性接口；网络已开放的低电量、前缀、SOS、电话和围栏按字段/槽位保护；上传等未开放项保持只读，完整组与独立读回保护保留。");
-setApiNeed(["function"], "keep", "查找 findMe 和立即定位 singleLocating 已接入；请求受理与设备 ACK、声音、新 GPS 分开验证。");
+setApiNeed(["propertyRead", "propertyWrite"], "keep", "统一配置已覆盖原22菜单的14/5/3批参数接入与113字段读取；完整组/槽位、串行和独立读回保护保留，上传组禁写、工作模式/心跳只读，不能据菜单覆盖推定全部字段业务验收。");
+setApiNeed(["function"], "keep", "查找/定位与工程重启/关机已接入，按能力、COMMAND及动作确认判断；后台受理、设备ACK、重连与现场效果分层核对，恢复出厂继续禁用。");
 setApiNeed(["events"], "not_now", "旧 GET 保留历史文档，当前测试返回 405；历史位置已走 POST，不再安排补接 GET。告警事件另确认类型和契约。");
 setApiNeed(["historyEvents"], "keep", "历史轨迹按日查询与日历按月标记均复用这个 POST；地图、播放和筛选使用其完整记录。");
 setApiNeed(["alarmState"], "next", "告警已读、未读和重要标记有用途；需后端确认是按当前用户还是全局保存状态。");

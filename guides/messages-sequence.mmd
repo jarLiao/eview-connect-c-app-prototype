@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant UI as 消息页
+    participant App as 邀请状态
+    participant API as 分享接口
+    UI->>App: 查询当前账号收到的邀请
+    App->>API: GET received
+    API-->>App: 当前邀请记录
+    App-->>UI: DEVICE 过滤与状态展示
+    UI->>App: 接受选中邀请
+    App->>App: 核对接收人 状态与会话
+    App->>API: POST accept 一次
+    API-->>App: 命令结果
+    App->>API: 独立回查邀请记录
+    API-->>App: 当前状态
+    alt 状态符合预期
+        App-->>UI: 确认接受 刷新共享设备
+    else 超时或状态不符
+        App-->>UI: 结果未确认 先重读
+    end
+    Note over UI,API: 不自动重发 不设置告警已读或处置<br/>邀请可读不代表后台推送已到达

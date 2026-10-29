@@ -14,7 +14,7 @@ sequenceDiagram
     Native->>API: 再 GET 完整组 检查冲突
     API-->>Native: 保存前的设备当前参数
     Native->>Native: 保存前再核对授权与会话
-    Native->>API: POST 完整组或变化围栏槽位
+    Native->>API: POST 当前完整组或变化集合槽位
     API->>Device: 下发设置
     Device-->>API: 设备响应
     API-->>Native: 受理回显
@@ -26,4 +26,5 @@ sequenceDiagram
     Native->>Native: 核对目标值与未改字段
     Native-->>UI: 已确认或结果未确认
     Note over UI,Native: 围栏保留固定四位置 清除后仍保留原编号
+    Note over Native,API: 多组串行 记录各组结果<br/>后续失败不重放已完成组
     Note over API,Device: 历史硬件验证经 HID 中继 不等于蜂窝直连

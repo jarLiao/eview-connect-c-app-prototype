@@ -1,15 +1,17 @@
 sequenceDiagram
     participant App as App
     participant API as 后端
-    App->>API: 核对当前设备自有关系
-    API-->>App: 当前关系
+    App->>API: 核对当前自有关系或有效 COMMAND 分享
+    API-->>App: 当前关系与命令授权
     App->>API: POST function?functionId=singleLocating
     Note right of App: JSON body 为空对象 只发送一次
     API-->>App: code=0 且非空受理字符串
     App->>App: 提示请求已受理
     Note over App,API: 此响应不证明设备已执行或成功定位
     loop 后续前台读取
+        App->>App: 位置另核对自有关系或有效 LOCATION
         App->>API: GET /app/device/{deviceId}/realtime
         API-->>App: 最新实际上报
         App->>App: 按定位及同次时间更新地图
     end
+    Note over App,API: COMMAND 不自动授予 LOCATION<br/>无位置权限不因命令受理而读取坐标

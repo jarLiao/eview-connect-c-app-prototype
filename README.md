@@ -73,7 +73,7 @@ node scripts/check-history-track-browser.cjs
 
 右侧可切换“页面说明 / 技术说明”，随手机当前页面和弹层更新；切换说明不重置手机演示。账号和照护对象资料编辑、头像弹层保持对应业务说明。未覆盖的业务显示“技术说明待补充”，不套用其他业务内容。
 
-现有 [业务说明目录](guides/index.html) 共 **14 篇（13 个业务专题 + 公共接口约定）**。2026-10-29 按 Android <code>88c27b1</code> 补齐公共请求头清单，新增独立 AI 告警分析专题并关联分析弹层、接口侧栏和下载。共享设备、历史轨迹、网络/蓝牙统一配置及直接关联的设备列表/详情、定位、查找说明仍保留 2026-10-28 的 <code>cfb1662</code> 基线，其他专题保留原日期。原型只操作合成演示数据，不新增服务器或设备业务验收。
+现有 [业务说明目录](guides/index.html) 共 **16 篇（15 个业务专题 + 公共接口约定）**。2026-10-29 以已提交 Android <code>7e56f58</code> 逐篇复核原14篇，补齐配置三批接入、网络与工程动作，校准共享地图/详情和聊天语言快照；新增消息与设置两个专题，覆盖全部35个页面标识。当前工作区其他尚未提交的App界面调整不作为本说明的已交付事实。各历史验收仍保留原日期，原型只操作合成数据，本轮不新增业务验收。
 
 | 说明 | 对应原型页面 | 当前重点 |
 |---|---|---|
@@ -87,14 +87,17 @@ node scripts/check-history-track-browser.cjs
 | [登录与账号安全](guides/login-security.html) | 登录、注册、找回、验证码、账号安全、退出 | OAuth、会话恢复、密码及验证码流程 |
 | [AI 客服](guides/ai-chat.html) | AI 客服弹层 | 模型、消息、SSE、取消重试、语言快照和上下文边界 |
 | [AI 告警分析](guides/alert-analysis.html) | 点击告警后的 AI 分析弹层 | ALERT 权限、includeAi 两阶段读取、结果字段、取消和失权、共享环境差异 |
-| [网络与蓝牙统一配置](guides/device-configuration.html) | 设备配置及分类弹层 | 同一菜单 / 表单选渠道、已开放的低电量/前缀/SOS/电话/围栏写入、整组保护与独立回读 |
-| [设备分享](guides/device-sharing.html) | 分享、消息与邀请 | 仅 DEVICE 的邀请管理、五标签共页、独立 scopes、服务器版本差异及失权清理 |
+| [网络与蓝牙统一配置](guides/device-configuration.html) | 设备配置及分类弹层 | 三批14/5/3菜单、短信/联系人、普通参数/集合/网络、电源与工程动作、113字段读取、串行和独立回读 |
+| [设备分享](guides/device-sharing.html) | 分享与邀请管理弹层；消息页另见独立专题 | 仅 DEVICE 的邀请管理、五标签共页、独立 scopes、服务器版本差异及失权清理 |
+| [消息、邀请与通知](guides/messages-notifications.html) | 消息页 | Prod分享邀请、收发过滤、接受/拒绝及回查；与设备告警、通知权限和后台推送分别说明 |
+| [我的、设置与帮助](guides/settings-help.html) | 我的、通知、地区与地图、服务、反馈、协议、帮助 | 原生入口、本地偏好、配置后的HTTPS H5与来源白名单，以及未开放功能边界 |
 | [云端查找](guides/device-find.html) | 独立专题；设备详情说明提供相关链接 | findMe 受理、硬件 ACK、现场声音各自核对 |
 | [公共接口约定](guides/common.html) | 说明栏公共入口 | Bearer / Basic、lang、时区、账号客户端头、AI 租户与 SSE 头、请求体类型、ID 和验证边界 |
 
 - 直接预览：<code>index.html?guide=technical#devices</code>。说明随页面 / 弹层更新，每个页面只归属一篇；查找按钮仍为演示提示，未为了文档新增业务弹层。
 - 历史轨迹：<code>index.html?guide=technical#history</code>，含查询流程图、日历 / 日查询时序图。原型 16 点演示与既有 App 71 点 SDK 模拟验证分别说明。
 - AI 告警分析：从设备详情“告警”点开一条告警，技术说明自动切换到独立专题；关闭后回到设备详情说明。单独打开 <code>guides/alert-analysis.html</code>，含规则 / AI 两阶段流程图与时序图；与 AI 客服聊天分别说明。
+- 消息页关联独立消息专题，分享弹层仍关联设备分享；“我的”及七个设置/帮助页面标识关联设置专题，不再显示待补充。每个已定义页面只归属一篇，公共约定与查找继续作为独立相关专题。
 - 每篇保留五个重点，流程图和时序图可放大。“单独打开”和“下载 HTML”共用生成内容，含本地样式、图表和阅读器，可独立离线转发。
 - 原型技术说明中的“相关业务”链接覆盖配置、分享和查找；独立下载文件不依赖这些跨文档链接或运行时网络资源。
 - 历史验收日期保持原样：10-26 电话四开关、10-27 围栏保存/恢复、10-28 共享 TRACK 与撤销分别标注；范工共享请求可通为 10-28 用户反馈，81 待同步后复验。10-23 BLE 读取失败及上传间隔参数拒绝仍开放。
@@ -121,9 +124,9 @@ node scripts/build-business-guides.cjs --check
 
 `--puppeteer-config` 可省略，由 Mermaid CLI 使用其浏览器配置；此脚本不会安装依赖。SVG 记录源图 SHA-256，生成检查同时核对源图、页面归属、接口引用、独立文档和下载内容。Android 主仓库中的带日期说明是原始核对记录，不由此生成器改写。
 
-只更新历史两图时增加 `--only history-track-flow.mmd,history-track-sequence.mmd`；只更新告警分析两图时使用 `--only alert-analysis-flow.mmd,alert-analysis-sequence.mmd`，避免重渲染其他图表。当前共 26 个图表。
+只更新部分图表时通过 `--only` 指定对应 `.mmd` 文件，例如历史两图 `history-track-flow.mmd,history-track-sequence.mmd` 或告警两图 `alert-analysis-flow.mmd,alert-analysis-sequence.mmd`。当前共30个图表；本轮重绘共享详情、地图和配置5图，新增消息与设置4图，其他源图与历史来源保持。
 
-## API 接入对照（历史轨迹增量：2026-10-26）
+## API 接入对照（2026-10-29核对）
 
 侧栏的接入分类按当前 Android 代码更新；原始 <code>api-evidence.js</code> 仍是 2026-10-10 快照，没有重新采集或伪造服务器定义。
 

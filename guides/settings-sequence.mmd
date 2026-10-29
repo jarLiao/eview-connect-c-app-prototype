@@ -1,0 +1,17 @@
+sequenceDiagram
+    participant UI as 我的通知设置
+    participant App as 原生状态
+    participant OS as Android系统
+    UI->>App: 点击通知设置
+    App->>OS: 查询授权和通知开关
+    alt Android13以上且尚无通知权限
+        App->>OS: 请求POST_NOTIFICATIONS
+        OS-->>App: 用户授权结果
+    else 已有权限或旧系统
+        App->>OS: 打开本App系统通知设置
+        OS-->>App: 返回App
+    end
+    App->>OS: 返回或恢复前台时重读通知状态
+    OS-->>App: 当前本机开关
+    App-->>UI: 更新通知状态说明
+    Note over UI,OS: 不调用虚构偏好接口<br/>本机允许通知不证明FCM或HMS已注册及送达
