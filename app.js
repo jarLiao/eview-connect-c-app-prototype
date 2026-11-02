@@ -1482,7 +1482,7 @@ function renderAuthHeader(step, title, subtitle, backAction) {
       <div class="auth-header-copy">
         <span>${escapeHtml(step)}</span>
         <strong>${escapeHtml(title)}</strong>
-        <small>${escapeHtml(subtitle)}</small>
+        ${subtitle ? `<small>${escapeHtml(subtitle)}</small>` : ""}
       </div>
       <div class="auth-brand-mark" aria-label="Eview Connect">${icon("radio-tower")}</div>
     </header>
@@ -1520,18 +1520,18 @@ function renderRegister() {
   state.auth.purpose = "register";
   return `
     <div class="auth-screen">
-      ${renderAuthHeader("创建账号", "注册 Eview Connect", "账号可用于 App、Web 和设备服务", "auth-back-login")}
+      ${renderAuthHeader("创建账号", "注册 Eview Connect", "", "auth-back-login")}
       <main class="auth-content">
         ${renderAuthProgress(1)}
         <div class="auth-intro">
           <span class="auth-intro-icon">${icon("mail")}</span>
-          <div><h1>先验证你的邮箱</h1><p>验证通过后，再设置用户名和登录密码。</p></div>
+          <div><h1>先验证你的邮箱</h1></div>
         </div>
         <form class="auth-form" data-form="register" novalidate>
           <div class="field ${authFieldClass("email")}">
             <label for="register-email">注册邮箱</label>
             <input id="register-email" name="email" type="email" inputmode="email" value="${escapeHtml(form.email)}" autocomplete="email" data-auth-field="email" aria-invalid="${Boolean(state.auth.errors.email)}" />
-            ${authFieldMessage("email", "用于登录、找回密码和接收安全通知")}
+            ${authFieldMessage("email")}
           </div>
           <div class="security-note">${icon("shield-check")}<span>我们只会发送验证码和必要的账号安全通知。</span></div>
           <button class="primary-button auth-submit" type="submit">发送验证码 ${icon("arrow-right")}</button>
@@ -1547,20 +1547,20 @@ function renderResetPassword() {
   state.auth.purpose = "reset";
   return `
     <div class="auth-screen">
-      ${renderAuthHeader("账号恢复", "重置密码", "验证已绑定邮箱后设置新密码", "auth-back-login")}
+      ${renderAuthHeader("账号恢复", "重置密码", "", "auth-back-login")}
       <main class="auth-content">
         ${renderAuthProgress(1)}
         <div class="auth-intro">
           <span class="auth-intro-icon">${icon("mail-search")}</span>
-          <div><h1>确认账号邮箱</h1><p>验证邮箱属于你之后，再设置新密码。</p></div>
+          <div><h1>确认账号邮箱</h1></div>
         </div>
         <form class="auth-form" data-form="reset-password" novalidate>
           <div class="field ${authFieldClass("email")}">
             <label for="reset-email">已绑定邮箱</label>
             <input id="reset-email" name="email" type="email" inputmode="email" value="${escapeHtml(form.email)}" autocomplete="email" data-auth-field="email" aria-invalid="${Boolean(state.auth.errors.email)}" />
-            ${authFieldMessage("email", "为保护账号安全，无论邮箱是否存在都会显示相同提示")}
+            ${authFieldMessage("email")}
           </div>
-          <div class="security-note">${icon("shield-check")}<span>无论邮箱是否已注册，页面都会显示相同的发送结果。</span></div>
+          <div class="security-note">${icon("shield-check")}</div>
           <button class="primary-button auth-submit" type="submit">发送验证码 ${icon("arrow-right")}</button>
           <button class="text-button auth-secondary" type="button" data-action="auth-back-login">想起密码？返回登录</button>
         </form>
@@ -1590,13 +1590,13 @@ function renderVerification() {
             <div class="otp-grid" data-otp-grid>
               ${digits.map((digit, index) => `<input class="otp-input" type="text" inputmode="numeric" autocomplete="${index === 0 ? "one-time-code" : "off"}" maxlength="1" value="${escapeHtml(digit)}" data-otp-index="${index}" aria-label="验证码第 ${index + 1} 位" />`).join("")}
             </div>
-            ${state.auth.errors.code ? `<p class="field-error otp-error" role="alert">${escapeHtml(state.auth.errors.code)}</p>` : `<p class="field-helper">支持直接粘贴完整的 4 位验证码</p>`}
+            ${state.auth.errors.code ? `<p class="field-error otp-error" role="alert">${escapeHtml(state.auth.errors.code)}</p>` : ""}
           </fieldset>
           <div class="resend-row">
             <span>没有收到邮件？</span>
             <button class="text-button resend-button" type="button" data-action="resend-code" data-countdown></button>
           </div>
-          <button class="primary-button auth-submit" type="submit">下一步：${isRegister ? "设置账号" : "设置新密码"} ${icon("arrow-right")}</button>
+          <button class="primary-button auth-submit" type="submit">下一步 ${icon("arrow-right")}</button>
           <button class="text-button auth-secondary" type="button" data-action="auth-back-source">修改邮箱</button>
         </form>
         <div class="security-note verification-security">${icon("shield-check")}<span>验证码 10 分钟内有效。连续输错可能触发安全限制。</span></div>
@@ -1615,7 +1615,7 @@ function renderCredentials() {
         ${renderAuthProgress(3)}
         <div class="auth-intro">
           <span class="auth-intro-icon">${icon(isRegister ? "user-round-check" : "key-round")}</span>
-          <div><h1>${isRegister ? "完成账号设置" : "设置你的新密码"}</h1><p>${isRegister ? "设置用于登录的用户名和密码。" : "新密码设置完成后将返回登录页。"}</p></div>
+          <div><h1>${isRegister ? "完成账号设置" : "设置你的新密码"}</h1>${isRegister ? "" : "<p>新密码设置完成后将返回登录页。</p>"}</div>
         </div>
         <form class="auth-form" data-form="credentials" novalidate>
           ${isRegister ? `
@@ -1626,14 +1626,14 @@ function renderCredentials() {
             </div>
           ` : ""}
           ${renderPasswordField({ id: `${isRegister ? "register" : "reset"}-password`, name: "password", label: isRegister ? "设置密码" : "新密码", value: form.password, autocomplete: "new-password", helper: "至少 8 位，并包含大小写字母和数字" })}
-          ${renderPasswordField({ id: `${isRegister ? "register" : "reset"}-confirm-password`, name: "confirmPassword", label: isRegister ? "确认密码" : "确认新密码", value: form.confirmPassword, autocomplete: "new-password", helper: isRegister ? "再次输入相同密码" : "请勿使用近期使用过的密码" })}
+          ${renderPasswordField({ id: `${isRegister ? "register" : "reset"}-confirm-password`, name: "confirmPassword", label: isRegister ? "确认密码" : "确认新密码", value: form.confirmPassword, autocomplete: "new-password", helper: isRegister ? "" : "请勿使用近期使用过的密码" })}
           ${isRegister ? `
             <label class="agreement-check ${authFieldClass("accepted")}">
               <input name="accepted" type="checkbox" ${form.accepted ? "checked" : ""} data-auth-field="accepted" />
               <span>我已阅读并同意<button type="button" data-action="open-h5">《服务协议》与《隐私政策》</button></span>
             </label>
             ${state.auth.errors.accepted ? `<p class="field-error" role="alert">${escapeHtml(state.auth.errors.accepted)}</p>` : ""}
-          ` : `<div class="security-note">${icon("shield-check")}<span>验证码仅用于本次密码重置，请勿转发给他人。</span></div>`}
+          ` : `<div class="security-note">${icon("shield-check")}<span>请勿泄露验证码。</span></div>`}
           <button class="primary-button auth-submit" type="submit">${isRegister ? "完成注册" : "确认重置密码"} ${icon("check")}</button>
           <button class="text-button auth-secondary" type="button" data-action="auth-back-verification">返回修改验证码</button>
         </form>
@@ -1737,7 +1737,7 @@ function renderGlobalMap() {
         <div class="map-result-header">
           <div>
             <strong>${mapFilterLabel()} · ${devices.length} 台</strong>
-            <span>点击设备卡或地图标记进入详情</span>
+
           </div>
         </div>
         <div class="map-device-strip compact" aria-label="筛选后的设备">
@@ -1954,14 +1954,14 @@ function renderMap(device) {
       <div class="section-header">
         <div>
           <h2>历史轨迹</h2>
-          <p>按日期查看路线和位置记录</p>
+
         </div>
         <button class="text-button" type="button" data-action="open-history">查看轨迹 ${icon("chevron-right")}</button>
       </div>
-      <p class="muted">在独立页面选择日期，联动查看地图、播放进度与位置列表。</p>
+
     </section>
     <section class="section">
-      <div class="section-header"><div><h2>安全围栏</h2><p>查看范围和进入 / 离开提醒</p></div><button class="text-button" type="button" data-action="open-geofence">管理围栏</button></div>
+      <div class="section-header"><div><h2>安全围栏</h2></div><button class="text-button" type="button" data-action="open-geofence">管理围栏</button></div>
       ${GeofenceDemo.preview(device, icon)}
     </section>
   `;
@@ -2067,7 +2067,7 @@ function renderPetHealth(device) {
     <section class="section">
       <div class="insight-card">
         <h3>${icon("sparkles")}AI 宠物分析</h3>
-        <p>${deviceAlarms(device.id)[0]?.ai || "宠物活动量处于正常范围，定位点集中在常用活动区域。后续可扩展体重、疫苗、喂养和活动日报。"}</p>
+        <p>${deviceAlarms(device.id)[0]?.ai || "宠物活动量处于正常范围，定位点集中在常用活动区域。"}</p>
       </div>
     </section>
   `;
@@ -2086,7 +2086,7 @@ function renderItemHealth(device) {
     <section class="section">
       <div class="insight-card warning">
         <h3>${icon("package")}物品状态</h3>
-        <p>物品类设备重点展示位置、连接状态、低电量和离身提醒，不展示人用健康指标。</p>
+
       </div>
     </section>
   `;
@@ -2103,7 +2103,7 @@ function renderAlarmSection(device) {
     <section class="section">
       <div class="insight-card danger">
         <h3>${icon("sparkles")}AI 预警解释</h3>
-        <p>${alarms[0]?.ai || "当前设备暂无高风险事件。AI 会结合位置、状态、历史行为和健康数据解释告警原因。"}</p>
+        <p>${alarms[0]?.ai || "本次查询暂无告警记录"}</p>
       </div>
     </section>
   `;
@@ -2171,7 +2171,7 @@ function renderConfig(device) {
         </div>
         <div class="config-card">
           <h3>${icon("copy")}复制配置到其他设备</h3>
-          <p>将当前设备保存的 Home WiFi 和 Home Beacon 配置复制到其他兼容设备。</p>
+
           <div class="copy-box">
             <div class="field">
               <label for="target-device">目标设备</label>
@@ -2253,7 +2253,7 @@ function renderAiHome() {
     <section class="section">
       <div class="insight-card">
         <h3>${icon("sparkles")}AI 服务摘要</h3>
-        <p>健康分析、告警解释和客服建议会优先结合设备状态、历史行为与健康趋势生成。</p>
+
       </div>
     </section>
   `;
@@ -2479,10 +2479,10 @@ function renderSubjectManager() {
   const archivedCount = mock.subjects.filter((subject) => subject.status === "ARCHIVED").length;
   return subjectSheet("家人和宠物", `
     <div class="subject-type-switch subject-filter" aria-label="档案类型筛选">${[["all", "全部"], ["PERSON", "家人"], ["PET", "宠物"]].map(([type, label]) => `<button type="button" class="${state.subjectFilter === type ? "active" : ""}" data-action="filter-subjects" data-subject-type="${type}" aria-pressed="${state.subjectFilter === type}">${label}</button>`).join("")}</div>
-    ${state.subjectArchived ? `<p class="field-helper">已归档的档案不再用于添加设备。</p>` : `<p class="field-helper">管理家人和宠物的资料，查看他们使用的设备。</p>`}
+    ${state.subjectArchived ? `<p class="field-helper">已归档的档案不再用于添加设备。</p>` : ``}
     <div class="subject-manager-list">${records.length ? records.map((subject) => `<button class="subject-list-card" type="button" data-action="open-subject" data-subject-id="${escapeHtml(subject.id)}">
       ${renderSubjectAvatar(subject, `subject-avatar ${subject.type === "PET" ? "pet" : "person"}`)}
-      <span class="subject-card-copy"><strong>${escapeHtml(subject.name)}</strong><span>${subjectTypeLabel(subject.type)}${subject.species ? ` · ${escapeHtml(subject.species)}` : ""}</span><small>${subject.status === "ARCHIVED" ? "已归档" : subjectDeviceSummary(subject)}</small></span>${icon("chevron-right")}</button>`).join("") : `<div class="subject-empty">${icon("users")}<strong>${state.subjectArchived ? "暂无已归档档案" : state.subjectFilter === "PET" ? "还没有宠物档案" : state.subjectFilter === "PERSON" ? "还没有家人档案" : "还没有家人或宠物档案"}</strong><p>${state.subjectArchived ? "已归档的资料会保留在这里。" : "先添加一份档案，也可以在添加设备时创建。"}</p></div>`}</div>
+      <span class="subject-card-copy"><strong>${escapeHtml(subject.name)}</strong><span>${subjectTypeLabel(subject.type)}${subject.species ? ` · ${escapeHtml(subject.species)}` : ""}</span><small>${subject.status === "ARCHIVED" ? "已归档" : subjectDeviceSummary(subject)}</small></span>${icon("chevron-right")}</button>`).join("") : `<div class="subject-empty">${icon("users")}<strong>${state.subjectArchived ? "暂无已归档档案" : state.subjectFilter === "PET" ? "还没有宠物档案" : state.subjectFilter === "PERSON" ? "还没有家人档案" : "还没有家人或宠物档案"}</strong>${state.subjectArchived ? "<p>已归档的资料会保留在这里。</p>" : ""}</div>`}</div>
     <div class="subject-form-actions"><button class="primary-button full-width" type="button" data-action="new-subject">${icon("user-plus")}添加家人或宠物</button>
     <button class="text-button" type="button" data-action="toggle-archived-subjects">${state.subjectArchived ? "返回当前档案" : `已归档档案（${archivedCount}）`}</button></div>`);
 }
@@ -2496,7 +2496,7 @@ function renderSubjectDetail() {
   return subjectSheet(`${subject.name}的档案`, `
     <div class="subject-list-card">${renderSubjectAvatar(subject, `subject-avatar ${subject.type === "PET" ? "pet" : "person"}`)}<span class="subject-card-copy"><strong>${escapeHtml(subject.name)}</strong><span>${subjectTypeLabel(subject.type)} · ${subject.status === "ARCHIVED" ? "已归档" : subjectDeviceSummary(subject)}</span></span></div>
     <section class="subject-detail-section"><h3>基本资料</h3><div class="subject-profile-grid">${fields.map(([label, value]) => `<div class="subject-profile-item"><span>${label}</span><strong>${escapeHtml(value || "未填写")}</strong></div>`).join("")}</div></section>
-    <section class="subject-detail-section"><h3>关联设备 <small>${devices.length} 台</small></h3><div class="subject-linked-list">${devices.length ? devices.map((device) => `<button class="subject-list-card" type="button" data-open-device="${escapeHtml(device.id)}"><span class="subject-avatar person">${icon(deviceIcon(device))}</span><span class="subject-card-copy"><strong>${escapeHtml(device.name)}</strong><span>${escapeHtml(device.model)} · ${statusLabel(device.status)}</span><small>${escapeHtml(device.location)}</small></span>${icon("chevron-right")}</button>`).join("") : `<div class="subject-empty">${icon("radio-receiver")}<strong>未关联设备</strong><p>${subject.status === "ARCHIVED" ? "这份档案已归档。" : "添加设备后，就能查看设备的位置和状态。"}</p></div>`}</div></section>
+    <section class="subject-detail-section"><h3>关联设备 <small>${devices.length} 台</small></h3><div class="subject-linked-list">${devices.length ? devices.map((device) => `<button class="subject-list-card" type="button" data-open-device="${escapeHtml(device.id)}"><span class="subject-avatar person">${icon(deviceIcon(device))}</span><span class="subject-card-copy"><strong>${escapeHtml(device.name)}</strong><span>${escapeHtml(device.model)} · ${statusLabel(device.status)}</span><small>${escapeHtml(device.location)}</small></span>${icon("chevron-right")}</button>`).join("") : `<div class="subject-empty">${icon("radio-receiver")}<strong>未关联设备</strong>${subject.status === "ARCHIVED" ? "<p>这份档案已归档。</p>" : ""}</div>`}</div></section>
     ${state.subjectError ? `<p class="subject-error" role="alert">${escapeHtml(state.subjectError)}</p>` : ""}
     ${subject.status !== "ARCHIVED" ? `<div class="subject-form-actions"><button class="primary-button full-width" type="button" data-action="add-device-for-subject">${icon("plus")}添加设备</button><button class="ghost-button" type="button" data-action="edit-subject">${icon("pencil")}编辑资料</button><button class="text-button" type="button" data-action="request-archive-subject">归档档案</button></div>` : ""}`, "subject-detail-back");
 }
@@ -2852,7 +2852,7 @@ function identifyPrototypeDevice(mode, element) {
     candidate = { imei, model: discovered.model, name: discovered.name };
   } else candidate = { imei: `863450071235${String(demoDeviceSequence).padStart(3, "0")}`, model: "EV05", name: "新手表" };
   const duplicate = mock.devices.find((device) => device.hardware?.imei === candidate.imei);
-  if (duplicate) { state.addError = "这台设备已在列表中，请进入设备详情查看，或使用另一台设备。"; render(); return; }
+  if (duplicate) { state.addError = "设备已添加"; render(); return; }
   state.addCandidate = candidate;
   state.addDraft.name = state.addDraft.name.trim() || candidate.name;
   state.addStep = "assign";
@@ -2934,9 +2934,9 @@ function renderShareModal() {
         <div class="field">
           <label for="share-permission">权限</label>
           <select id="share-permission">
-            <option>查看 + 接收告警</option>
-            <option>仅查看</option>
-            <option>协助管理</option>
+            <option>查看者 · 位置与告警</option>
+            <option>查看者 · 仅位置</option>
+            <option>管理员 · 全部权限</option>
           </select>
         </div>
         <section class="section">
@@ -2953,12 +2953,7 @@ function renderShareModal() {
             `).join("")}
           </div>
         </section>
-        <section class="section">
-          <div class="panel-card">
-            <h3>${icon("shield-check")}权限说明</h3>
-            <p>设备拥有者可管理配置、分享和解绑；被分享用户默认只能查看位置和接收告警，是否允许协助管理需要服务端权限字段支持。</p>
-          </div>
-        </section>
+
         <button class="primary-button" type="button" data-action="send-share">${icon("send")}发送邀请</button>
       </section>
     </div>
@@ -3202,8 +3197,7 @@ function renderNetworkContent(device) {
         <div class="list-row">
           <div>
             <strong>指令下发通道</strong>
-            <span>API（默认） · BLE 近场 · SMS 短信备用</span>
-            <small>设备离线或弱网时自动切换到 BLE 或 SMS</small>
+            <span>API · 模拟通道</span>
           </div>
           ${icon("chevron-right")}
         </div>
@@ -3264,11 +3258,7 @@ function renderConfigCategoryContent(id) {
         `).join("")}
       </div>
       ${renderPluginDetailCard(device)}
-      <div class="panel-card">
-        <h3>${icon("info")}说明</h3>
-        <p>设备信息为只读字段，用于售后排查、配件匹配和 OTA 兼容性确认。BLE 近场连接时可读取最新硬件状态。</p>
-      </div>
-    `,
+      `,
     home: `
       <div class="config-list">
         <div class="config-card">
@@ -3517,7 +3507,7 @@ function renderSecuritySettings() {
   return `
     <div class="card-list">
       <button class="list-card" type="button" data-action="toast-change-password"><div class="list-row"><div><strong>修改密码</strong><span>通过旧密码或邮箱验证码修改</span></div>${icon("chevron-right")}</div></button>
-      <button class="list-card" type="button" data-action="toast-bind-email"><div class="list-row"><div><strong>邮箱与手机号</strong><span>用于登录、找回密码和接收安全通知</span></div>${icon("chevron-right")}</div></button>
+      <button class="list-card" type="button" data-action="toast-bind-email"><div class="list-row"><div><strong>邮箱与手机号</strong></div>${icon("chevron-right")}</div></button>
       <button class="list-card" type="button" data-action="toast-login-devices"><div class="list-row"><div><strong>登录设备</strong><span>查看最近登录记录，发现异常可退出</span></div>${icon("chevron-right")}</div></button>
     </div>
 
@@ -3571,10 +3561,6 @@ function renderMapSettings() {
       <div class="field"><label for="map-region">当前使用地区</label><select id="map-region"><option>中国大陆</option><option>海外</option></select></div>
       <div class="field"><label for="map-provider">地图服务</label><select id="map-provider"><option>国内高德 / 海外 Google</option><option>国内百度 / 海外 Google</option><option>OpenStreetMap 备选</option></select></div>
       <div class="field"><label for="location-permission">定位权限</label><select id="location-permission"><option>使用 App 期间允许</option><option>始终允许</option><option>暂不允许</option></select></div>
-    </div>
-    <div class="panel-card">
-      <h3>${icon("map")}说明</h3>
-      <p>这里用于管理 App 自身的地图显示、地区和权限。查看设备位置仍然在设备详情的地图页完成。</p>
     </div>
     <button class="primary-button full-width" type="button" data-action="save-settings">${icon("save")}保存地图设置</button>
   `;
@@ -3656,10 +3642,6 @@ function renderServiceSettings() {
       </button>
     </div>
 
-    <div class="panel-card">
-      <h3>${icon("info")}说明</h3>
-      <p>SIM 套餐属于设备级服务，每台设备独立计费。这里聚合所有设备的订阅、订单和支付方式。设备配置 → 网络与 SIM 中也可查看本设备的当前状态并直接续费。</p>
-    </div>
   `;
 }
 
@@ -4524,7 +4506,7 @@ function handleAction(action, element, event) {
       showToast(`已切换品牌主题：${next.name}`);
     },
     "toast-renew"() {
-      showToast("跳转支付：续费订单已生成，正式版接入微信支付/支付宝/Stripe");
+      showToast("续费演示 · 未生成真实订单");
     },
     "toast-change-plan"() {
       showToast("更换套餐：可在套餐目录中选择更高或更低档套餐");
@@ -4542,7 +4524,7 @@ function handleAction(action, element, event) {
       showToast("编辑紧急联系人：可调整优先级、触发场景或删除");
     },
     "toast-channel"() {
-      showToast("指令通道：API（默认）/ BLE 近场 / SMS 短信备用，根据设备状态自动选择");
+      showToast("模拟通道：API");
     },
     "toast-oauth"() {
       const labelMap = { wechat: "微信", apple: "Apple", google: "Google" };

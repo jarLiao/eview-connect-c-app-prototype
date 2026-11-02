@@ -23,7 +23,7 @@ window.GeofenceDemo = (() => {
   const configured = f => !!f?.vertices.length;
   const emptySlot = index => ({index,type:0,status:false,direction:0,radius:0,vertices:[]});
   const title = f => `围栏 ${f.index+1}`;
-  const detail = f => configured(f) ? `${f.type === 0 ? `圆形 · 半径 ${f.radius} 米` : `多边形 · ${f.vertices.length} 个顶点`} · ${f.direction ? "进入" : "离开"}时提醒` : "设置范围和进入 / 离开提醒";
+  const detail = f => configured(f) ? `${f.type === 0 ? `圆形 · 半径 ${f.radius} 米` : `多边形 · ${f.vertices.length} 个顶点`} · ${f.direction ? "进入" : "离开"}时提醒` : "";
   const owned = () => device?.permission === "owner";
   const busy = () => ["sending","confirming","verifying"].includes(phase);
   const dirty = () => draft && JSON.stringify(draft) !== JSON.stringify(original);
