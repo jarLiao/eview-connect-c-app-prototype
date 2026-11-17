@@ -122,9 +122,9 @@ apiRegistry.deviceShares.source = "core/remote/share/AppDeviceShareReadApiServic
 apiRegistry.deviceShareCreate.source = "core/remote/share/AppShareCreationApiService.kt、RemoteAppShareCreationRepository.kt；feature/alert/ui/ShareManagementViewModel.kt";
 apiRegistry.deviceShareCreate.client_contract = { body: "granteeUserId 或 inviteAccount；role、scopes、可选 expiresAt", response: "业务响应后独立回查发出记录；PERSON/PET 本地拒绝" };
 apiRegistry.propertyRead.source = apiRegistry.propertyWrite.source = "core/remote/deviceconfig/RemoteAppDeviceCloudConfigRepository.kt；core/data/deviceconfig/AppCloudConfigContract.kt；feature/webview/DeviceConfigBridgeActions.kt";
-apiRegistry.propertyRead.client_contract = { query: { property: "powerLowAlert / timeInterval / workMode / heartBeat / number / smsOption / sosOption / phoneOption / geoAlert" }, response: "data 内按组名取得完整对象或数组；字段无效不补默认" };
-apiRegistry.propertyRead.note += " 10-27 指定设备四围栏网络保存/清除及恢复有四次成功ACK和独立API/HID记录；10-28共享CONFIG/GEOFENCE入口分开，属性GET因离线未闭环。原型读写仍仅内存演示。";
-apiRegistry.propertyWrite.client_contract = { body: "完整原始参数组，只改当前已开放字段；geoAlert按变更槽位保存/清除并保留四位置，CONFIG/GEOFENCE分别校验", response: "POST 受理后独立 GET，核对目标值及同组未改字段" };
+apiRegistry.propertyRead.client_contract = { query: { property: "powerLowAlert / timeInterval / workMode / number / smsOption / sosOption / phoneOption / geoAlert / sever / wifiWhiteList / beaconList / wifiList" }, response: "data 内按组名取得对象或数组。heartBeat 属于 timeInterval；不支持时显示失败，不补空列表或默认值" };
+apiRegistry.propertyRead.note += " 10-27 指定设备四围栏网络保存、清除及恢复有四次成功 ACK 和独立 API/HID 记录。10-28 共享 CONFIG/GEOFENCE 入口已分开，在线属性查询仍待闭环。11-17 EV05 的三个列表返回不支持，07BX_4961 的两项 Home 列表主动读回通过。";
+apiRegistry.propertyWrite.client_contract = { body: "普通参数组保留原始成员，只改开放字段。geoAlert 与 Home 列表按变更槽位提交，CONFIG/GEOFENCE 分别校验", response: "POST 后独立 GET 核对目标值与同组其余参数。EV05 服务器改址后可能短时离线，结果待核对时保留状态且不自动重复 POST" };
 apiRegistry.function.source = "core/remote/location/RemoteAppDeviceLocationCommandRepository.kt；core/remote/devicecommand/RemoteAppDeviceFindCommandRepository.kt；feature/device/cloud/CloudDeviceDetailViewModel.kt";
 apiRegistry.function.client_contract = { query: { functionId: "singleLocating / findMe" }, body: {}, response: "code=0、ok≠false、data 非空字符串；只算请求受理" };
 for (const id of ['state', 'realtime']) apiRegistry[id].pages.push('share');
@@ -223,7 +223,7 @@ for (const [id, title, pages, note] of [
   ["geofences", "围栏告警与剩余能力", ["geofence", "location"], "10-27 App 已接入 geoAlert GET/POST、四位置共用地图、网络保存/清除及独立回读；指定设备四次成功ACK与完整恢复通过。真实进出告警、BLE写入、手绘全流程及共享在线读写另验；名称/时间规则未开放，原型仍只操作合成数据。"],
   ["alerts", "告警、已读与处置", ["alerts", "messages", "ai"], "事件查询不自动涵盖消息列表、未读、已读或告警反馈，Prod 消息入口仍有门禁。"],
   ["deviceProfile", "设备资料和联系人剩余边界", ["edit-device"], "设备昵称正式来源仍待接入，按编号尾号回退；联系人号码保存/清空已接入并有10-28空槽往返记录。启用/SMS/来电翻转和实际号码过滤待真机验证；对象资料仍用PERSON/PET路径。"],
-  ["configFlow", "配置执行与剩余结果确认", ["config"], "原22菜单按14/5/3批接入，113字段读取、工程寻机/重启/关机按10-29各自证据说明；上传组仍参数拒绝，工作模式/心跳只读，恢复出厂禁用，OTA本期排除。其余字段组合、共享在线保存、其他型号和蜂窝直连另验。"],
+  ["configFlow", "配置执行与剩余结果确认", ["config"], "EV07BA 工作模式及合法心跳间隔已有网络保存和回读，关闭/0仍被平台拒绝。EV05 地址及端口往返通过，列表查询和 TCP 关断恢复仍待验。恢复出厂禁用。其他字段组合、共享在线保存和蜂窝直连另验。"],
   ["oauth", "第三方登录与绑定", ["login", "security"], "原型交互需求；当前未确认第三方登录、账号绑定/解绑、登录设备和注销契约。"],
   ["notifications", "通知偏好与推送", ["notifications", "messages"], "原生POST_NOTIFICATIONS申请、系统通知设置跳转和返回状态重读已实现；FCM/HMS注册、Token生命周期、后台到达及告警已读/处置仍未闭环。Service/UseCase声明不代表生产入口已调用。"],
   ["mapPreferences", "地区与地图服务偏好", ["map-settings"], "当前是本地偏好与 SDK 适配边界；是否需要服务器同步待产品/后端确认，不编造 HTTP 地址。"],

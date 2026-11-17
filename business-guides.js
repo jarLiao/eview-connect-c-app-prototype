@@ -1721,11 +1721,11 @@ const businessGuides = {
       "config",
       "geofence"
     ],
-    "reviewedAt": "2026-10-29",
-    "baseline": "7e56f58",
-    "source": "AppCloudConfigContract.kt / CloudParameterSettings.kt / CloudCollectionRules.kt / CloudNetworkRules.kt / RemoteAppCloudConfigRuntime.kt / RemoteAppDeviceCloudConfigRepository.kt / DeviceConfigBridgeActions.kt",
+    "reviewedAt": "2026-11-17",
+    "baseline": "c6d45b29",
+    "source": "AppCloudConfigContract.kt / CloudParameterSettings.kt / CloudCollectionRules.kt / CloudWorkModeRules.kt / Ev05CloudRules.kt / Ev05CloudCollections.kt / AppDeviceCloudConfigRepository.kt / DeviceConfigBridgeActions.kt",
     "lead": "网络与蓝牙共用原物模型菜单、表单和围栏地图；按型号、连接方式、当前授权及已验收字段决定可读可写范围。",
-    "scope": "完整型号配置需要可信产品标识；当前网络编辑器支持 ev07b。共享 CONFIG 与 GEOFENCE 分别校验，缺可信型号时仅提供基础低电量流程和独立围栏只读摘要，不借用所有者 BLE 身份。原型保存仍为内存演示。",
+    "scope": "自有设备通过可信产品标识选择 EV07B 系列或 EV05 网络能力，实际可读写字段由型号、服务端和当次读取结果共同决定。共享 CONFIG 与 GEOFENCE 分别校验。缺可信型号时提供基础低电量流程和独立围栏只读摘要。原型保存为内存演示。",
     "related": [
       "sharing",
       "finding",
@@ -1767,7 +1767,7 @@ const businessGuides = {
         "notes": [
           "BLE 复用原 GATT / 协议映射和风险确认；没有独立的“蓝牙 HTTP 保存接口”。",
           "Prod 使用正式 App property runtime，不启用历史 /c/v1 占位云网关。页面按账号、环境、设备和所选连接方式隔离数据。",
-          "当前读取覆盖113个已接入字段，不是完整出厂备份。参数组需要 CONFIG，geoAlert 需要 GEOFENCE；工程命令另核对 COMMAND、型号能力和动作专用确认，不能由 CONFIG 推定放行。"
+          "EV07BA 的工程读取曾验证 113 个字段。恢复出厂需要另有完整备份与恢复方案。参数组使用 CONFIG，geoAlert 使用 GEOFENCE，工程命令另核对 COMMAND、型号能力和动作专用确认。"
         ]
       },
       {
@@ -1846,6 +1846,11 @@ const businessGuides = {
             "现有槽位按 index 保留，只发送变化项；WiFi / Beacon 的界面别名映射到 enable / describe / mac / lat / lng。缺槽不伪造为已读取的空槽；清除保留禁用占位。"
           ],
           [
+            "EV05 Wi-Fi 连接",
+            "wifiList（0x4A）",
+            "用于维护设备连接的 Wi-Fi 条目，查询键独立于 Home WiFi（0x62）和 Home Beacon（0x73）。当前 EV05 测试固件在平台下发三个查询键时均返回通用响应，App 明确提示网络配置暂不可用并隐藏表单。"
+          ],
+          [
             "AGPS 与闹钟",
             "agpsLoc；alarmClock",
             "AGPS参考坐标和状态有映射；普通闹钟保留4位置、星期保留位及 medicine / ringTime / ringType。闹钟保存不等于实际响铃，参考坐标保存不等于真实定位。"
@@ -1853,7 +1858,7 @@ const businessGuides = {
           [
             "网络与服务器",
             "apn / apnUserName / apnPassword / sever",
-            "按API原拼写 sever；保留TLS/type/未知位和停用时缺省IP。用户名/密码配对校验；密码保持隐藏，明确覆盖或清空，不把掩码回写。保存前确认断网及现场恢复条件。"
+            "服务器组沿用 API 拼写 sever。写入保留 TLS、type 与其他位；APN 用户名和密码成对校验，掩码不回写。服务器组变更可能关闭当前 TCP 连接，保存前确认断网影响及现场恢复条件。"
           ],
           [
             "设备时区",
@@ -1862,8 +1867,8 @@ const businessGuides = {
           ],
           [
             "上传、模式、心跳",
-            "timeInterval / workMode / heartBeat",
-            "上传组仍被 Parameter error 拒绝，reportingWriteEnabled=false，页面与Native均禁写；工作模式和心跳继续只读。"
+            "timeInterval.upload / uploadLazy / heartBeatStatus / heartBeat；workMode",
+            "EV05 的上传与静态上传间隔已有网络保存和恢复证据。EV07BA 的工作模式、心跳开关和合法间隔已接入网络保存，关闭时保留合法间隔。已有关闭/0可读取，网络写回 0 在 11-17 仍被平台校验拒绝。EV07BA 的历史上传拒绝待独立复测。"
           ],
           [
             "固定四个围栏",
@@ -1895,6 +1900,10 @@ const businessGuides = {
             "保存前重读发现参数变化就停止；取消、超时、返回数据缺失或保存后核对不一致时要求重新读取，不自动重复保存。"
           ],
           [
+            "EV05 改服务器后短时离线",
+            "地址或端口变更且 TCP 保持开启时，旧连接的回包可能丢失。App 在 45 秒内重新读取完整 sever 组，确认目标值才标为成功。关断 TCP 或读回仍失败时，保留待核对状态并提示通过蓝牙或重新上线核实。"
+          ],
+          [
             "权限和业务拒绝",
             "Parameter error 按参数拒绝展示，不误报为用户无权限；身份或环境改变后拒绝旧操作。"
           ],
@@ -1915,8 +1924,20 @@ const businessGuides = {
       {
         "id": "gaps",
         "title": "已验证与待补内容",
-        "summary": "补齐10-28/29三批记录；接入、ACK、读回与真实效果分开",
+        "summary": "按型号记录 App 保存、设备应答、独立读回和原值恢复",
         "rules": [
+          [
+            "11-16 EV05 服务器地址与端口",
+            "App 1.0.292 在同一台 EV05 上保持 TCP 开启，完成两次 App 保存、完整服务器组读回和原地址端口恢复，设备恢复直连上线。此次以实际连接及独立读回确认参数生效，未取得独立的原写入成功 ACK。"
+          ],
+          [
+            "11-17 07BX_4961 的 Home WiFi 和 Home Beacon",
+            "设备通过 USB 转发接入测试平台。App 主动读取 9 个 Home WiFi 槽位和 11 个 Home Beacon 槽位，各改第 0 槽一项文字并恢复。四次保存收到对应硬件成功 ACK，独立网络读回及 USB 原始载荷比对通过。Web 原值曾读回一致，改值后 Web 复核因入口连接超时暂缓。"
+          ],
+          [
+            "11-17 EV05 列表和 EV07BA 心跳零值复测",
+            "EV05 在线时，Home WiFi、Home Beacon、Wi-Fi 连接三项再次返回不支持。EV07BA 已有关闭/0时，用完整原组显式写回 0，平台返回参数错误，未向设备下发。独立读取和 USB 校验确认原数据一致。"
+          ],
           [
             "10-22 低电量与前缀",
             "指定 EV07BA 的阈值与短信前缀往返修改，有 App、设备 ACK、独立 API/HID 和恢复记录。"
@@ -1939,7 +1960,7 @@ const businessGuides = {
           ],
           [
             "仍待完成",
-            "上传组参数拒绝、共享在线读写和可信型号来源、联系人权限翻转与实际呼叫过滤、BLE围栏写入、真实告警/响铃/定位、手绘全流程、其他字段组合/型号/固件与蜂窝直连。原22菜单按14/5/3完成接入，不等于全部业务闭环；既有硬件证据经HID中继。"
+            "EV05 列表需确认非空槽位、固件查询和空集合应答约定，TCP 关断需完成蓝牙读回与恢复上线。EV07BA 心跳零值需服务端明确校验口径。蜂窝直连、网络恢复出厂与全量恢复、其他字段组合和型号仍待验。既有共享在线读写、真实告警/呼叫及围栏现场效果单独验收。"
           ],
           [
             "10-28 短信与联系人",
