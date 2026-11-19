@@ -1,20 +1,20 @@
 sequenceDiagram
-    participant App as AI 客服页面
+    participant App as 智能助手
     participant API as AI 服务
-    App->>App: 选择模型与 conversationId<br/>添加回答占位
-    App->>API: POST chat/create<br/>问题 + 模型 + 模式
+    App->>App: 按入口确定聚合或轨迹路由<br/>恢复会话并选择 Chat 模型
+    App->>API: POST chat/create<br/>问题 + 模型 + 数据集
     API-->>App: data 为 messageId 字符串
     App->>API: GET chat/msg/list?key=messageId<br/>Accept 为 text/event-stream
     loop 持续接收
         API-->>App: 回答 / 推理 / 工具 / 来源片段
-        App->>App: 去重并更新当前回答
+        App->>App: 保留正文增量<br/>工具和引用去重
     end
     alt 完成
-        API-->>App: 完成信号或有效正常关闭
+        API-->>App: 完成信号且已有有效正文
         App->>App: 标记完成并解除发送限制
     else 用户停止或离页
         App->>App: 保留内容并标 STOPPED<br/>取消本地 SSE 连接
-    else 连接失败
+    else 断流、服务错误或空回答
         App->>App: 保留已收内容并标失败
-        Note over App: 手动重试创建新消息<br/>不从旧流断点恢复
+        Note over App: 普通失败重试创建新消息<br/>凭证过期提示重新登录
     end

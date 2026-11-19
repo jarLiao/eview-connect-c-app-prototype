@@ -85,7 +85,7 @@ node scripts/check-history-track-browser.cjs
 | [历史轨迹](guides/history-track.html) | 历史轨迹、日历与记录列表 | 同一 POST 的日/月查询、TRACK 独立授权、坐标兼容、播放/日历及失权清空 |
 | [账号资料与头像](guides/account-profile.html) | 本人资料、字段编辑、头像预览 | 三字段限写、上传、冲突及独立回读 |
 | [登录与账号安全](guides/login-security.html) | 登录、注册、找回、验证码、账号安全、退出 | OAuth、会话恢复、密码及验证码流程 |
-| [AI 客服](guides/ai-chat.html) | AI 客服弹层 | 模型、消息、SSE、取消重试、语言快照和上下文边界 |
+| [智能助手](guides/ai-chat.html) | 原型 AI 客服演示弹层 | Android 单入口、聚合问答、轨迹专用路由、流式展示与真机验证 |
 | [AI 告警分析](guides/alert-analysis.html) | 点击告警后的 AI 分析弹层 | ALERT 权限、includeAi 两阶段读取、结果字段、取消和失权、共享环境差异 |
 | [网络与蓝牙统一配置](guides/device-configuration.html) | 设备配置及分类弹层 | 三批14/5/3菜单、短信/联系人、普通参数/集合/网络、电源与工程动作、113字段读取、串行和独立回读 |
 | [设备分享](guides/device-sharing.html) | 分享与邀请管理弹层；消息页另见独立专题 | 仅 DEVICE 的邀请管理、五标签共页、独立 scopes、服务器版本差异及失权清理 |
@@ -96,7 +96,7 @@ node scripts/check-history-track-browser.cjs
 
 - 直接预览：<code>index.html?guide=technical#devices</code>。说明随页面 / 弹层更新，每个页面只归属一篇；查找按钮仍为演示提示，未为了文档新增业务弹层。
 - 历史轨迹：<code>index.html?guide=technical#history</code>，含查询流程图、日历 / 日查询时序图。原型 16 点演示与既有 App 71 点 SDK 模拟验证分别说明。
-- AI 告警分析：从设备详情“告警”点开一条告警，技术说明自动切换到独立专题；关闭后回到设备详情说明。单独打开 <code>guides/alert-analysis.html</code>，含规则 / AI 两阶段流程图与时序图；与 AI 客服聊天分别说明。
+- AI 告警分析：从设备详情“告警”点开一条告警，技术说明自动切换到独立专题；关闭后回到设备详情说明。单独打开 <code>guides/alert-analysis.html</code>，含规则 / AI 两阶段流程图与时序图；与智能助手分别说明。
 - 消息页关联独立消息专题，分享弹层仍关联设备分享；“我的”及七个设置/帮助页面标识关联设置专题，不再显示待补充。每个已定义页面只归属一篇，公共约定与查找继续作为独立相关专题。
 - 每篇保留五个重点，流程图和时序图可放大。“单独打开”和“下载 HTML”共用生成内容，含本地样式、图表和阅读器，可独立离线转发。
 - 原型技术说明中的“相关业务”链接覆盖配置、分享和查找；独立下载文件不依赖这些跨文档链接或运行时网络资源。

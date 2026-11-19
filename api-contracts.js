@@ -23,6 +23,13 @@ const apiAuthChatBaseline = {
   verification: "本轮只核对代码与原型文档，未发邮件、注册、修改密码或请求 AI；不新增服务器或真机业务验收结论。",
 };
 
+const apiSmartAssistantBaseline = {
+  reviewed_at: "2026-11-19", android_commit: "c75f6a1c",
+  scope: "Android 1.0.311 智能助手聚合入口与轨迹专用路由，沿用既有接口",
+  evidence: "ChatViewModel.kt、TrackQuestionWindow.kt、AiAssistantClient.kt、AiAssistantSseParser.kt",
+  verification: "固定机验证普通问答、知识库引用、设备列表和轨迹工具。轨迹条数可对照，首答时间偏差 40 秒，追问更正。",
+};
+
 const apiWorkflowBaseline = {
   reviewed_at: "2026-10-28", android_commit: "cfb1662",
   scope: "设备邀请 8 项声明、共享统一五标签与独立 scopes；property/function 同步最新读写和授权范围",
@@ -200,13 +207,16 @@ publicApi("avatar", "GET", null, "读取返回的头像地址", ["account", "sub
   "地址来自接口返回；同源 /sys-file/oss/file、/sys-file/local/file/{fileName} 或受限的外部 HTTPS。公开性、有效期和孤儿文件清理待确认。", "core/ui/components/AvatarImageClient.kt",
   { url: "服务端返回的头像 URL，不是新增固定接口", authorization: "专用匿名客户端，不携带 Token；不跟随重定向" });
 apiRegistry.avatar.contract_status = "动态返回 URL；并非新增固定业务接口";
-publicApi("chatCreate", "POST", "/chat/create", "创建 AI 消息", ["chat"], "当前 AI 会话入口；根地址受配置/运行时环境影响。不能用 default 分组的 /ai/chat 直接替代。", "core/network/ai/AiAssistantApi.kt、AiAssistantClient.kt",
+publicApi("chatCreate", "POST", "/chat/create", "创建 AI 消息", ["chat"], "通用聚合入口用 datasetId=-3。轨迹专用路由用 datasetId=-8，附 mcpId，轨迹窗口写在可编辑 content 草稿里。根地址取当前环境。", "core/network/ai/AiAssistantApi.kt、AiAssistantClient.kt、feature/chat/ui/ChatViewModel.kt",
   { headers: ["Authorization: Bearer（值不导出）", "TENANT-ID", "lang", "X-TimeZone"], body: ["conversationId", "role", "content", "time", "modelName", "datasetId", "tenantId", "extDetails", "websearch", "inner"], response: "ApiResponse<String>；data 解析为 Long messageId，再作 SSE 查询 key，不是完整回答" });
-publicApi("chatStream", "GET", "/chat/msg/list", "读取 AI 消息流", ["chat"], "已接入 SSE；完成、失败与用户停止分别处理，保留部分回答。与首页洞察、健康分析分别核对。", "core/network/ai/AiAssistantClient.kt、AiAssistantSseParser.kt、feature/chat/ui/ChatViewModel.kt", { headers: ["Authorization: Bearer（值不导出）", "TENANT-ID", "lang", "Accept: text/event-stream", "Cache-Control: no-cache", "X-TimeZone"], query: { key: "创建消息返回的 messageId" }, response: "SSE 纯文本 / JSON 兼容解析；回答与推理差量、工具、来源及完成信号" });
-publicApi("aiModels", "GET", "/aiModel/list", "AI 默认模型列表", ["chat"], "所有模式按 Chat / Reason 类型选择服务端默认模型；进入聊天预取，环境 / 租户 / 用户缓存 10 分钟，失败可沿用旧缓存或兜底。公开快照未提供准确路径。", "core/network/ai/AiAssistantApi.kt、AiAssistantClient.kt、AiAssistantModels.kt", { headers: ["Authorization: Bearer（值不导出）", "TENANT-ID", "lang", "X-TimeZone"], response: "ApiResponse<List<AiAssistantModelDto>>；name、modelType、defaultModel；成功列表缺所需类型时明确报错" });
+publicApi("chatStream", "GET", "/chat/msg/list", "读取 AI 消息流", ["chat"], "明确完成信号和有效正文同时具备才标完成。断流或用户停止保留已收正文。", "core/network/ai/AiAssistantClient.kt、AiAssistantSseParser.kt、feature/chat/ui/ChatViewModel.kt", { headers: ["Authorization: Bearer（值不导出）", "TENANT-ID", "lang", "Accept: text/event-stream", "Cache-Control: no-cache", "X-TimeZone"], query: { key: "创建消息返回的 messageId" }, response: "SSE 纯文本 / JSON 兼容解析；回答与推理差量、工具、来源及完成信号" });
+publicApi("aiModels", "GET", "/aiModel/list", "AI 默认模型列表", ["chat"], "聚合问答和轨迹专用路由选择 Chat 类型。进入聊天预取，按环境、租户和用户缓存 10 分钟，失败可沿用旧缓存或兜底。公开快照未提供准确路径。", "core/network/ai/AiAssistantApi.kt、AiAssistantClient.kt、AiAssistantModels.kt", { headers: ["Authorization: Bearer（值不导出）", "TENANT-ID", "lang", "X-TimeZone"], response: "ApiResponse<List<AiAssistantModelDto>>；name、modelType、defaultModel；成功列表缺所需类型时明确报错" });
 
-for (const id of ["login", "checkToken", "logout", "emailCode", "register", "reset", "password", "profile", "chatCreate", "chatStream", "aiModels"]) {
+for (const id of ["login", "checkToken", "logout", "emailCode", "register", "reset", "password", "profile"]) {
   apiRegistry[id].baseline = apiAuthChatBaseline;
+}
+for (const id of ["chatCreate", "chatStream", "aiModels"]) {
+  apiRegistry[id].baseline = apiSmartAssistantBaseline;
 }
 
 for (const [id, path, title, pages, source, display] of [
@@ -268,6 +278,6 @@ const apiPageTitles = {
   devices: "设备列表", map: "地图首页", overview: "设备详情", location: "地图与立即定位", history: "历史轨迹", health: "健康数据",
   alerts: "设备告警", config: "设备配置", messages: "消息与邀请", mine: "我的",
   "add-device": "添加设备", "edit-device": "设备管理", share: "设备分享", geofence: "安全围栏",
-  chat: "AI 客服", ai: "AI 分析", logout: "退出登录", security: "账号安全", notifications: "通知设置",
+  chat: "智能助手", ai: "AI 分析", logout: "退出登录", security: "账号安全", notifications: "通知设置",
   "map-settings": "地区与地图", service: "我的服务", feedback: "意见反馈", about: "关于与协议", h5: "帮助中心",
 };

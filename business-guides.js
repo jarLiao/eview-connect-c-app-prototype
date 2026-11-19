@@ -993,7 +993,8 @@ const businessGuides = {
     "related": [
       "sharing",
       "location",
-      "devices"
+      "devices",
+      "chat"
     ],
     "sections": [
       {
@@ -1144,7 +1145,7 @@ const businessGuides = {
       {
         "id": "validation",
         "title": "哪些已验证，哪些还要补",
-        "summary": "保留 10-26 模拟验证，补充 10-28 双账号 TRACK 读取与降权",
+        "summary": "回放、共享权限和 AI 轨迹问答各有验收记录",
         "rules": [
           [
             "10-26 既有验证",
@@ -1159,12 +1160,16 @@ const businessGuides = {
             "1.0.232 主包在 81:480 仅获 TRACK 时查询 10-26 的既有 71 条模拟记录，日历和回放入口通过；停留历史页移除 TRACK 后显示无权查看、0 条并清空路线与播放。临时分享已撤销，原分享及绑定保持。"
           ],
           [
+            "11-19 AI 轨迹问答",
+            "Android 1.0.311 在历史轨迹页复核读取权限后，带设备、所选自然日及其时区进入专用 MCP 路由。草稿可编辑，点发送才查询全天记录，页面上的时段筛选仅用于回放。真机对照了 9 条有效记录和 1 条隐藏记录，首答最早定位时间偏差 40 秒，追问后与历史页一致。请求字段、结果口径和证据边界见智能助手专题。"
+          ],
+          [
             "仍待确认/验收",
             "服务端正式坐标与有效性、定位类型、共享真实移动轨迹、持续硬件上报及精度；其他机型、英文/深色及 Google/MapLibre 新增原生绘图按各自范围验收。到期与账号隔离的本地测试不代替完整真实异常链。"
           ]
         ],
         "notes": [
-          "本轮只更新原型技术说明与发布，未重新执行 Android 构建、设备操作或上述业务验证。"
+          "本页保留各次 Android 验收的原日期。原型历史轨迹继续使用合成数据，文档发布不新增真机验收。"
         ]
       }
     ],
@@ -1542,21 +1547,21 @@ const businessGuides = {
     ]
   },
   chat: {
-    "title": "AI 客服技术说明",
+    "title": "智能助手技术说明",
     "file": "ai-chat.html",
     "pages": [
       "chat"
     ],
-    "reviewedAt": "2026-10-29",
-    "baseline": "7e56f58",
-    "source": "AiAssistantClient.kt / AiAssistantSseParser.kt / ChatRepository.kt / ChatViewModel.kt / ChatConversationSessionStore.kt",
-    "lead": "先创建问题取得 messageId，再用 SSE 逐段接收回答；停止、失败和完成分别处理。",
-    "scope": "通用客服会话与设备概览 / 健康、单条告警分析使用不同接口；后两类分别见设备详情和 AI 告警分析专题，不把聊天接口当作设备分析接口。",
+    "reviewedAt": "2026-11-19",
+    "baseline": "c75f6a1c（Android 1.0.311）",
+    "source": "ChatScreen.kt / ChatViewModel.kt / ChatConversationSessionStore.kt / TrackQuestionWindow.kt / AiAssistantClient.kt / AiAssistantSseParser.kt",
+    "lead": "从「我的 → 智能助手」直接提问。聚合服务按问题处理普通对话、知识库检索和设备工具调用。历史轨迹保留「AI 轨迹问答（全天）」入口。",
+    "scope": "以 Android 1.0.311 与 11 月 19 日固定机记录为准。原型聊天弹层使用演示内容。设备概览、健康汇总和单条告警分析各有独立接口，见相应专题。",
     "sections": [
       {
         "id": "apis",
         "title": "用哪些接口",
-        "summary": "选模型 → 创建消息 → 读取 SSE",
+        "summary": "入口决定数据集，创建消息后读取 SSE",
         "apis": [
           [
             "aiModels",
@@ -1566,7 +1571,7 @@ const businessGuides = {
           [
             "chatCreate",
             "创建用户问题",
-            "POST 返回 messageId 字符串，不是完整回答"
+            "POST 返回 messageId 字符串，作为读取回答的 key"
           ],
           [
             "chatStream",
@@ -1575,8 +1580,8 @@ const businessGuides = {
           ]
         ],
         "notes": [
-          "请求使用当前环境、Bearer Token、TENANT-ID、lang 和 X-TimeZone。一次 stream 开始时固定语言，模型查询、POST 和 SSE 共用该快照；后续消息再读当前语言，切语言不改写正在返回的流。",
-          "模型列表按环境 / 租户 / 用户缓存 10 分钟。根据模式选择 Chat 或 Reason 类型，优先服务端 defaultModel，再选该类型首个模型。读取失败可用旧缓存 / 内置兜底；成功列表缺所需类型则明确提示不可用。"
+          "请求使用当前环境、Bearer Token、TENANT-ID、lang 和 X-TimeZone。一次问答固定语言供模型查询、POST 和 SSE 使用。后续消息读取最新的界面语言，实际回答语言仍由服务端决定。",
+          "当前两个路由都选择 Chat 类型的模型，优先使用服务端 defaultModel，随后使用同类型首个模型。模型列表按环境、租户和用户缓存 10 分钟，读取失败可沿用旧缓存或内置兜底。成功列表缺少 Chat 模型时提示不可用。"
         ]
       },
       {
@@ -1585,20 +1590,20 @@ const businessGuides = {
         "summary": "占位 → POST → SSE → 更新当前气泡",
         "steps": [
           [
-            "准备会话",
-            "每种模式维护独立 conversationId、输入和消息；同一模式已有请求时禁止再次发送，创建用户消息和等待中的回答占位。"
+            "确定入口",
+            "通用入口使用聚合数据集 -3。轨迹入口复核读取权限，带入设备、所选自然日和时区，使用专用 MCP 数据集 -8。可编辑草稿后再发送。"
           ],
           [
             "创建问题",
-            "选择模型并提交 /chat/create；先判 HTTP 和业务响应，再把 data 解析为 Long messageId，用其字符串值作为流读取 key。"
+            "复用当前入口的会话，创建用户消息和回答占位。提交 /chat/create 后检查 HTTP 和业务响应，将 data 无损解析为 Long messageId，随后作为 SSE 的 key。"
           ],
           [
             "读取回答",
-            "打开 SSE，将回答、推理、工具和来源映射为不同事件；只更新该模式、该回答占位，不重复创建气泡。"
+            "打开 SSE，将正文、推理、工具和引用分开更新到同一个回答。收到的正文片段和空白完整保留。"
           ],
           [
             "收尾",
-            "完成转为已结束；网络失败保留已收内容并标失败。用户停止或离开页面取消流，保留内容并标 STOPPED。"
+            "收到完成信号且已有有效正文才标完成。失败保留已收部分。主动停止或离页取消本地流。"
           ]
         ],
         "diagrams": [
@@ -1612,18 +1617,18 @@ const businessGuides = {
           }
         ],
         "notes": [
-          "切换模式只切换展示，旧模式请求可以继续；退出聊天或更换设备 / 告警入口时停止全部模式请求。"
+          "会话按环境、账号及入口上下文隔离。轨迹上下文包含设备、日期和时区。切换上下文时停止旧请求，迟到片段无法写入新回答。"
         ]
       },
       {
         "id": "fields",
         "title": "字段和事件怎么用",
-        "summary": "会话 ID、消息 ID 和模式分开",
+        "summary": "会话 ID、消息 ID、数据集与流事件",
         "fields": [
           [
             "会话与消息",
             "conversationId；POST 返回 data → messageId → GET key",
-            "conversationId 当前按模式生成 UUID 会话串；messageId 不是本地气泡 ID。数值 ID 保持无损，不经浮点数转换。"
+            "conversationId 为每个会话生成，后续提问继续复用。服务端 messageId 用于拉取对应回答，本地气泡有自己的 ID。数值 ID 不经浮点数转换。"
           ],
           [
             "问题内容",
@@ -1631,24 +1636,29 @@ const businessGuides = {
             "content 去首尾空白；time 按手机时区生成 yyyy-MM-dd HH:mm:ss；modelName 来自模型选择结果。"
           ],
           [
-            "模式与上下文",
+            "数据集与上下文",
             "datasetId、tenantId、extDetails、websearch、inner",
-            "四模式 datasetId 为 0 / -3 / -7 / -8；extDetails 带用户 / 租户，MCP 另需 mcpId；当前 websearch=false、inner=false。"
+            "聚合问答使用 datasetId=-3，由服务端选择是否检索知识库或调用设备工具，App 不附专用 mcpId。轨迹问答使用 datasetId=-8，附配置的 mcpId。两者均带用户和租户，websearch=false、inner=false。"
+          ],
+          [
+            "轨迹查询窗口",
+            "原设备 ID、所选日期的 [当地 00:00, 次日 00:00)、时区",
+            "轨迹范围写入用户看得见的 content 草稿，按所选时区的完整自然日计算。事件时间、定位时间、记录完整性和分页需要在回答里明确。"
           ],
           [
             "SSE 正文",
-            "纯文本 / delta；content、answerText 等累计文本",
-            "纯文本和 delta 追加；累计快照提取新增部分，重复内容不重复展示；推理 reasoningContent 单独显示。"
+            "纯文本、message、delta；content、answerText 等",
+            "增量逐字追加，已知累计快照提取新增部分。推理单独显示。流式预览收起当前行未完成的粗体开标记，结束后按完整正文渲染。"
           ],
           [
             "工具与来源",
             "toolInfo / toolInfoList；extLinks",
-            "工具按内容去重，来源按 URL 或标题去重；正文、推理、工具、来源不混为一种文本。"
+            "工具和来源分别去重。推理、工具默认折叠，手动展开后保留状态。设备列表工具显示可读名称，宽表显示横滑提示。"
           ],
           [
             "完成信号",
             "done / complete、[DONE]、finish / finished",
-            "去掉结尾完成标记；当前正常关闭且已收到有效片段也作完成，空流失败。HTTP 200 建立连接不代表已收到回答。"
+            "识别并剥离完成标记。只有完成信号和非空白正文同时具备才通过。无完成信号就断开，或只有推理、工具结果、空白正文，均标失败。"
           ],
           [
             "请求语言",
@@ -1667,7 +1677,7 @@ const businessGuides = {
         "rules": [
           [
             "发送 / 流失败",
-            "空 messageId、非法 ID、业务失败及 SSE 错误均标失败；已有正文保留，并解除当前模式发送限制。"
+            "空 messageId、非法 ID、业务失败及 SSE 错误均标失败，保留已收正文并解除发送限制。HTTP 401 或明确提示凭证过期的 HTTP 424 给出重新登录入口。"
           ],
           [
             "手动重试",
@@ -1685,29 +1695,30 @@ const businessGuides = {
       },
       {
         "id": "gaps",
-        "title": "哪些内容还要补",
-        "summary": "设备上下文、历史恢复和流协议验收",
+        "title": "真机验证与待核对项",
+        "summary": "Android 1.0.311，2026-11-19 固定机记录",
         "rules": [
           [
-            "设备上下文",
-            "当前设备 / 告警入口用于本地会话隔离，未发送类型化设备、对象或告警字段；不能据此声称 AI 已读取该设备实时数据。"
+            "普通问答与知识库",
+            "同一聚合入口下，12 + 30 返回 42。GPS 与 Wi-Fi 定位差异问答显示相关知识库引用。"
           ],
           [
-            "服务端契约",
-            "消息历史、断点续传、停止生成、错误事件和正常关闭的统一规则，以及人工客服 / 工单入口仍需确认。"
+            "设备查询",
+            "实际调用设备列表工具，答复返回 4 台，与测试 App 里的 2 台自有和 2 台共享一致。测试只读取数量。"
           ],
           [
-            "验证边界",
-            "本轮只对照代码，不新增 AI 请求。四模式模型 / MCP 可用性、发送期间切账号或环境、真实弱网与长流需独立验收。"
+            "轨迹问答",
+            "所选自然日的草稿与旧版逐字一致。专用路由实际调用轨迹查询工具，返回 10 条原始记录，与历史页 9 条有效和 1 条隐藏记录一致。首答最早定位时间比历史页晚 40 秒，追问后与历史页一致。首答准确性仍待核对。"
           ],
           [
-            "已有语言验证",
-            "10-21 自由模式英文问答通过；中文界面下 MCP 英文提问仍返回中文，知识库缺可访问内容，均保持待确认。"
+            "会话恢复与覆盖",
+            "返回「我的」再进智能助手，恢复原聚合会话。Prod、Mock 构建与 168 项单测通过。登录过期分支有单测覆盖。跨进程服务端历史、断点续传、语言一致性和全部业务答案的正确性仍待独立验证。"
           ]
         ]
       }
     ],
     "related": [
+      "history",
       "overview",
       "alertAnalysis",
       "settings",
@@ -2968,7 +2979,7 @@ const businessGuides = {
         "rules": [
           [
             "原生入口",
-            "本人资料、账号安全、语言选择、通知设置和退出分别走原生流程。语言跟随系统/中文/English，与后台lang共用生效规则。"
+            "本人资料、账号安全、语言选择、通知设置和退出分别走原生流程。语言跟随系统/中文/English，与后台lang共用生效规则。Android 1.0.311 的「我的」使用单一「智能助手」入口，默认走聚合问答。"
           ],
           [
             "配置决定H5",
