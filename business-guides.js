@@ -1725,6 +1725,168 @@ const businessGuides = {
       "common"
     ]
   },
+  ev05Ble: {
+    "title": "EV05 App 蓝牙连接技术说明",
+    "file": "ev05-ble-connection.html",
+    "pages": [],
+    "reviewedAt": "2026-11-23",
+    "baseline": "f998e38e",
+    "source": "OwnedDeviceBleScanner.kt / AndroidEvmarsGattClient.kt / BleGattModels.kt / BleOnboardingIdentityReader.kt / BleNotificationAssembler.kt / Ev07bLegacyProtocol.kt",
+    "lead": "从扫到 EV05 到读出完整 IMEI，记录 Android 的 GATT 顺序、只读身份帧和 iOS 对照排查方法。",
+    "scope": "按 Android App 直连 EV05 的设备身份流程编写。iOS 部分依据 CoreBluetooth API，真机证据来自 Android App 和 EV05 固件 v86.1.26.3。",
+    "sections": [
+      {
+        "id": "flow",
+        "title": "Android 蓝牙连接流程",
+        "summary": "扫描 → 建连 → 发现 UART → 订阅通知 → 读身份",
+        "diagrams": [
+          {
+            "title": "EV05 蓝牙连接流程图",
+            "file": "ev05-ble-flow.svg"
+          }
+        ],
+        "steps": [
+          [
+            "扫描并选目标",
+            "手机和手表打开蓝牙。Android 前台扫描后按广播解析出的型号、名称或 IMEI 尾号筛选。已有设备收集约 5 秒广播，命中唯一候选才连接，并优先使用本次扫描的 BluetoothDevice。"
+          ],
+          [
+            "建立 GATT",
+            "用 `TRANSPORT_LE`、`autoConnect=false` 建连，成功后发现 UART 服务和写入、通知特征。身份入口请求 MTU 247，以实际协商值为准。"
+          ],
+          [
+            "订阅与配对",
+            "Android 开启本地通知并写 CCCD，等描述符回调成功。需要配对时，手机与手表确认同一配对码，身份入口配对等待上限为 60 秒。配对完成后重试订阅。如果刚完成配对的会话仍订阅失败，允许额外重建一次 GATT，再发现服务和订阅。"
+          ],
+          [
+            "读取并核验设备身份",
+            "通知就绪才写入 AB 身份读取帧。等 0003 通知，重组 AB 帧并核对长度、CRC 和 SID。已有设备核对回包中的完整 IMEI 与目标一致后，完成 App 连接流程。"
+          ]
+        ]
+      },
+      {
+        "id": "gatt",
+        "title": "服务与特征 UUID",
+        "summary": "0002 写入，0003 收通知",
+        "table": {
+          "label": "EV05 GATT 服务和特征",
+          "columns": [
+            "用途",
+            "UUID",
+            "操作"
+          ],
+          "rows": [
+            [
+              "UART 服务",
+              "`6e400001-b5a3-f393-e0a9-e50e24dcca9e`",
+              "建立 GATT 后发现该服务及其两个特征。"
+            ],
+            [
+              "手机 → EV05",
+              "`6e400002-b5a3-f393-e0a9-e50e24dcca9e`",
+              "Android 使用 `WRITE_TYPE_DEFAULT`，等待写回调。iOS 对照 `.withResponse`。"
+            ],
+            [
+              "EV05 → 手机",
+              "`6e400003-b5a3-f393-e0a9-e50e24dcca9e`",
+              "订阅通知，从该特征收 AB 回包。"
+            ],
+            [
+              "通知描述符",
+              "`00002902-0000-1000-8000-00805f9b34fb`",
+              "Android 写入启用通知值。iOS 通过 `setNotifyValue(true, for:)` 设置通知。"
+            ]
+          ]
+        }
+      },
+      {
+        "id": "identity",
+        "title": "首条只读请求与成功判据",
+        "summary": "写回调成功后，继续等同 SID 的身份通知",
+        "example": "固定 SID=0x0100 的只读测试帧：`AB 10 06 00 9D F6 00 01 02 04 F0 02 03 05`。发送 14 个原始字节。正式代码为每次请求生成 SID。",
+        "rules": [
+          [
+            "读取三项身份字段",
+            "在 0003 的通知生效后，把 AB 帧写到 0002。该帧读取 `0x02` 固件版本（4 字节）、`0x03` IMEI（15 位数字）和 `0x05` 设备报告的 MAC（6 字节）。"
+          ],
+          [
+            "按帧重组通知",
+            "通知可能分片。按 AB 的 8 字节头和负载长度拼帧，长度位于偏移 2–3（从 0 起算，小端）。对负载计算 CRC16-XMODEM（多项式 0x1021，初值 0），与偏移 4–5 的小端值比对。SID 在偏移 6–7，同样为小端，不参与 CRC。"
+          ],
+          [
+            "确认应用层可通信",
+            "Android 身份回包等待上限为 10 秒。收到且解析同 SID、三项齐全的回包，才完成身份读取。BLE 地址和广播尾号只用于定位候选。"
+          ]
+        ]
+      },
+      {
+        "id": "ios",
+        "title": "iOS CoreBluetooth 对照",
+        "summary": "记录实际回调，优先核对 0003 是否已订阅",
+        "steps": [
+          [
+            "先验证发现和建连",
+            "中央管理器达到 `.poweredOn` 后，前台先用 `scanForPeripherals(withServices: nil)` 排查。按 `didDiscover` 的广播名称找 EV05。指定服务过滤只会找到广播中含该 UUID 的设备。保留发现的 `CBPeripheral` 实例，停止扫描后连接。"
+          ],
+          [
+            "等待通知就绪",
+            "在 `didConnect` 后设置 peripheral delegate，发现 0001 服务和 0002、0003 特征。对 0003 调 `setNotifyValue(true, for:)`，等待 `didUpdateNotificationStateFor` 的 `error == nil` 且 `isNotifying == true`。系统弹配对确认时，两端核对配对码。"
+          ],
+          [
+            "发送身份帧并接收通知",
+            "订阅就绪后用 `.withResponse` 写到 0002。记录 `didWriteValueFor`，从 `didUpdateValueFor` 的 0003 通知拼帧并核对 SID。后续较长帧按 `maximumWriteValueLength(for: .withResponse)` 决定每次写入长度。"
+          ],
+          [
+            "记录首个失败阶段",
+            "记录 iOS 和 EV05 固件版本、时间、回调顺序、错误 domain/code、特征 UUID、通知长度及 SID。遇到认证错误先检查配对提示。手表已确认配对但订阅失败时，可尝试断开重连一次，再重新发现和订阅。这一步需 iOS 真机验证。"
+          ]
+        ]
+      },
+      {
+        "id": "troubleshooting",
+        "title": "故障排查表",
+        "summary": "找出第一步失败或缺失的回调",
+        "table": {
+          "label": "EV05 蓝牙故障排查表",
+          "columns": [
+            "现象",
+            "优先检查",
+            "成功依据"
+          ],
+          "rows": [
+            [
+              "搜不到设备",
+              "检查手表广播、iOS 蓝牙授权和中央状态。先取消 UUID 过滤，用手机靠近单台手表复测。",
+              "`didDiscover` 找到匹配广播。"
+            ],
+            [
+              "扫到但连不上",
+              "核对本次扫描的 `CBPeripheral`，记录 `didFailToConnect` 或 `didDisconnectPeripheral`。先让其他工具断开这台手表再试。",
+              "`didConnect` 后能发现 0001 和两个特征。"
+            ],
+            [
+              "能连但订阅失败",
+              "确认订阅 0003。记录认证或加密错误，核对两端配对码与订阅回调。",
+              "`didUpdateNotificationStateFor` 无错误，`isNotifying=true`。"
+            ],
+            [
+              "写成功但收不到身份",
+              "确认先订阅再写 0002、写类型和 14 个原始字节。检查 0003 通知、分片、CRC 和 SID。",
+              "收到同 SID 的完整身份帧，三个字段长度正确。"
+            ],
+            [
+              "读到身份但 App 拒绝",
+              "核对完整 IMEI 与选定设备。存在同尾号设备或地址变化时重新扫描核验。",
+              "完整 IMEI 精确一致。"
+            ]
+          ]
+        },
+        "notes": [
+          "2026-11-04，Android 与 EV05 v86.1.26.3 在两端确认配对码，手动重建 GATT 后读得完整身份。Android 配对后额外重连分支有本地测试，iOS 需按回调定位本次失败阶段。"
+        ]
+      }
+    ]
+  },
   configuration: {
     "title": "网络与蓝牙统一设备配置技术说明",
     "file": "device-configuration.html",
@@ -1738,6 +1900,7 @@ const businessGuides = {
     "lead": "网络与蓝牙共用原物模型菜单、表单和围栏地图；按型号、连接方式、当前授权及已验收字段决定可读可写范围。",
     "scope": "自有设备通过可信产品标识选择 EV07B 系列或 EV05 网络能力，实际可读写字段由型号、服务端和当次读取结果共同决定。共享 CONFIG 与 GEOFENCE 分别校验。缺可信型号时提供基础低电量流程和独立围栏只读摘要。原型保存为内存演示。",
     "related": [
+      "ev05Ble",
       "sharing",
       "finding",
       "history",

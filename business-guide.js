@@ -32,6 +32,12 @@ function renderGuideSection(section, compact, imageSource) {
       ? `<dl class="guide-fields">${section.fields.map(([label, field, rule]) => `<div><dt>${guideText(label)}</dt><dd><code>${guideEscape(field)}</code><p>${guideText(rule)}</p></dd></div>`).join("")}</dl>`
       : `<div class="guide-table-scroll" tabindex="0" aria-label="字段说明表，可横向滚动"><table><thead><tr><th>字段 / 区域</th><th>来源 / 内容</th><th>处理规则</th></tr></thead><tbody>${section.fields.map(row => `<tr>${row.map(cell => `<td>${guideText(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
   }
+  if (section.table) {
+    const { label, columns, rows } = section.table;
+    const headings = columns.map(column => `<th scope="col">${guideText(column)}</th>`).join("");
+    const cells = rows.map(row => `<tr>${row.map(cell => `<td>${guideText(cell)}</td>`).join("")}</tr>`).join("");
+    body += `<div class="guide-table-scroll" tabindex="0" aria-label="${guideEscape(label)}"><table><thead><tr>${headings}</tr></thead><tbody>${cells}</tbody></table></div>`;
+  }
   if (section.rules) body += `<ul class="guide-rules">${section.rules.map(([title, text]) => `<li><strong>${guideText(title)}</strong><p>${guideText(text)}</p></li>`).join("")}</ul>`;
   if (section.notes) body += `<div class="guide-notes">${section.notes.map(note => `<p>${guideText(note)}</p>`).join("")}</div>`;
   return body;

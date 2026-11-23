@@ -1,0 +1,13 @@
+flowchart TD
+    Scan[扫描 EV05 广播并确认候选] --> Connect[连接 GATT 并发现 UART 服务 0001]
+    Connect --> Characteristics[取得写入特征 0002 和通知特征 0003]
+    Characteristics --> Subscribe[订阅 0003 通知并等待回调]
+    Subscribe --> Ready{通知是否就绪}
+    Ready -->|是| Write[向 0002 写只读 AB 身份帧]
+    Ready -->|需认证| Pair[按系统提示在两端确认配对码]
+    Pair -->|配对完成| Retry[重试订阅，必要时重建一次 GATT]
+    Retry --> Subscribe
+    Ready -->|失败| Error[记录连接或通知回调错误]
+    Write --> Read[从 0003 拼接通知并验证 CRC 和 SID]
+    Read --> Identity[读到固件、完整 IMEI、设备报告的 MAC]
+    Identity --> Verify[核验目标 IMEI，连接流程完成]
